@@ -34,9 +34,10 @@ function Impressum() {
       <section>
         <h2 className="text-base font-medium text-fg">Jugendschutz</h2>
         <p className="mt-2">
-          Die Furry Gallery richtet sich ausschließlich an Personen ab 18 Jahren. Profile werden nur
-          nach Angabe eines Geburtsdatums angelegt, das die Volljährigkeit ergibt. Ansprechpartner
-          für Jugendschutz: {CONTACT.name}, <ContactEmail />
+          Profile werden nur nach Angabe eines Geburtsdatums angelegt, das die Volljährigkeit
+          ergibt. FSK-18-Inhalte werden automatisch erkannt und sind nur für Mitglieder sichtbar,
+          die sich über Discord als volljährig verifiziert haben; alle anderen sehen sie
+          unkenntlich. Ansprechpartner für Jugendschutz: {CONTACT.name}, <ContactEmail />
         </p>
       </section>
       <section>

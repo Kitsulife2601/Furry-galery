@@ -38,8 +38,7 @@ function Datenschutz() {
             gefolgte Profile und Meldungen, die du abgibst.
           </li>
           <li>
-            <strong className="text-fg">Im Browser:</strong> ein Sitzungs-Cookie für die Anmeldung
-            und ein Eintrag im lokalen Speicher, dass du die 18+-Abfrage bestätigt hast.
+            <strong className="text-fg">Im Browser:</strong> ein Sitzungs-Cookie für die Anmeldung.
           </li>
         </ul>
         <p className="mt-2">

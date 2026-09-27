@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
-import { AdultBoundary } from "@/components/age-gate";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { makeQueryClient } from "@/lib/query";
 import appCss from "../styles.css?url";
@@ -26,7 +25,7 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content: "Furry Gallery — Furry-Community ab 18. Profile, Uploads, Für-dich-Feed.",
+        content: "Furry Gallery — Furry-Community. Profile, Uploads, Für-dich-Feed.",
       },
       { name: "theme-color", content: "#0c0b0a" },
     ],
@@ -55,9 +54,7 @@ function RootDocument() {
         <PreviewHostBridge />
         <AuthProvider>
           <QueryClientProvider client={queryClient}>
-            <AdultBoundary>
-              <Outlet />
-            </AdultBoundary>
+            <Outlet />
             <Toaster
               theme="dark"
               position="top-center"
