@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { compressImageFile } from "@/lib/vela/compress-image";
@@ -224,6 +224,12 @@ function Settings() {
       </form>
 
       <Fsk18Settings profile={profile} />
+
+      {profile.isAdmin ? (
+        <Button asChild variant="secondary" className="mt-10 w-full">
+          <Link to="/admin">Moderation öffnen</Link>
+        </Button>
+      ) : null}
 
       <div className="mt-10">
         <SignOutButton />

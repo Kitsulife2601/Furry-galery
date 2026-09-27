@@ -5,13 +5,16 @@ import { listCreators, listExplore } from "@/lib/vela/server";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { PeopleSearch } from "@/components/people-search";
 import { Skeleton } from "@/components/ui/skeleton";
+import { POST_TAGS, type PostTag } from "@/lib/vela/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/explore")({ component: Explore });
 
 function Explore() {
+  const [tag, setTag] = useState<PostTag | null>(null);
   const query = useQuery({
-    queryKey: ["explore"],
-    queryFn: () => listExplore(),
+    queryKey: ["explore", tag],
+    queryFn: () => listExplore({ data: { tag } }),
   });
   const creators = useQuery({
     queryKey: ["creators"],
@@ -73,6 +76,25 @@ function Explore() {
             </ul>
           </section>
 
+          <nav aria-label="Kategorien" className="overflow-x-auto px-5 pb-4">
+            <ul className="flex gap-2">
+              {[{ id: null, label: "Alle" }, ...POST_TAGS].map((t) => (
+                <li key={t.id ?? "all"}>
+                  <button
+                    type="button"
+                    aria-pressed={tag === t.id}
+                    onClick={() => setTag(t.id)}
+                    className={cn(
+                      "h-9 rounded-full border px-3 text-sm whitespace-nowrap",
+                      tag === t.id ? "border-accent bg-accent text-accent-fg" : "border-border",
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
           {query.isPending ? (
             <div className="grid grid-cols-3 gap-px">
               {Array.from({ length: 9 }).map((_, i) => (
@@ -80,7 +102,14 @@ function Explore() {
               ))}
             </div>
           ) : (
-            <GalleryGrid posts={query.data ?? []} emptyLabel="Die Gallery ist noch leer." />
+            <GalleryGrid
+              posts={query.data ?? []}
+              emptyLabel={
+                tag
+                  ? "In dieser Kategorie gibt es noch keine Bilder."
+                  : "Die Gallery ist noch leer."
+              }
+            />
           )}
         </>
       )}

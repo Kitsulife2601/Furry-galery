@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { compressImageFile } from "@/lib/vela/compress-image";
 import { MEDIA_LIMITS } from "@/lib/vela/media-limits";
+import { POST_TAGS, type PostTag } from "@/lib/vela/types";
+import { cn } from "@/lib/utils";
 import { FittedImage } from "@/components/fitted-image";
 import { createPost } from "@/lib/vela/server";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ function Upload() {
   const [thumb, setThumb] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const [nsfw, setNsfw] = useState(false);
+  const [tags, setTags] = useState<PostTag[]>([]);
   const [busy, setBusy] = useState(false);
   const { profile } = useAppSession();
   const canPostNsfw = Boolean(profile?.fsk18?.verified);
@@ -49,6 +52,7 @@ function Upload() {
           imageUrl: preview,
           caption,
           nsfw,
+          tags,
           previewUrl: nsfw ? (thumb ?? undefined) : undefined,
         },
       });
@@ -99,6 +103,31 @@ function Upload() {
           maxLength={180}
           placeholder="Ein Satz reicht."
         />
+      </div>
+
+      <div className="mt-5 space-y-2">
+        <Label>Kategorien (bis zu 3)</Label>
+        <ul className="flex flex-wrap gap-2">
+          {POST_TAGS.map((t) => {
+            const on = tags.includes(t.id);
+            return (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  aria-pressed={on}
+                  disabled={!on && tags.length >= 3}
+                  onClick={() => setTags(on ? tags.filter((x) => x !== t.id) : [...tags, t.id])}
+                  className={cn(
+                    "h-9 rounded-full border px-3 text-sm disabled:opacity-40",
+                    on ? "border-accent bg-accent text-accent-fg" : "border-border",
+                  )}
+                >
+                  {t.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       <div className="mt-5 rounded-xl border border-border p-4">

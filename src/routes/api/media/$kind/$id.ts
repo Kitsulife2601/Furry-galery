@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
+import { isAdminUser } from "@/lib/vela/admin";
 import { isFsk18Verified } from "@/lib/vela/discord";
 
 /**
@@ -55,7 +56,10 @@ export const Route = createFileRoute("/api/media/$kind/$id")({
           const { getSessionUser } = await import("@/lib/auth/verify.server");
           const viewer = await getSessionUser().catch(() => null);
           const allowed =
-            viewer !== null && (viewer.id === post.user_id || (await isFsk18Verified(viewer.id)));
+            viewer !== null &&
+            (viewer.id === post.user_id ||
+              (await isFsk18Verified(viewer.id)) ||
+              (await isAdminUser(viewer.id)));
           if (!allowed) return new Response("FSK 18", { status: 403 });
           return imageResponse(post.image_url, "private, max-age=3600");
         }

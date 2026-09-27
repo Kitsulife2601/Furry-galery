@@ -49,7 +49,7 @@ export function BottomNav() {
 
 export function SideNav({ hasProfile }: { hasProfile: boolean }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { userId } = useAppSession();
+  const { userId, profile } = useAppSession();
   return (
     <aside className="hidden w-56 shrink-0 flex-col justify-between border-r border-border px-4 py-8 md:flex">
       <div>
@@ -83,6 +83,14 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
         </nav>
       </div>
       <div className="flex flex-col gap-4">
+        {profile?.isAdmin ? (
+          <Link
+            to="/admin"
+            className="rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-bg-subtle"
+          >
+            Moderation
+          </Link>
+        ) : null}
         {hasProfile ? (
           <Link
             to="/settings"
