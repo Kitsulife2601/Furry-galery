@@ -172,10 +172,12 @@ mit demselben Token keine Befehle und Button-Klicks mehr.
 
 ## „Für dich“-Algorithmus
 
-Der Feed sortiert für angemeldete Mitglieder nach Interesse: Kategorien und Accounts, die man
-ansieht (Bild ≥ 1,5 s im Blick), liked (×3) oder kommentiert (×4), werden bevorzugt; gefolgte
-Accounts bekommen einen Bonus, dazu Beliebtheit und Frische. Schon Gesehenes rutscht nach
-hinten. Gäste sehen neu + beliebt. Die Gewichte stehen in `listFeed` (`src/lib/vela/server.ts`).
+Der Feed richtet sich nach Likes: Bilder, die Mitglieder mit ähnlichem Geschmack geliked haben
+(„wer mag, was du magst, mag auch …“), kommen nach vorn. Dazu zählen Accounts, deren Bilder man
+liked (×3), kommentiert (×4) oder ansieht (×1, Bild ≥ 1,5 s im Blick), ein Bonus für gefolgte
+Accounts sowie Beliebtheit und Frische. Schon Gesehenes und Geliktes rutscht nach hinten. Gäste
+sehen neu + beliebt. Die Gewichte stehen in `listFeed` (`src/lib/vela/server.ts`).
+Kategorien dienen nur noch dem Filter in der Gallery.
 
 ## Meldungen in Discord
 

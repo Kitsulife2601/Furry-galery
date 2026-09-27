@@ -11,7 +11,6 @@ import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { Comments } from "@/components/comments";
-import { TagList } from "@/components/tag-list";
 import { cn } from "@/lib/utils";
 
 export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => void }) {
@@ -103,7 +102,6 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
                 {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
               </p>
               {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
-              <TagList tags={post.tags} className="mt-2" />
             </div>
             <div className="flex shrink-0 items-start gap-1">
               {isOwn ? (

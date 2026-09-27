@@ -12,7 +12,6 @@ import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { FittedImage } from "@/components/fitted-image";
 import { PostViewer } from "@/components/post-viewer";
-import { TagList } from "@/components/tag-list";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
@@ -175,7 +174,6 @@ export function FeedCard({ post }: { post: PostCard }) {
             {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
           </p>
           {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
-          <TagList tags={post.tags} className="mt-2" />
         </div>
       </div>
       {reporting ? <ReportDialog postId={post.id} onClose={() => setReporting(false)} /> : null}
