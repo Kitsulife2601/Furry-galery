@@ -55,7 +55,7 @@ function Login() {
       <div className="absolute inset-0 bg-bg/75" />
       <div className="relative mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">
         <Link to="/" className="font-display text-3xl tracking-tight">
-          VELA
+          Furry Gallery
         </Link>
         <p className="mt-2 text-sm text-fg-muted">Eintritt ab 18. Google, X oder E-Mail.</p>
 

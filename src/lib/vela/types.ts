@@ -23,6 +23,13 @@ export type Profile = {
   followingCount: number;
   isOwn: boolean;
   isFollowing: boolean;
+  /** Discord/FSK18 status — only filled in on your own profile. */
+  fsk18: Fsk18Status | null;
+};
+
+export type Fsk18Status = {
+  verified: boolean;
+  discordUsername: string | null;
 };
 
 export type PostCard = {
@@ -31,6 +38,10 @@ export type PostCard = {
   imageUrl: string;
   caption: string;
   createdAt: string;
+  /** Marked FSK18 by the uploader. */
+  nsfw: boolean;
+  /** FSK18 and the viewer is not verified: `imageUrl` is only a tiny blurred preview. */
+  locked: boolean;
   likeCount: number;
   liked: boolean;
   author: {
@@ -44,6 +55,7 @@ export type PostCard = {
 
 export const REPORT_REASONS = [
   { id: "minor", label: "Person wirkt minderjährig" },
+  { id: "unmarked_nsfw", label: "FSK 18, aber nicht markiert" },
   { id: "nonconsensual", label: "Ohne Einverständnis veröffentlicht" },
   { id: "illegal", label: "Illegaler Inhalt" },
   { id: "harassment", label: "Belästigung oder Hass" },

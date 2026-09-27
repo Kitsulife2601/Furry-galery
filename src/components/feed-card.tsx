@@ -9,6 +9,7 @@ import { patchPostInCaches } from "@/lib/vela/post-cache";
 import { toggleLike } from "@/lib/vela/server";
 import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
+import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
@@ -53,18 +54,26 @@ export function FeedCard({ post }: { post: PostCard }) {
   return (
     <article className="feed-slide relative flex items-center justify-center bg-bg">
       <div className="relative h-full w-full max-w-lg overflow-hidden bg-bg-elevated md:max-h-[min(100dvh,920px)]">
-        <button
-          type="button"
-          className="absolute inset-0 h-full w-full"
-          onClick={onImageClick}
-          aria-label="Doppeltippen zum Liken"
-        >
-          <img
-            src={post.imageUrl}
-            alt={post.caption || `Bild von ${post.author.displayName}`}
-            className="h-full w-full object-cover"
-          />
-        </button>
+        {post.locked ? (
+          <>
+            <PostImage post={post} className="absolute inset-0 h-full w-full" />
+            <Fsk18Notice />
+          </>
+        ) : (
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full"
+            onClick={onImageClick}
+            aria-label="Doppeltippen zum Liken"
+          >
+            <img
+              src={post.imageUrl}
+              alt={post.caption || `Bild von ${post.author.displayName}`}
+              className="h-full w-full object-cover"
+            />
+          </button>
+        )}
+        {post.nsfw ? <Fsk18Badge locked={post.locked} /> : null}
         {burst ? (
           <Heart className="pointer-events-none absolute top-1/2 left-1/2 size-20 -translate-x-1/2 -translate-y-1/2 fill-on-media text-on-media drop-shadow-lg" />
         ) : null}
@@ -89,7 +98,8 @@ export function FeedCard({ post }: { post: PostCard }) {
           <button
             type="button"
             onClick={() => void like()}
-            className="flex min-h-11 min-w-11 flex-col items-center gap-1"
+            disabled={post.locked}
+            className="flex min-h-11 min-w-11 flex-col items-center gap-1 disabled:opacity-40"
             aria-label="Like"
           >
             <Heart

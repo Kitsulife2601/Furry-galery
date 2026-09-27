@@ -20,6 +20,8 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppUploadRouteImport } from './routes/_app/upload'
 import { Route as AppUHandleRouteImport } from './routes/_app/u.$handle'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiDiscordCallbackRouteImport } from './routes/api/discord/callback'
+import { Route as ApiDiscordStartRouteImport } from './routes/api/discord/start'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -75,6 +77,16 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiscordCallbackRoute = ApiDiscordCallbackRouteImport.update({
+  id: '/api/discord/callback',
+  path: '/api/discord/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDiscordStartRoute = ApiDiscordStartRouteImport.update({
+  id: '/api/discord/start',
+  path: '/api/discord/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/upload': typeof AppUploadRoute
   '/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/discord/callback': typeof ApiDiscordCallbackRoute
+  '/api/discord/start': typeof ApiDiscordStartRoute
 }
 export interface FileRoutesByTo {
   '/datenschutz': typeof DatenschutzRoute
@@ -99,6 +113,8 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/discord/callback': typeof ApiDiscordCallbackRoute
+  '/api/discord/start': typeof ApiDiscordStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -113,6 +129,8 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/discord/callback': typeof ApiDiscordCallbackRoute
+  '/api/discord/start': typeof ApiDiscordStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,6 +145,8 @@ export interface FileRouteTypes {
     | '/upload'
     | '/u/$handle'
     | '/api/auth/$'
+    | '/api/discord/callback'
+    | '/api/discord/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/datenschutz'
@@ -139,6 +159,8 @@ export interface FileRouteTypes {
     | '/'
     | '/u/$handle'
     | '/api/auth/$'
+    | '/api/discord/callback'
+    | '/api/discord/start'
   id:
     | '__root__'
     | '/_app'
@@ -152,6 +174,8 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/u/$handle'
     | '/api/auth/$'
+    | '/api/discord/callback'
+    | '/api/discord/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -160,6 +184,8 @@ export interface RootRouteChildren {
   ImpressumRoute: typeof ImpressumRoute
   LoginRoute: typeof LoginRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDiscordCallbackRoute: typeof ApiDiscordCallbackRoute
+  ApiDiscordStartRoute: typeof ApiDiscordStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -241,6 +267,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/discord/callback': {
+      id: '/api/discord/callback'
+      path: '/api/discord/callback'
+      fullPath: '/api/discord/callback'
+      preLoaderRoute: typeof ApiDiscordCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/discord/start': {
+      id: '/api/discord/start'
+      path: '/api/discord/start'
+      fullPath: '/api/discord/start'
+      preLoaderRoute: typeof ApiDiscordStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -270,6 +310,8 @@ const rootRouteChildren: RootRouteChildren = {
   ImpressumRoute: ImpressumRoute,
   LoginRoute: LoginRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDiscordCallbackRoute: ApiDiscordCallbackRoute,
+  ApiDiscordStartRoute: ApiDiscordStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

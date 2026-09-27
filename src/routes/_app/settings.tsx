@@ -8,6 +8,7 @@ import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { BackgroundPicker } from "@/components/background-picker";
 import { SignOutButton } from "@/components/sign-out-button";
 import { LegalLinks } from "@/components/legal-page";
+import { Fsk18Settings } from "@/components/fsk18-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -159,6 +160,8 @@ function Settings() {
           {busy ? "Speichert…" : "Änderungen speichern"}
         </Button>
       </form>
+
+      <Fsk18Settings profile={profile} />
 
       <div className="mt-10">
         <SignOutButton />

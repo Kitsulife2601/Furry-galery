@@ -15,7 +15,7 @@ function promptCopy(pathname: string) {
   if (pathname === "/upload") {
     return {
       title: "Hochladen",
-      body: "Melde dich an und lege ein Profil an, um Bilder zu teilen. VELA prüft dein Alter — nur ab 18.",
+      body: "Melde dich an und lege ein Profil an, um Bilder zu teilen. Wir prüfen dein Alter — nur ab 18.",
     };
   }
   if (pathname === "/settings") {

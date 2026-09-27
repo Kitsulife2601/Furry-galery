@@ -54,10 +54,10 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
     <aside className="hidden w-56 shrink-0 flex-col justify-between border-r border-border px-4 py-8 md:flex">
       <div>
         <Link to="/" className="font-display px-2 text-2xl tracking-tight">
-          VELA
+          Furry Gallery
         </Link>
         <p className="mt-1 px-2 text-[11px] tracking-[0.22em] text-fg-subtle uppercase">
-          18+ Gallery
+          18+ Community
         </p>
         <nav className="mt-10 flex flex-col gap-1">
           {ITEMS.map((item) => {

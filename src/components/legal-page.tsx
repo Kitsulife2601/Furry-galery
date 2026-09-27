@@ -24,7 +24,7 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
     <main className="min-h-dvh bg-bg text-fg">
       <div className="mx-auto max-w-2xl px-6 py-12">
         <Link to="/" className="font-display text-2xl tracking-tight">
-          VELA
+          Furry Gallery
         </Link>
         <h1 className="mt-8 font-display text-4xl">{title}</h1>
         <div className="legal-prose mt-8 space-y-6 text-sm leading-relaxed text-fg-muted">

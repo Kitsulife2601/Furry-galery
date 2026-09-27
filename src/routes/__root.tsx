@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-  createRootRoute,
-  HeadContent,
-  Outlet,
-  Scripts,
-} from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { Toaster } from "sonner";
@@ -14,7 +9,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { makeQueryClient } from "@/lib/query";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "VELA";
+const APP_NAME = "Furry Gallery";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   const { getSessionUser } = await import("@/lib/auth/verify.server");
@@ -31,7 +26,7 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content: "VELA — cineastische 18+ Photo-Gallery. Profile, Uploads, Für-dich-Feed.",
+        content: "Furry Gallery — Furry-Community ab 18. Profile, Uploads, Für-dich-Feed.",
       },
       { name: "theme-color", content: "#0c0b0a" },
     ],

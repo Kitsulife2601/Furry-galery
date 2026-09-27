@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PostCard } from "@/lib/vela/types";
 import { PostViewer } from "@/components/post-viewer";
+import { Fsk18Badge, PostImage } from "@/components/fsk18";
 
 export function GalleryGrid({ posts, emptyLabel }: { posts: PostCard[]; emptyLabel: string }) {
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -18,14 +19,12 @@ export function GalleryGrid({ posts, emptyLabel }: { posts: PostCard[]; emptyLab
           <li key={post.id} className="bg-bg">
             <button
               type="button"
-              className="aspect-3/4 w-full overflow-hidden"
+              className="relative block aspect-3/4 w-full overflow-hidden"
               onClick={() => setActiveId(post.id)}
+              aria-label={post.locked ? "FSK-18-Bild (gesperrt)" : undefined}
             >
-              <img
-                src={post.imageUrl}
-                alt={post.caption || ""}
-                className="h-full w-full object-cover"
-              />
+              <PostImage post={post} className="h-full w-full" />
+              {post.nsfw ? <Fsk18Badge locked={post.locked} /> : null}
             </button>
           </li>
         ))}

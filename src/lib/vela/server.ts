@@ -4,10 +4,12 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { ageFromBirthdate, isAdultBirthdate } from "./age";
 import { isBackgroundId } from "./backgrounds";
-import type { PostCard, Profile, RelationshipStatus, ReportReason } from "./types";
+import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
+import type { Fsk18Status, PostCard, Profile, RelationshipStatus, ReportReason } from "./types";
 import { REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
+const MAX_PREVIEW_CHARS = 4_000;
 const RELATIONSHIP_IDS = RELATIONSHIP_STATUSES.map((s) => s.id) as [
   RelationshipStatus,
   ...RelationshipStatus[],
@@ -90,6 +92,18 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     followingCount: following[0]?.n ?? 0,
     isOwn: viewerId === row.user_id,
     isFollowing: followRow.length > 0,
+    fsk18: viewerId === row.user_id ? await loadFsk18Status(row.user_id) : null,
+  };
+}
+
+async function loadFsk18Status(userId: string): Promise<Fsk18Status> {
+  const sql = await getSql();
+  const rows = await sql<{ discord_username: string | null }>`
+    select discord_username from profiles where user_id = ${userId}
+  `;
+  return {
+    verified: await isFsk18Verified(userId),
+    discordUsername: rows[0]?.discord_username ?? null,
   };
 }
 
@@ -97,6 +111,8 @@ type FeedRow = {
   id: number;
   user_id: string;
   image_url: string;
+  preview_url: string | null;
+  nsfw: boolean;
   caption: string;
   created_at: string;
   like_count: number;
@@ -118,25 +134,34 @@ async function optionalViewerId(): Promise<string | null> {
   }
 }
 
-function mapFeed(rows: FeedRow[]): PostCard[] {
-  return rows.map((row) => ({
-    id: Number(row.id),
-    userId: row.user_id,
-    imageUrl: row.image_url,
-    caption: row.caption,
-    createdAt: asTime(row.created_at),
-    likeCount: Number(row.like_count) || 0,
-    liked: Boolean(row.liked),
-    author: {
-      displayName: row.display_name,
-      handle: row.handle,
-      avatarUrl: row.avatar_url,
-      relationshipStatus: isRelationship(row.relationship_status)
-        ? row.relationship_status
-        : "single",
-      age: ageFromBirthdate(asIsoDate(row.birthdate)),
-    },
-  }));
+/**
+ * `canSeeNsfw` decides server-side which image leaves the server: unverified
+ * viewers of an FSK18 post only ever receive the tiny preview, never the image.
+ */
+function mapFeed(rows: FeedRow[], canSeeNsfw: boolean): PostCard[] {
+  return rows.map((row) => {
+    const locked = Boolean(row.nsfw) && !canSeeNsfw;
+    return {
+      id: Number(row.id),
+      userId: row.user_id,
+      imageUrl: locked ? (row.preview_url ?? "") : row.image_url,
+      caption: row.caption,
+      createdAt: asTime(row.created_at),
+      nsfw: Boolean(row.nsfw),
+      locked,
+      likeCount: Number(row.like_count) || 0,
+      liked: Boolean(row.liked),
+      author: {
+        displayName: row.display_name,
+        handle: row.handle,
+        avatarUrl: row.avatar_url,
+        relationshipStatus: isRelationship(row.relationship_status)
+          ? row.relationship_status
+          : "single",
+        age: ageFromBirthdate(asIsoDate(row.birthdate)),
+      },
+    };
+  });
 }
 
 export const getMyProfile = createServerFn({ method: "GET" })
@@ -164,7 +189,7 @@ export const createProfile = createServerFn({ method: "POST" })
       throw new Error("Handle: 3–20 Zeichen, nur a–z, 0–9 und _.");
     }
     if (!isAdultBirthdate(data.birthdate)) {
-      throw new Error("VELA ist nur für Personen ab 18 Jahren.");
+      throw new Error("Die Furry Gallery ist nur für Personen ab 18 Jahren.");
     }
     const existing = await loadProfileRow(context.userId);
     if (existing) {
@@ -239,12 +264,15 @@ export const updateAvatar = createServerFn({ method: "POST" })
 
 export const listFeed = createServerFn({ method: "GET" }).handler(async (): Promise<PostCard[]> => {
   const viewerId = (await optionalViewerId()) ?? "";
+  const canSeeNsfw = await isFsk18Verified(viewerId || null);
   const sql = await getSql();
   const rows = await sql<FeedRow>`
       select
         p.id,
         p.user_id,
         p.image_url,
+        p.preview_url,
+        p.nsfw,
         p.caption,
         p.created_at::text as created_at,
         (select count(*)::int from likes l where l.post_id = p.id) as like_count,
@@ -259,18 +287,21 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       order by p.created_at desc
       limit 60
     `;
-  return mapFeed(rows);
+  return mapFeed(rows, canSeeNsfw);
 });
 
 export const listExplore = createServerFn({ method: "GET" }).handler(
   async (): Promise<PostCard[]> => {
     const viewerId = (await optionalViewerId()) ?? "";
+    const canSeeNsfw = await isFsk18Verified(viewerId || null);
     const sql = await getSql();
     const rows = await sql<FeedRow>`
       select
         p.id,
         p.user_id,
         p.image_url,
+        p.preview_url,
+        p.nsfw,
         p.caption,
         p.created_at::text as created_at,
         (select count(*)::int from likes l where l.post_id = p.id) as like_count,
@@ -285,7 +316,7 @@ export const listExplore = createServerFn({ method: "GET" }).handler(
       order by (select count(*) from likes l where l.post_id = p.id) desc, p.created_at desc
       limit 80
     `;
-    return mapFeed(rows);
+    return mapFeed(rows, canSeeNsfw);
   },
 );
 
@@ -323,12 +354,15 @@ export const listProfilePosts = createServerFn({ method: "POST" })
   .validator(z.object({ handle: z.string().trim().toLowerCase() }))
   .handler(async ({ data }): Promise<PostCard[]> => {
     const viewerId = (await optionalViewerId()) ?? "";
+    const canSeeNsfw = await isFsk18Verified(viewerId || null);
     const sql = await getSql();
     const rows = await sql<FeedRow>`
       select
         p.id,
         p.user_id,
         p.image_url,
+        p.preview_url,
+        p.nsfw,
         p.caption,
         p.created_at::text as created_at,
         (select count(*)::int from likes l where l.post_id = p.id) as like_count,
@@ -343,7 +377,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
       where pr.handle = ${data.handle}
       order by p.created_at desc
     `;
-    return mapFeed(rows);
+    return mapFeed(rows, canSeeNsfw);
   });
 
 export const getProfileByHandle = createServerFn({ method: "POST" })
@@ -367,6 +401,9 @@ export const createPost = createServerFn({ method: "POST" })
     z.object({
       imageUrl: z.string().min(20).max(700_000),
       caption: z.string().trim().max(180),
+      nsfw: z.boolean().optional().default(false),
+      // Tiny thumbnail (~16px). The size cap keeps it unrecognisable by construction.
+      previewUrl: z.string().max(MAX_PREVIEW_CHARS).optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<PostCard> => {
@@ -374,10 +411,20 @@ export const createPost = createServerFn({ method: "POST" })
     if (!data.imageUrl.startsWith("data:image/") && !data.imageUrl.startsWith("/seed/")) {
       throw new Error("Nur Bilder sind erlaubt.");
     }
+    const nsfw = data.nsfw ?? false;
+    if (nsfw) {
+      if (!(await isFsk18Verified(context.userId))) {
+        throw new Error("FSK-18-Bilder kannst du erst nach der Discord-Verifizierung posten.");
+      }
+      if (!data.previewUrl?.startsWith("data:image/")) {
+        throw new Error("Vorschau fehlt.");
+      }
+    }
+    const previewUrl = nsfw ? data.previewUrl : null;
     const sql = await getSql();
     const inserted = await sql<{ id: number }>`
-      insert into posts (user_id, image_url, caption)
-      values (${context.userId}, ${data.imageUrl}, ${data.caption})
+      insert into posts (user_id, image_url, caption, nsfw, preview_url)
+      values (${context.userId}, ${data.imageUrl}, ${data.caption}, ${nsfw}, ${previewUrl})
       returning id
     `;
     const id = inserted[0]?.id;
@@ -387,6 +434,8 @@ export const createPost = createServerFn({ method: "POST" })
         p.id,
         p.user_id,
         p.image_url,
+        p.preview_url,
+        p.nsfw,
         p.caption,
         p.created_at::text as created_at,
         0::int as like_count,
@@ -400,7 +449,7 @@ export const createPost = createServerFn({ method: "POST" })
       join profiles pr on pr.user_id = p.user_id
       where p.id = ${id}
     `;
-    const mapped = mapFeed(rows);
+    const mapped = mapFeed(rows, true);
     if (!mapped[0]) throw new Error("Bild konnte nicht gelesen werden.");
     return mapped[0];
   });
@@ -492,6 +541,66 @@ export const reportPost = createServerFn({ method: "POST" })
       values (${data.postId}, ${context.userId}, ${data.reason}, ${data.note ?? ""})
       on conflict (post_id, reporter_id) do update
         set reason = excluded.reason, note = excluded.note, created_at = now()
+    `;
+    return { ok: true };
+  });
+
+export type SearchResult = {
+  displayName: string;
+  handle: string;
+  avatarUrl: string | null;
+  age: number;
+  relationshipStatus: RelationshipStatus;
+};
+
+/** Find people by handle or display name. Exact and prefix handle matches rank first. */
+export const searchProfiles = createServerFn({ method: "GET" })
+  .validator(z.object({ q: z.string().trim().min(1).max(40) }))
+  .handler(async ({ data }): Promise<SearchResult[]> => {
+    const q = data.q.replace(/^@/, "").toLowerCase();
+    if (!q) return [];
+    // Treat user input literally inside LIKE patterns.
+    const escaped = q.replace(/[\\%_]/g, "\\$&");
+    const contains = `%${escaped}%`;
+    const prefix = `${escaped}%`;
+    const sql = await getSql();
+    const rows = await sql<ProfileRow>`
+      select user_id, display_name, handle, bio, birthdate::text as birthdate,
+             relationship_status, avatar_url, background_id, created_at::text as created_at
+      from profiles
+      where handle like ${contains} or lower(display_name) like ${contains}
+      order by (handle = ${q}) desc, (handle like ${prefix}) desc,
+               (lower(display_name) like ${prefix}) desc, display_name asc
+      limit 20
+    `;
+    return rows.map((row) => ({
+      displayName: row.display_name,
+      handle: row.handle,
+      avatarUrl: row.avatar_url,
+      age: ageFromBirthdate(asIsoDate(row.birthdate)),
+      relationshipStatus: isRelationship(row.relationship_status)
+        ? row.relationship_status
+        : "single",
+    }));
+  });
+
+/** Whether Discord verification is set up, plus the invite link to show. */
+export const getDiscordSetup = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ configured: boolean; inviteUrl: string | null }> => ({
+    configured: discordConfig() !== null,
+    inviteUrl: discordInviteUrl(),
+  }),
+);
+
+export const unlinkDiscord = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    await sql`
+      update profiles
+      set discord_id = null, discord_username = null,
+          fsk18_verified_at = null, fsk18_checked_at = null
+      where user_id = ${context.userId}
     `;
     return { ok: true };
   });

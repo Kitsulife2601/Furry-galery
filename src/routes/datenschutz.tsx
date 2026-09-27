@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage, Placeholder } from "@/components/legal-page";
 
 export const Route = createFileRoute("/datenschutz")({
-  head: () => ({ meta: [{ title: "Datenschutz · VELA" }] }),
+  head: () => ({ meta: [{ title: "Datenschutz · Furry Gallery" }] }),
   component: Datenschutz,
 });
 

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ImagePlus } from "lucide-react";
 import { toast } from "sonner";
+import { useAppSession } from "@/lib/vela/app-session";
 import { compressImageFile } from "@/lib/vela/compress-image";
 import { createPost } from "@/lib/vela/server";
 import { Button } from "@/components/ui/button";
@@ -15,14 +16,23 @@ function Upload() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [preview, setPreview] = useState<string | null>(null);
+  const [thumb, setThumb] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [nsfw, setNsfw] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { profile } = useAppSession();
+  const canPostNsfw = Boolean(profile?.fsk18?.verified);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
     try {
-      const dataUrl = await compressImageFile(file, { maxEdge: 1080, quality: 0.72 });
+      const [dataUrl, tiny] = await Promise.all([
+        compressImageFile(file, { maxEdge: 1080, quality: 0.72 }),
+        // What unverified visitors get for FSK18 posts: 16px, shown blurred.
+        compressImageFile(file, { maxEdge: 16, quality: 0.6 }),
+      ]);
       setPreview(dataUrl);
+      setThumb(tiny);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Bild unlesbar.");
     }
@@ -32,7 +42,14 @@ function Upload() {
     if (!preview) return;
     setBusy(true);
     try {
-      await createPost({ data: { imageUrl: preview, caption } });
+      await createPost({
+        data: {
+          imageUrl: preview,
+          caption,
+          nsfw,
+          previewUrl: nsfw ? (thumb ?? undefined) : undefined,
+        },
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["feed"] }),
         queryClient.invalidateQueries({ queryKey: ["explore"] }),
@@ -80,6 +97,33 @@ function Upload() {
           maxLength={180}
           placeholder="Ein Satz reicht."
         />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-border p-4">
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 accent-(--color-accent)"
+            checked={nsfw}
+            disabled={!canPostNsfw}
+            onChange={(e) => setNsfw(e.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium">FSK 18</span>
+            <span className="block text-xs text-fg-muted">
+              Für alle ohne Discord-Verifizierung wird das Bild unkenntlich gemacht.
+            </span>
+          </span>
+        </label>
+        {canPostNsfw ? null : (
+          <p className="mt-3 text-xs text-fg-subtle">
+            FSK-18-Bilder posten kannst du nach der{" "}
+            <Link to="/settings" hash="fsk18" className="underline underline-offset-4">
+              Verifizierung über Discord
+            </Link>
+            .
+          </p>
+        )}
       </div>
 
       <Button

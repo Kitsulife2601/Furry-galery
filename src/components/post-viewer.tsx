@@ -9,6 +9,7 @@ import { patchPostInCaches, removePostFromCaches } from "@/lib/vela/post-cache";
 import { deletePost, toggleLike } from "@/lib/vela/server";
 import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
+import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { cn } from "@/lib/utils";
 
 export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => void }) {
@@ -71,11 +72,21 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
           className="relative max-h-[90dvh] w-full max-w-md overflow-hidden rounded-2xl bg-bg-elevated"
           onClick={(e) => e.stopPropagation()}
         >
-          <img
-            src={post.imageUrl}
-            alt={post.caption || ""}
-            className="max-h-[70dvh] w-full bg-bg object-contain"
-          />
+          {post.locked ? (
+            <div className="relative aspect-3/4 max-h-[70dvh] w-full">
+              <PostImage post={post} className="h-full w-full" />
+              <Fsk18Notice onNavigate={onClose} />
+            </div>
+          ) : (
+            <div className="relative">
+              <img
+                src={post.imageUrl}
+                alt={post.caption || ""}
+                className="max-h-[70dvh] w-full bg-bg object-contain"
+              />
+              {post.nsfw ? <Fsk18Badge locked={false} /> : null}
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3 p-4">
             <div className="min-w-0">
               <Link
@@ -117,7 +128,8 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
               <button
                 type="button"
                 onClick={() => void like()}
-                className="flex min-h-11 min-w-11 flex-col items-center gap-1"
+                disabled={post.locked}
+                className="flex min-h-11 min-w-11 flex-col items-center gap-1 disabled:opacity-40"
                 aria-label="Like"
               >
                 <Heart className={cn("size-6", post.liked && "fill-heart text-heart")} />

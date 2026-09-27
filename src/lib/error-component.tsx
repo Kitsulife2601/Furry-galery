@@ -18,7 +18,7 @@ function StatusScreen({ title, body, icon }: { title: string; body: string; icon
           <TriangleAlert className="size-10" strokeWidth={1.8} />
         </span>
       ) : (
-        <p className="text-xs tracking-[0.28em] text-accent uppercase">VELA</p>
+        <p className="text-xs tracking-[0.28em] text-accent uppercase">Furry Gallery</p>
       )}
       <h1 className="font-display text-3xl">{title}</h1>
       <p className="max-w-md text-sm break-words text-fg-muted">{body}</p>

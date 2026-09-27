@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage, Placeholder } from "@/components/legal-page";
 
 export const Route = createFileRoute("/impressum")({
-  head: () => ({ meta: [{ title: "Impressum · VELA" }] }),
+  head: () => ({ meta: [{ title: "Impressum · Furry Gallery" }] }),
   component: Impressum,
 });
 
@@ -40,9 +40,9 @@ function Impressum() {
       <section>
         <h2 className="text-base font-medium text-fg">Jugendschutz</h2>
         <p className="mt-2">
-          VELA richtet sich ausschließlich an Personen ab 18 Jahren. Profile werden nur nach Angabe
-          eines Geburtsdatums angelegt, das die Volljährigkeit ergibt. Jugendschutzbeauftragte*r:{" "}
-          <Placeholder>Name und E-Mail</Placeholder>
+          Die Furry Gallery richtet sich ausschließlich an Personen ab 18 Jahren. Profile werden nur
+          nach Angabe eines Geburtsdatums angelegt, das die Volljährigkeit ergibt.
+          Jugendschutzbeauftragte*r: <Placeholder>Name und E-Mail</Placeholder>
         </p>
       </section>
       <section>

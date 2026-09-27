@@ -52,11 +52,7 @@ export function Onboarding() {
           bio,
           birthdate,
           relationshipStatus: relationshipStatus as
-            | "single"
-            | "taken"
-            | "open"
-            | "complicated"
-            | "private",
+            "single" | "taken" | "open" | "complicated" | "private",
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["me"] });
@@ -70,11 +66,11 @@ export function Onboarding() {
   if (step === "blocked") {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 text-center">
-        <p className="text-xs tracking-[0.28em] text-accent uppercase">VELA</p>
+        <p className="text-xs tracking-[0.28em] text-accent uppercase">Furry Gallery</p>
         <h1 className="mt-4 font-display text-3xl">Nur ab 18</h1>
         <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-          VELA ist eine Gallery für Erwachsene. Mit diesem Geburtsdatum kannst
-          du kein Profil anlegen.
+          Die Furry Gallery ist nur für Erwachsene. Mit diesem Geburtsdatum kannst du kein Profil
+          anlegen.
         </p>
       </div>
     );
@@ -86,8 +82,8 @@ export function Onboarding() {
         <p className="text-xs tracking-[0.28em] text-accent uppercase">Schritt 1</p>
         <h1 className="mt-3 font-display text-3xl">Bist du 18?</h1>
         <p className="mt-3 text-sm leading-relaxed text-fg-muted">
-          Wir brauchen dein Geburtsdatum, bevor Profile, Uploads und Einstellungen
-          frei werden. Das Datum bleibt privat — andere sehen nur dein Alter.
+          Wir brauchen dein Geburtsdatum, bevor Profile, Uploads und Einstellungen frei werden. Das
+          Datum bleibt privat — andere sehen nur dein Alter.
         </p>
         <div className="mt-8 space-y-2">
           <Label htmlFor="birthdate">Geburtsdatum</Label>

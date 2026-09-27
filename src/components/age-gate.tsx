@@ -33,7 +33,7 @@ export function AgeGate({ onConfirm }: { onConfirm: () => void }) {
   if (blocked) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6 text-center text-fg">
-        <p className="text-xs tracking-[0.28em] text-accent uppercase">VELA</p>
+        <p className="text-xs tracking-[0.28em] text-accent uppercase">Furry Gallery</p>
         <h1 className="mt-4 font-display text-3xl">Nur ab 18</h1>
         <p className="mt-4 max-w-sm text-sm leading-relaxed text-fg-muted">
           Die Gallery ist ausschließlich für Erwachsene. Kein Eintritt unter 18.
@@ -52,8 +52,10 @@ export function AgeGate({ onConfirm }: { onConfirm: () => void }) {
       />
       <div className="absolute inset-0 bg-linear-to-b from-bg/50 via-bg/80 to-bg" />
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
-        <p className="text-xs font-medium tracking-[0.28em] text-accent uppercase">18+ · Gallery</p>
-        <h1 className="mt-4 font-display text-6xl leading-none tracking-tight">VELA</h1>
+        <p className="text-xs font-medium tracking-[0.28em] text-accent uppercase">
+          18+ · Community
+        </p>
+        <h1 className="mt-4 font-display text-5xl leading-none tracking-tight">Furry Gallery</h1>
         <p className="mt-5 max-w-sm text-base leading-relaxed text-fg-muted">
           Vertikaler Feed wie TikTok, Profile, Uploads. Erst das Alter — dann die Bilder. Stöbern
           geht ohne Konto.
