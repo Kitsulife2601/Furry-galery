@@ -143,6 +143,9 @@ const TOPIC_PREFIX = "verify:";
 
 export type Interaction = {
   type: number;
+  /** Needed for the follow-up after a deferred reply. */
+  token?: string;
+  application_id?: string;
   guild_id?: string;
   channel_id?: string;
   data?: { name?: string; custom_id?: string };
@@ -260,11 +263,7 @@ export async function handleInteraction(
 ): Promise<InteractionReply> {
   const { cfg, api, siteUrl } = ctx;
 
-  if (interaction.type === InteractionType.Ping) {
-    // Discord pings when the endpoint URL is saved — a good moment to (re)register.
-    await registerCommands(cfg, api).catch((err) => console.error("[discord-bot]", err));
-    return { type: Reply.Pong };
-  }
+  if (interaction.type === InteractionType.Ping) return { type: Reply.Pong };
 
   const member = interaction.member;
   if (!member || interaction.guild_id !== cfg.guildId) {
@@ -447,4 +446,53 @@ export async function diagnoseBot(cfg: BotConfig, api: DiscordApi): Promise<Chec
     }
   }
   return checks;
+}
+
+// ---------------------------------------------------------------------------
+// Deferred replies. Discord drops an interaction that is not answered within
+// 3 seconds — too tight for a cold serverless start plus several REST calls.
+// So the endpoint acknowledges at once ("thinking…") and delivers the real
+// reply afterwards through the interaction webhook.
+
+/** The immediate acknowledgement for an interaction (never for PING). */
+export function deferredReplyFor(interaction: Interaction): InteractionReply {
+  const action = (interaction.data?.custom_id ?? "").split(":")[1];
+  if (interaction.type === InteractionType.Component && action !== "open") {
+    // Buttons that edit or remove their own message: acknowledge silently.
+    return { type: 6 };
+  }
+  // Slash command / "Verifizieren": a private "thinking…" reply.
+  return { type: 5, data: { flags: EPHEMERAL } };
+}
+
+export type WebhookSend = (method: string, url: string, body: unknown) => Promise<void>;
+
+export const sendWebhook: WebhookSend = async (method, url, body) => {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new Error(`Discord webhook ${method} → ${res.status} ${await res.text()}`);
+};
+
+/** Turn the final reply into the follow-up that matches the deferred ack. */
+export async function deliverReply(
+  interaction: Interaction,
+  deferred: InteractionReply,
+  reply: InteractionReply,
+  send: WebhookSend = sendWebhook,
+): Promise<void> {
+  if (!interaction.application_id || !interaction.token) return;
+  const base = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
+  const { flags: _flags, ...data } = reply.data ?? {};
+  if (reply.type === Reply.Ack) return;
+  if (reply.type === Reply.Update || deferred.type === 5) {
+    // Replaces the "thinking…" reply, or edits the message the button sits on.
+    await send("PATCH", `${base}/messages/@original`, data);
+    return;
+  }
+  // A private note after a silent acknowledgement (e.g. "no permission").
+  await send("POST", base, { ...data, flags: EPHEMERAL });
 }

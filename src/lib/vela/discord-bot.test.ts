@@ -2,6 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
+  deferredReplyFor,
+  deliverReply,
   diagnoseBot,
   handleInteraction,
   verifyDiscordSignature,
@@ -67,12 +69,11 @@ describe("verifyDiscordSignature", () => {
 });
 
 describe("handleInteraction", () => {
-  it("answers PING with PONG and registers the slash command", async () => {
+  it("answers PING with PONG right away, without any Discord call", async () => {
     const { api, calls } = fakeApi();
     const reply = await handleInteraction({ type: 1 }, { cfg, api, siteUrl });
     assert.equal(reply.type, 1);
-    assert.equal(calls[0].method, "PUT");
-    assert.equal(calls[0].path, "/applications/app1/guilds/g1/commands");
+    assert.equal(calls.length, 0);
   });
 
   it("posts the panel only for moderators", async () => {
@@ -235,5 +236,61 @@ describe("diagnoseBot", () => {
     });
     const checks = await diagnoseBot(cfg, api);
     assert.ok(checks.some((c) => !c.ok && /darüber ziehen/.test(c.text)));
+  });
+});
+
+describe("deferred replies", () => {
+  const base = { application_id: "app1", token: "tok" };
+  const cmd: Interaction = { type: 2, ...base, data: { name: "verify-panel" } };
+  const open: Interaction = { type: 3, ...base, data: { custom_id: "verify:open" } };
+  const approve: Interaction = { type: 3, ...base, data: { custom_id: "verify:approve:u1" } };
+
+  it("acknowledges commands and 'Verifizieren' with a private thinking reply", () => {
+    assert.deepEqual(deferredReplyFor(cmd), { type: 5, data: { flags: 64 } });
+    assert.deepEqual(deferredReplyFor(open), { type: 5, data: { flags: 64 } });
+    assert.deepEqual(deferredReplyFor(approve), { type: 6 });
+  });
+
+  function recorder() {
+    const sent: { method: string; url: string; body: unknown }[] = [];
+    const send = async (method: string, url: string, body: unknown) => {
+      sent.push({ method, url, body });
+    };
+    return { sent, send };
+  }
+
+  it("replaces the thinking reply with the result", async () => {
+    const { sent, send } = recorder();
+    await deliverReply(
+      cmd,
+      deferredReplyFor(cmd),
+      { type: 4, data: { content: "ok", flags: 64 } },
+      send,
+    );
+    assert.equal(sent[0].method, "PATCH");
+    assert.equal(sent[0].url, "https://discord.com/api/v10/webhooks/app1/tok/messages/@original");
+    assert.deepEqual(sent[0].body, { content: "ok" });
+  });
+
+  it("edits the button message after approve, and posts private notes as follow-ups", async () => {
+    const update = recorder();
+    await deliverReply(approve, { type: 6 }, { type: 7, data: { components: [] } }, update.send);
+    assert.equal(update.sent[0].method, "PATCH");
+
+    const note = recorder();
+    await deliverReply(
+      approve,
+      { type: 6 },
+      { type: 4, data: { content: "nope", flags: 64 } },
+      note.send,
+    );
+    assert.equal(note.sent[0].method, "POST");
+    assert.deepEqual(note.sent[0].body, { content: "nope", flags: 64 });
+  });
+
+  it("sends nothing for a plain acknowledgement", async () => {
+    const { sent, send } = recorder();
+    await deliverReply(approve, { type: 6 }, { type: 6 }, send);
+    assert.equal(sent.length, 0);
   });
 });
