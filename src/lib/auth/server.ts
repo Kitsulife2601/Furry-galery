@@ -90,7 +90,11 @@ export const authConfigured = !authDisabled && Boolean(grokClientId && grokClien
 // only switched on when both its id and secret are set. Discord reuses the app
 // that also runs the verification bot. Callback URLs to register:
 //   <site>/api/auth/callback/google   and   <site>/api/auth/callback/discord
-const googleClientId = env("GOOGLE_CLIENT_ID");
+// Public client id of the Furry Gallery Google OAuth app (not a secret; the
+// secret always comes from GOOGLE_CLIENT_SECRET).
+const googleClientId =
+  env("GOOGLE_CLIENT_ID") ??
+  "463160418921-qgt9qh831tblpainbff3as5lmdnb6hls.apps.googleusercontent.com";
 const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
 const discordClientId = env("DISCORD_CLIENT_ID") ?? DISCORD_DEFAULTS.applicationId;
 const discordClientSecret = env("DISCORD_CLIENT_SECRET");

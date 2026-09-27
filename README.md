@@ -68,7 +68,7 @@ erkannt; eine eigene Domain funktioniert ebenfalls.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BETTER_AUTH_SECRET`   | **Pflicht.** Zufälliger Schlüssel, mind. 32 Zeichen (z. B. von [generate-secret.vercel.app/32](https://generate-secret.vercel.app/32)). Ohne ihn gehen Anmeldungen zufällig verloren. |
 | `SITE_URL`             | Empfohlen bei eigener Domain, z. B. `https://furry-gallery.de`                                                                                                                        |
-| `GOOGLE_CLIENT_ID`     | Google-Anmeldung (siehe unten)                                                                                                                                                        |
+| `GOOGLE_CLIENT_ID`     | optional: ist voreingestellt                                                                                                                                                          |
 | `GOOGLE_CLIENT_SECRET` | Google-Anmeldung                                                                                                                                                                      |
 
 Discord-Anmeldung nutzt dieselben `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` wie die
