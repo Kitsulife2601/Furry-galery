@@ -12,10 +12,22 @@ import { SiteFooter } from "@/components/legal-page";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
-/** Which of Google / Discord have their OAuth credentials configured. */
+/**
+ * Which of Google / Discord have their OAuth credentials configured, and the
+ * production host — the only one registered as redirect URL at Google/Discord.
+ */
 const getSignInProviders = createServerFn({ method: "GET" }).handler(async () => {
   const { enabledSocialProviders } = await import("@/lib/auth/server");
-  return enabledSocialProviders;
+  const site = process.env.SITE_URL?.trim() || process.env.BETTER_AUTH_URL?.trim();
+  let productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || null;
+  if (site) {
+    try {
+      productionHost = new URL(site).host;
+    } catch {
+      // keep the Vercel host
+    }
+  }
+  return { providers: enabledSocialProviders, productionHost };
 });
 
 /** Better Auth sends failed OAuth sign-ins back here as `?error=<code>`. */
@@ -40,7 +52,19 @@ function Login() {
     queryFn: () => getSignInProviders(),
     enabled: authEnabled,
   });
-  const socialProviders = visibleSocialProviders(providers.data ?? []);
+  const socialProviders = visibleSocialProviders(providers.data?.providers ?? []);
+  const productionHost = providers.data?.productionHost ?? null;
+
+  // Google/Discord only accept the production address as return URL. Opened
+  // from a Vercel deployment/preview link, sign in there instead (otherwise
+  // Google shows "redirect_uri_mismatch").
+  useEffect(() => {
+    if (!productionHost) return;
+    const { host, hostname, pathname, search } = window.location;
+    if (host !== productionHost && hostname.endsWith(".vercel.app")) {
+      window.location.replace(`https://${productionHost}${pathname}${search}`);
+    }
+  }, [productionHost]);
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("error");
