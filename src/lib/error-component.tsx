@@ -1,6 +1,8 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { TriangleAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import { isStaleBuildError, reloadForNewBuild } from "@/lib/stale-reload";
 
 const FALLBACK_MESSAGE = "Etwas ist schiefgelaufen. Bitte lade die Seite neu.";
 
@@ -30,6 +32,23 @@ function StatusScreen({ title, body, icon }: { title: string; body: string; icon
 }
 
 export function AppErrorComponent({ error }: ErrorComponentProps) {
+  const stale = isStaleBuildError(error);
+  const [reloading, setReloading] = useState(stale);
+  useEffect(() => {
+    if (stale) setReloading(reloadForNewBuild());
+  }, [stale]);
+  if (reloading) {
+    return <StatusScreen title="Neue Version" body="Die Seite wurde aktualisiert und lädt neu …" />;
+  }
+  if (stale) {
+    return (
+      <StatusScreen
+        icon
+        title="Neue Version verfügbar"
+        body="Bitte lade die Seite neu (Strg+F5 bzw. nach unten ziehen)."
+      />
+    );
+  }
   return <StatusScreen icon title="Das hat nicht geklappt" body={errorMessage(error)} />;
 }
 
