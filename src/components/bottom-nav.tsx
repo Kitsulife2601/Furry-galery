@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Compass, House, Plus, UserRound } from "lucide-react";
+import { Bell, Compass, House, PawPrint, Plus, UserRound } from "lucide-react";
 import { useAppSession } from "@/lib/vela/app-session";
 import { unreadNotificationCount } from "@/lib/vela/server";
 import { cn } from "@/lib/utils";
@@ -117,8 +117,9 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
         {profile?.isAdmin ? (
           <Link
             to="/admin"
-            className="rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-bg-subtle"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-bg-subtle"
           >
+            <PawPrint className="size-4" />
             Moderation
           </Link>
         ) : null}
