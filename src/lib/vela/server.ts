@@ -7,7 +7,15 @@ import { isBackgroundId } from "./backgrounds";
 import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
 import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
 import { isAdminUser } from "./admin";
-import { deletePostById, dismissReportsFor, setBannedByHandle } from "./moderation";
+import {
+  deletePostById,
+  deleteProfileNow,
+  dismissReportsFor,
+  scheduleProfileDeletion,
+  setBannedByHandle,
+  sweepModeration,
+} from "./moderation";
+import { BAN_DURATION_IDS, DELETE_DELAY_IDS, addDuration } from "./durations";
 import { notify } from "./notifications";
 import { blobToken, isBlobVideoUrl } from "./video";
 import type {
@@ -41,6 +49,8 @@ type ProfileRow = {
   background_id: string;
   banned: boolean;
   ban_reason: string | null;
+  banned_until: string | null;
+  delete_at: string | null;
   created_at: string;
 };
 
@@ -69,7 +79,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -117,6 +127,11 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     isAdmin: viewerId === row.user_id && (await isAdminUser(row.user_id)),
     banned: Boolean(row.banned),
     banReason: row.banned ? row.ban_reason : null,
+    bannedUntil: row.banned && row.banned_until ? asTime(row.banned_until) : null,
+    deleteAt:
+      row.delete_at && (viewerId === row.user_id || (await isAdminUser(viewerId)))
+        ? asTime(row.delete_at)
+        : null,
   };
 }
 
@@ -200,6 +215,7 @@ function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<Profile | null> => {
+    await sweepModeration();
     const row = await loadProfileRow(context.userId);
     if (!row) return null;
     if (ageFromBirthdate(asIsoDate(row.birthdate)) < 18) return null;
@@ -325,6 +341,7 @@ export const updateBanner = createServerFn({ method: "POST" })
  * minus a penalty for posts already seen or liked. Guests get fresh + popular.
  */
 export const listFeed = createServerFn({ method: "GET" }).handler(async (): Promise<PostCard[]> => {
+  await sweepModeration();
   const viewerId = (await optionalViewerId()) ?? "";
   const canSeeNsfw = await isFsk18Verified(viewerId || null);
   const sql = await getSql();
@@ -463,7 +480,7 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
       from profiles
       where banned_at is null
       order by created_at asc
@@ -517,6 +534,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
 export const getProfileByHandle = createServerFn({ method: "POST" })
   .validator(z.object({ handle: z.string().trim().toLowerCase() }))
   .handler(async ({ data }): Promise<Profile | null> => {
+    await sweepModeration();
     const viewerId = (await optionalViewerId()) ?? "";
     const sql = await getSql();
     const rows = await sql<ProfileRow>`
@@ -524,7 +542,7 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
       from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
@@ -758,7 +776,7 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
       from profiles
       where banned_at is null
         and (handle like ${contains} or lower(display_name) like ${contains})
@@ -986,6 +1004,7 @@ export type BannedProfile = {
   handle: string;
   bannedAt: string;
   reason: string | null;
+  until: string | null;
 };
 
 export const listBanned = createServerFn({ method: "GET" })
@@ -998,8 +1017,10 @@ export const listBanned = createServerFn({ method: "GET" })
       handle: string;
       banned_at: string;
       ban_reason: string | null;
+      banned_until: string | null;
     }>`
-      select display_name, handle, banned_at::text as banned_at, ban_reason
+      select display_name, handle, banned_at::text as banned_at, ban_reason,
+             banned_until::text as banned_until
       from profiles where banned_at is not null
       order by banned_at desc
     `;
@@ -1008,6 +1029,7 @@ export const listBanned = createServerFn({ method: "GET" })
       handle: r.handle,
       bannedAt: asTime(r.banned_at),
       reason: r.ban_reason,
+      until: r.banned_until ? asTime(r.banned_until) : null,
     }));
   });
 
@@ -1018,6 +1040,7 @@ export const setBanned = createServerFn({ method: "POST" })
       handle: z.string().trim().toLowerCase(),
       banned: z.boolean(),
       reason: z.string().trim().max(300).optional(),
+      duration: z.enum(BAN_DURATION_IDS).optional().default("perm"),
     }),
   )
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
@@ -1026,10 +1049,41 @@ export const setBanned = createServerFn({ method: "POST" })
     if (me?.handle === data.handle.replace(/^@/, "")) {
       throw new Error("Dich selbst kannst du nicht sperren.");
     }
-    if (!(await setBannedByHandle(data.handle, data.banned, data.reason))) {
+    const until = data.banned ? addDuration(data.duration) : null;
+    if (!(await setBannedByHandle(data.handle, data.banned, data.reason, until))) {
       throw new Error("Profil nicht gefunden.");
     }
     return { ok: true };
+  });
+
+/** Delete a profile now, schedule it ("7d", "3m", …) or cancel a scheduled deletion. */
+export const deleteProfile = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      handle: z.string().trim().toLowerCase(),
+      when: z.union([z.enum(DELETE_DELAY_IDS), z.literal("cancel")]),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ deleted: boolean; deleteAt: string | null }> => {
+    await requireAdmin(context.userId);
+    const handle = data.handle.replace(/^@/, "");
+    const sql = await getSql();
+    const target = await sql<{ user_id: string }>`
+      select user_id from profiles where handle = ${handle}
+    `;
+    const userId = target[0]?.user_id;
+    if (!userId) throw new Error("Profil nicht gefunden.");
+    if (userId === context.userId)
+      throw new Error("Dein eigenes Profil kannst du hier nicht löschen.");
+    if (await isAdminUser(userId)) throw new Error("Team-Profile können nicht gelöscht werden.");
+    if (data.when === "now") {
+      await deleteProfileNow(userId);
+      return { deleted: true, deleteAt: null };
+    }
+    const at = data.when === "cancel" ? null : addDuration(data.when);
+    await scheduleProfileDeletion(handle, at);
+    return { deleted: false, deleteAt: at ? at.toISOString() : null };
   });
 
 // ---------------------------------------------------------------------------

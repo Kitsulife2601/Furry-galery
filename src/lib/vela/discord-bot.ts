@@ -799,6 +799,8 @@ export function banNoticeEmbed(opts: {
   handle: string;
   banned: boolean;
   reasons: string[];
+  /** End of a temporary ban. */
+  until?: Date | null;
   at: Date;
   siteUrl: string;
 }) {
@@ -818,6 +820,17 @@ export function banNoticeEmbed(opts: {
         inline: true,
       },
       { name: "Zeitpunkt", value: `<t:${unix}:f>`, inline: true },
+      ...(opts.banned
+        ? [
+            {
+              name: "Dauer",
+              value: opts.until
+                ? `bis <t:${Math.floor(opts.until.getTime() / 1000)}:D>`
+                : "dauerhaft",
+              inline: true,
+            },
+          ]
+        : []),
       ...(opts.banned && opts.reasons.length
         ? [{ name: "Grund", value: opts.reasons.join(", ").slice(0, 1000) }]
         : []),

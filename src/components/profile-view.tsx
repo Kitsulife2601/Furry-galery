@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { cn } from "@/lib/utils";
+import { ProfileModeration } from "@/components/profile-moderation";
+import { formatDay } from "@/lib/vela/durations";
 
 export function ProfileView({ profile, posts }: { profile: Profile; posts: PostCard[] }) {
   const queryClient = useQueryClient();
@@ -93,6 +95,9 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
               {profile.isOwn ? "Dein Konto wurde gesperrt" : "Dieses Konto wurde gesperrt"}
             </p>
             <p className="mt-1 text-fg-muted">
+              {profile.bannedUntil ? `Bis ${formatDay(profile.bannedUntil)}` : "Dauerhaft"}
+            </p>
+            <p className="mt-1 text-fg-muted">
               Begründung: {profile.banReason || "Verstoß gegen die Regeln der Community."}
             </p>
             {profile.isOwn ? (
@@ -101,6 +106,18 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
               </p>
             ) : null}
           </div>
+        ) : null}
+        {profile.isOwn && profile.deleteAt ? (
+          <p
+            role="status"
+            className="mt-4 rounded-xl border border-heart/50 bg-heart/10 p-4 text-sm"
+          >
+            Dein Profil wird am {formatDay(profile.deleteAt)} vom Team gelöscht. Fragen? Melde dich
+            auf unserem Discord.
+          </p>
+        ) : null}
+        {session.profile?.isAdmin && !profile.isOwn ? (
+          <ProfileModeration profile={profile} />
         ) : null}
         {profile.bio ? <p className="mt-4 text-sm leading-relaxed text-fg">{profile.bio}</p> : null}
         <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
