@@ -59,6 +59,31 @@ src/lib/db.ts          Datenbankzugang (Neon oder PGLite)
 Alle schreibenden Server-Funktionen in `src/lib/vela/server.ts` laufen über
 `authMiddleware` und prüfen serverseitig, dass ein volljähriges Profil existiert.
 
+## Anmeldung auf Vercel einrichten
+
+Anmelden geht per E-Mail, Google und Discord. Die Vercel-Adresse der Seite wird automatisch
+erkannt; eine eigene Domain funktioniert ebenfalls.
+
+| Variable               | Inhalt                                                                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`   | **Pflicht.** Zufälliger Schlüssel, mind. 32 Zeichen (z. B. von [generate-secret.vercel.app/32](https://generate-secret.vercel.app/32)). Ohne ihn gehen Anmeldungen zufällig verloren. |
+| `SITE_URL`             | Empfohlen bei eigener Domain, z. B. `https://furry-gallery.de`                                                                                                                        |
+| `GOOGLE_CLIENT_ID`     | Google-Anmeldung (siehe unten)                                                                                                                                                        |
+| `GOOGLE_CLIENT_SECRET` | Google-Anmeldung                                                                                                                                                                      |
+
+Discord-Anmeldung nutzt dieselben `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` wie die
+Verifizierung (siehe unten). Ein Anmelde-Button erscheint nur, wenn seine Zugangsdaten
+gesetzt sind.
+
+**Google:** In der [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+→ **Anmeldedaten erstellen → OAuth-Client-ID → Webanwendung**. Unter **Autorisierte
+Weiterleitungs-URIs** `https://DEINE-DOMAIN/api/auth/callback/google` eintragen. Den
+OAuth-Zustimmungsbildschirm auf **Extern** stellen und veröffentlichen, sonst können sich nur
+Testnutzer*innen anmelden.
+
+**Discord:** Im Developer Portal unter **OAuth2 → Redirects** zusätzlich
+`https://DEINE-DOMAIN/api/auth/callback/discord` eintragen.
+
 ## FSK 18 über Discord einrichten
 
 Euer Discord-Bot verifiziert Mitglieder und gibt ihnen eine Rolle (z. B. „18+ verifiziert“).

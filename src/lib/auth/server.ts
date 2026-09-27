@@ -38,7 +38,7 @@ import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
-import { GROK_PROVIDERS } from "./providers";
+import { GROK_PROVIDERS, type SocialProviderId } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
@@ -82,8 +82,49 @@ const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
 const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
 
 /** True when federated sign-in is active (real auth is enforced). */
-export const authConfigured =
-  !authDisabled && Boolean(grokClientId && grokClientSecret);
+export const authConfigured = !authDisabled && Boolean(grokClientId && grokClientSecret);
+
+// Direct Google / Discord sign-in with the app's own OAuth apps (self-hosted
+// deploys such as Vercel, where the Grok broker is not available). Each one is
+// only switched on when both its id and secret are set. Discord reuses the app
+// that also runs the verification bot. Callback URLs to register:
+//   <site>/api/auth/callback/google   and   <site>/api/auth/callback/discord
+const googleClientId = env("GOOGLE_CLIENT_ID");
+const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
+const discordClientId = env("DISCORD_CLIENT_ID");
+const discordClientSecret = env("DISCORD_CLIENT_SECRET");
+const socialProviders = {
+  ...(googleClientId && googleClientSecret
+    ? {
+        google: {
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+          prompt: "select_account" as const,
+        },
+      }
+    : {}),
+  ...(discordClientId && discordClientSecret
+    ? { discord: { clientId: discordClientId, clientSecret: discordClientSecret } }
+    : {}),
+};
+
+/** Which direct sign-in providers are configured (for the login buttons). */
+export const enabledSocialProviders = Object.keys(socialProviders) as SocialProviderId[];
+
+// Hosts Vercel exposes to every deployment (system env vars), so sign-in works
+// on the production domain, branch and preview URLs without extra config.
+const vercelHosts = [
+  env("VERCEL_PROJECT_PRODUCTION_URL"),
+  env("VERCEL_BRANCH_URL"),
+  env("VERCEL_URL"),
+].filter((h): h is string => Boolean(h));
+
+if (vercelHosts.length > 0 && !env("BETTER_AUTH_SECRET")) {
+  console.error(
+    "[auth] BETTER_AUTH_SECRET is not set — every server instance invents its own " +
+      "secret, so sign-ins break at random. Set it in the Vercel environment variables.",
+  );
+}
 
 // This app's own Better Auth origin. When deployed the deployer injects the
 // public URL. In the sandbox live preview there's no fixed URL (each preview gets
@@ -91,7 +132,8 @@ export const authConfigured =
 // it derives the origin per-request from the (proxied) host, validated against the
 // preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
 // the broker's preview client accepts.
-const explicitBaseURL = env("BETTER_AUTH_URL");
+// SITE_URL (the public address, e.g. a custom domain) works as well.
+const explicitBaseURL = env("BETTER_AUTH_URL") ?? env("SITE_URL");
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
@@ -106,24 +148,46 @@ const LOCAL_DEV_ORIGINS: string[] = [
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
   // (not only the preview wildcard).
-  allowedHosts: [...previewAllowedHosts, "localhost", "127.0.0.1", "[::1]"],
+  allowedHosts: [...previewAllowedHosts, ...vercelHosts, "localhost", "127.0.0.1", "[::1]"],
   // `auto` → trust both http:// and https:// expansions of allowedHosts
   // (preview is https; local dev is http).
   protocol: "auto" as const,
-  fallback: "http://localhost:8080",
+  fallback: vercelHosts[0] ? `https://${vercelHosts[0]}` : "http://localhost:8080",
 };
 
 // Origins Better Auth accepts on credentialed POSTs (sign-up/sign-in, etc.).
 // Missing entries here surface as FORBIDDEN "Invalid origin".
-const trustedOrigins: string[] = explicitBaseURL
-  ? [explicitBaseURL, ...LOCAL_DEV_ORIGINS]
+const vercelOrigins = vercelHosts.map((host) => `https://${host}`);
+const staticTrustedOrigins: string[] = explicitBaseURL
+  ? [explicitBaseURL, ...vercelOrigins, ...LOCAL_DEV_ORIGINS]
   : [
+      ...vercelOrigins,
       // Host wildcards (matched against Origin's host)
       ...previewAllowedHosts,
       // Full-origin wildcards (matched against Origin)
       ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
       ...LOCAL_DEV_ORIGINS,
     ];
+
+/**
+ * Also trust a request whose Origin is the very host it was sent to (a
+ * same-origin request, e.g. on a custom domain nobody listed). A cross-site
+ * attacker cannot pass this: their page's Origin never matches our host.
+ */
+function sameHostOrigin(request?: Request): string[] {
+  const origin = request?.headers.get("origin");
+  const host = (request?.headers.get("x-forwarded-host") ?? request?.headers.get("host"))
+    ?.split(",")[0]
+    ?.trim();
+  if (!origin || !host) return [];
+  try {
+    return new URL(origin).host === host ? [origin] : [];
+  } catch {
+    return [];
+  }
+}
+
+const trustedOrigins = (request?: Request) => [...staticTrustedOrigins, ...sameHostOrigin(request)];
 
 const databaseUrl = env("DATABASE_URL");
 
@@ -196,6 +260,7 @@ export const auth = betterAuth({
       enabled: true,
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
+        ...enabledSocialProviders,
         GATE_PROVIDER_ID,
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
@@ -209,6 +274,8 @@ export const auth = betterAuth({
   // window and reduces auth flicker. See the `auth` skill for the full
   // flicker-prevention guidance (gate on `isPending`; SSR the session).
   session: { cookieCache: { enabled: true, maxAge: 300 } },
+
+  socialProviders,
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),

@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { useQuery } from "@tanstack/react-query";
+import { createServerFn } from "@tanstack/react-start";
+import { authClient, authEnabled, signInWith, visibleSocialProviders } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +12,21 @@ import { LegalLinks } from "@/components/legal-page";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
+/** Which of Google / Discord have their OAuth credentials configured. */
+const getSignInProviders = createServerFn({ method: "GET" }).handler(async () => {
+  const { enabledSocialProviders } = await import("@/lib/auth/server");
+  return enabledSocialProviders;
+});
+
+/** Better Auth sends failed OAuth sign-ins back here as `?error=<code>`. */
+function oauthErrorMessage(code: string): string {
+  if (code === "access_denied") return "Anmeldung abgebrochen.";
+  if (code === "account_not_linked") {
+    return "Diese E-Mail gehört schon zu einem anderen Konto. Melde dich damit an.";
+  }
+  return `Anmeldung fehlgeschlagen (${code}). Bitte nochmal versuchen.`;
+}
+
 function Login() {
   const { user, isPending } = useCurrentUserState();
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -18,6 +35,17 @@ function Login() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const providers = useQuery({
+    queryKey: ["sign-in-providers"],
+    queryFn: () => getSignInProviders(),
+    enabled: authEnabled,
+  });
+  const socialProviders = visibleSocialProviders(providers.data ?? []);
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code) setError(oauthErrorMessage(code));
+  }, []);
 
   if (isPending) return <Splash />;
   if (user) return <Navigate to="/" />;
@@ -57,17 +85,22 @@ function Login() {
         <Link to="/" className="font-display text-3xl tracking-tight">
           Furry Gallery
         </Link>
-        <p className="mt-2 text-sm text-fg-muted">Eintritt ab 18. Google, X oder E-Mail.</p>
+        <p className="mt-2 text-sm text-fg-muted">Eintritt ab 18. Google, Discord oder E-Mail.</p>
 
         {authEnabled ? (
           <div className="mt-8 space-y-3">
-            {GROK_PROVIDERS.map((p) => (
+            {socialProviders.map((p) => (
               <Button
-                key={p.providerId}
+                key={p.id}
                 type="button"
                 variant="secondary"
                 className="w-full"
-                onClick={() => signIn(p.providerId, { callbackURL: "/" })}
+                onClick={() => {
+                  setError(null);
+                  signInWith(p, { callbackURL: "/", errorCallbackURL: "/login" }).catch((err) =>
+                    setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen."),
+                  );
+                }}
               >
                 Weiter mit {p.label}
               </Button>

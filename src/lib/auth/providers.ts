@@ -27,5 +27,23 @@ export type GrokProvider = {
 
 export const GROK_PROVIDERS: readonly GrokProvider[] = [
   { providerId: "grok-google", idp: "google", label: "Google" },
-  { providerId: "grok-x", idp: "twitter", label: "X" },
+];
+
+/**
+ * Direct sign-in with this app's OWN OAuth apps (Better Auth `socialProviders`),
+ * used wherever the Grok broker is not available — e.g. a self-hosted Vercel
+ * deploy. A provider is only offered when its client id + secret are set
+ * (see `server.ts`). `brokerId` lets the Grok live preview keep using the broker.
+ */
+export type SocialProviderId = "google" | "discord";
+
+export type SocialProvider = {
+  id: SocialProviderId;
+  label: string;
+  brokerId?: string;
+};
+
+export const SOCIAL_PROVIDERS: readonly SocialProvider[] = [
+  { id: "google", label: "Google", brokerId: "grok-google" },
+  { id: "discord", label: "Discord" },
 ];
