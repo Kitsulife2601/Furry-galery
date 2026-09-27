@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { compressImageFile } from "@/lib/vela/compress-image";
-import { getMyProfile, updateAvatar, updateProfile } from "@/lib/vela/server";
+import { MEDIA_LIMITS, formatMb } from "@/lib/vela/media-limits";
+import { getMyProfile, updateAvatar, updateBanner, updateProfile } from "@/lib/vela/server";
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { BackgroundPicker } from "@/components/background-picker";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -26,6 +27,7 @@ function Settings() {
   const [relationshipStatus, setRelationshipStatus] = useState("single");
   const [backgroundId, setBackgroundId] = useState("midnight");
   const [busy, setBusy] = useState(false);
+  const [bannerBusy, setBannerBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -76,12 +78,37 @@ function Settings() {
   async function onAvatar(file: File | undefined) {
     if (!file) return;
     try {
-      const dataUrl = await compressImageFile(file, { maxEdge: 512, quality: 0.78 });
+      const dataUrl = await compressImageFile(file, {
+        maxEdge: 512,
+        quality: 0.78,
+        keepGifUpTo: MEDIA_LIMITS.avatar,
+      });
       await updateAvatar({ data: { dataUrl } });
       await invalidateOwnProfile();
       toast.success("Portrait aktualisiert.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Portrait fehlgeschlagen.");
+    }
+  }
+
+  async function onBanner(file: File | undefined | null) {
+    if (file === undefined) return;
+    setBannerBusy(true);
+    try {
+      const dataUrl = file
+        ? await compressImageFile(file, {
+            maxEdge: 1600,
+            quality: 0.8,
+            keepGifUpTo: MEDIA_LIMITS.banner,
+          })
+        : null;
+      await updateBanner({ data: { dataUrl } });
+      await invalidateOwnProfile();
+      toast.success(file ? "Banner aktualisiert." : "Banner entfernt.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Banner fehlgeschlagen.");
+    } finally {
+      setBannerBusy(false);
     }
   }
 
@@ -110,9 +137,44 @@ function Settings() {
           <p className="font-medium">{profile.displayName}</p>
           <p className="text-sm text-fg-muted">@{profile.handle}</p>
           <p className="mt-1 text-xs text-fg-subtle">
-            {profile.age} Jahre · Portrait tippen zum Ändern
+            {profile.age} Jahre · Portrait tippen zum Ändern (auch GIF)
           </p>
         </div>
+      </section>
+
+      <section className="mt-8 space-y-3">
+        <p className="text-sm font-medium">Banner</p>
+        <div className="bg-swatch relative h-28 overflow-hidden rounded-xl" data-bg={backgroundId}>
+          {profile.bannerUrl ? (
+            <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+          ) : null}
+        </div>
+        <div className="flex gap-3">
+          <label className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border border-border bg-bg-elevated px-4 text-sm">
+            {bannerBusy ? "Lädt…" : profile.bannerUrl ? "Banner ändern" : "Banner-Bild wählen"}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              disabled={bannerBusy}
+              onChange={(e) => void onBanner(e.target.files?.[0])}
+            />
+          </label>
+          {profile.bannerUrl ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={bannerBusy}
+              onClick={() => void onBanner(null)}
+            >
+              Entfernen
+            </Button>
+          ) : null}
+        </div>
+        <p className="text-xs text-fg-subtle">
+          Bild oder GIF bis {formatMb(MEDIA_LIMITS.banner)}. Ohne Banner wird die Farbe unten
+          genutzt.
+        </p>
       </section>
 
       <form
@@ -153,7 +215,7 @@ function Settings() {
           </select>
         </div>
         <div className="space-y-2">
-          <Label>Hintergrund</Label>
+          <Label>Hintergrundfarbe</Label>
           <BackgroundPicker value={backgroundId} onChange={setBackgroundId} />
         </div>
         <Button type="submit" className="w-full" disabled={busy}>

@@ -5,6 +5,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { ageFromBirthdate, isAdultBirthdate } from "./age";
 import { isBackgroundId } from "./backgrounds";
 import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
+import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
 import type { Fsk18Status, PostCard, Profile, RelationshipStatus, ReportReason } from "./types";
 import { REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
 
@@ -24,6 +25,7 @@ type ProfileRow = {
   birthdate: string;
   relationship_status: string;
   avatar_url: string | null;
+  banner_url: string | null;
   background_id: string;
   created_at: string;
 };
@@ -50,7 +52,10 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
   const sql = await getSql();
   const rows = await sql<ProfileRow>`
     select user_id, display_name, handle, bio, birthdate::text as birthdate,
-           relationship_status, avatar_url, background_id, created_at::text as created_at
+           relationship_status,
+           case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
+           case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
+           background_id, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -85,6 +90,7 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
       ? row.relationship_status
       : "single",
     avatarUrl: row.avatar_url,
+    bannerUrl: row.banner_url,
     backgroundId: row.background_id,
     createdAt: asTime(row.created_at),
     postCount: posts[0]?.n ?? 0,
@@ -248,15 +254,37 @@ export const updateProfile = createServerFn({ method: "POST" })
 
 export const updateAvatar = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ dataUrl: z.string().min(20).max(700_000) }))
+  .validator(z.object({ dataUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.avatar)) }))
   .handler(async ({ context, data }): Promise<Profile> => {
     await requireAdult(context.userId);
-    if (!data.dataUrl.startsWith("data:image/")) {
-      throw new Error("Nur Bilder sind erlaubt.");
+    if (!isImageDataUrl(data.dataUrl)) {
+      throw new Error("Nur Bilder (JPG, PNG, GIF, WebP) sind erlaubt.");
     }
     const sql = await getSql();
     await sql`
-      update profiles set avatar_url = ${data.dataUrl} where user_id = ${context.userId}
+      update profiles set avatar_url = ${data.dataUrl}, avatar_version = avatar_version + 1
+      where user_id = ${context.userId}
+    `;
+    const row = await loadProfileRow(context.userId);
+    if (!row) throw new Error("Profil nicht gefunden.");
+    return toPublicProfile(row, context.userId);
+  });
+
+/** Set (data URL) or remove (null) the profile banner image. */
+export const updateBanner = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({ dataUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.banner)).nullable() }),
+  )
+  .handler(async ({ context, data }): Promise<Profile> => {
+    await requireAdult(context.userId);
+    if (data.dataUrl !== null && !isImageDataUrl(data.dataUrl)) {
+      throw new Error("Nur Bilder (JPG, PNG, GIF, WebP) sind erlaubt.");
+    }
+    const sql = await getSql();
+    await sql`
+      update profiles set banner_url = ${data.dataUrl}, banner_version = banner_version + 1
+      where user_id = ${context.userId}
     `;
     const row = await loadProfileRow(context.userId);
     if (!row) throw new Error("Profil nicht gefunden.");
@@ -271,7 +299,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       select
         p.id,
         p.user_id,
-        p.image_url,
+        '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
         p.caption,
@@ -280,7 +308,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         exists(select 1 from likes l where l.post_id = p.id and l.user_id = ${viewerId}) as liked,
         pr.display_name,
         pr.handle,
-        pr.avatar_url,
+        case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate
       from posts p
@@ -300,7 +328,7 @@ export const listExplore = createServerFn({ method: "GET" }).handler(
       select
         p.id,
         p.user_id,
-        p.image_url,
+        '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
         p.caption,
@@ -309,7 +337,7 @@ export const listExplore = createServerFn({ method: "GET" }).handler(
         exists(select 1 from likes l where l.post_id = p.id and l.user_id = ${viewerId}) as liked,
         pr.display_name,
         pr.handle,
-        pr.avatar_url,
+        case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate
       from posts p
@@ -334,7 +362,10 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
     const sql = await getSql();
     const rows = await sql<ProfileRow>`
       select user_id, display_name, handle, bio, birthdate::text as birthdate,
-             relationship_status, avatar_url, background_id, created_at::text as created_at
+             relationship_status,
+           case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
+           case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
+           background_id, created_at::text as created_at
       from profiles
       order by created_at asc
       limit 16
@@ -361,7 +392,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
       select
         p.id,
         p.user_id,
-        p.image_url,
+        '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
         p.caption,
@@ -370,7 +401,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         exists(select 1 from likes l where l.post_id = p.id and l.user_id = ${viewerId}) as liked,
         pr.display_name,
         pr.handle,
-        pr.avatar_url,
+        case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate
       from posts p
@@ -388,7 +419,10 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
     const sql = await getSql();
     const rows = await sql<ProfileRow>`
       select user_id, display_name, handle, bio, birthdate::text as birthdate,
-             relationship_status, avatar_url, background_id, created_at::text as created_at
+             relationship_status,
+           case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
+           case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
+           background_id, created_at::text as created_at
       from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
@@ -400,7 +434,7 @@ export const createPost = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
-      imageUrl: z.string().min(20).max(700_000),
+      imageUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.post)),
       caption: z.string().trim().max(180),
       nsfw: z.boolean().optional().default(false),
       // Tiny thumbnail (~16px). The size cap keeps it unrecognisable by construction.
@@ -409,8 +443,8 @@ export const createPost = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }): Promise<PostCard> => {
     await requireAdult(context.userId);
-    if (!data.imageUrl.startsWith("data:image/")) {
-      throw new Error("Nur Bilder sind erlaubt.");
+    if (!isImageDataUrl(data.imageUrl)) {
+      throw new Error("Nur Bilder (JPG, PNG, GIF, WebP) sind erlaubt.");
     }
     const nsfw = data.nsfw ?? false;
     if (nsfw) {
@@ -431,7 +465,7 @@ export const createPost = createServerFn({ method: "POST" })
       select
         p.id,
         p.user_id,
-        p.image_url,
+        '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
         p.caption,
@@ -440,7 +474,7 @@ export const createPost = createServerFn({ method: "POST" })
         false as liked,
         pr.display_name,
         pr.handle,
-        pr.avatar_url,
+        case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate
       from posts p
@@ -564,7 +598,10 @@ export const searchProfiles = createServerFn({ method: "GET" })
     const sql = await getSql();
     const rows = await sql<ProfileRow>`
       select user_id, display_name, handle, bio, birthdate::text as birthdate,
-             relationship_status, avatar_url, background_id, created_at::text as created_at
+             relationship_status,
+           case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
+           case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
+           background_id, created_at::text as created_at
       from profiles
       where handle like ${contains} or lower(display_name) like ${contains}
       order by (handle = ${q}) desc, (handle like ${prefix}) desc,

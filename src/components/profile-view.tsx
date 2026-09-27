@@ -10,6 +10,7 @@ import { relationshipLabel, type PostCard, type Profile } from "@/lib/vela/types
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GalleryGrid } from "@/components/gallery-grid";
+import { cn } from "@/lib/utils";
 
 export function ProfileView({ profile, posts }: { profile: Profile; posts: PostCard[] }) {
   const queryClient = useQueryClient();
@@ -43,10 +44,20 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
 
   return (
     <div className="mx-auto max-w-lg pb-8">
-      <div className="bg-swatch h-20 w-full md:rounded-b-2xl" data-bg={profile.backgroundId} />
+      <div
+        className={cn(
+          "bg-swatch w-full overflow-hidden md:rounded-b-2xl",
+          profile.bannerUrl ? "h-40 md:h-48" : "h-20",
+        )}
+        data-bg={profile.backgroundId}
+      >
+        {profile.bannerUrl ? (
+          <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
+        ) : null}
+      </div>
       <div className="px-5">
-        <div className="relative z-10 -mt-12 flex items-end justify-between">
-          <div className="size-24 overflow-hidden rounded-full border-4 border-bg bg-bg-subtle shadow-lg">
+        <div className="relative z-10 -mt-14 flex items-end justify-between">
+          <div className="size-28 overflow-hidden rounded-full border-4 border-bg bg-bg-subtle shadow-xl ring-2 ring-accent/70">
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (

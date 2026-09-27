@@ -5,6 +5,7 @@ import { ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { compressImageFile } from "@/lib/vela/compress-image";
+import { MEDIA_LIMITS } from "@/lib/vela/media-limits";
 import { FittedImage } from "@/components/fitted-image";
 import { createPost } from "@/lib/vela/server";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ function Upload() {
     if (!file) return;
     try {
       const [dataUrl, tiny] = await Promise.all([
-        compressImageFile(file, { maxEdge: 1080, quality: 0.72 }),
+        compressImageFile(file, { maxEdge: 1080, quality: 0.72, keepGifUpTo: MEDIA_LIMITS.post }),
         // What unverified visitors get for FSK18 posts: 16px, shown blurred.
         compressImageFile(file, { maxEdge: 16, quality: 0.6 }),
       ]);
@@ -78,7 +79,7 @@ function Upload() {
         ) : (
           <span className="flex flex-col items-center gap-3 text-fg-muted">
             <ImagePlus className="size-8" />
-            <span className="text-sm">Bild wählen</span>
+            <span className="text-sm">Bild oder GIF wählen</span>
           </span>
         )}
         <input
