@@ -9,6 +9,7 @@ import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
 import { isAdminUser } from "./admin";
 import { deletePostById, dismissReportsFor, setBannedByHandle } from "./moderation";
 import { notify } from "./notifications";
+import { isBlobVideoUrl } from "./video";
 import type {
   Fsk18Status,
   PostCard,
@@ -137,6 +138,7 @@ type FeedRow = {
   user_id: string;
   image_url: string;
   preview_url: string | null;
+  video_url: string | null;
   nsfw: boolean;
   tags: string[] | null;
   comment_count: number;
@@ -173,6 +175,7 @@ function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[
       id: Number(row.id),
       userId: row.user_id,
       imageUrl: locked ? (row.preview_url ?? "") : row.image_url,
+      videoUrl: locked ? null : row.video_url,
       caption: row.caption,
       createdAt: asTime(row.created_at),
       nsfw: Boolean(row.nsfw),
@@ -360,6 +363,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         p.user_id,
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
+        p.video_url,
         p.nsfw,
         p.tags,
         (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
@@ -421,6 +425,7 @@ export const listExplore = createServerFn({ method: "GET" })
         p.user_id,
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
+        p.video_url,
         p.nsfw,
         p.tags,
         (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
@@ -488,6 +493,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         p.user_id,
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
+        p.video_url,
         p.nsfw,
         p.tags,
         (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
@@ -536,12 +542,17 @@ export const createPost = createServerFn({ method: "POST" })
       tags: z.array(z.enum(POST_TAG_IDS)).max(3).optional().default([]),
       // Tiny thumbnail (~16px). The size cap keeps it unrecognisable by construction.
       previewUrl: z.string().max(MAX_PREVIEW_CHARS).optional(),
+      // Video posts: the file is already in Vercel Blob; imageUrl is its poster frame.
+      videoUrl: z.string().max(500).optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<PostCard> => {
     await requireAdult(context.userId);
     if (!isImageDataUrl(data.imageUrl)) {
       throw new Error("Nur Bilder (JPG, PNG, GIF, WebP) sind erlaubt.");
+    }
+    if (data.videoUrl && !isBlobVideoUrl(data.videoUrl)) {
+      throw new Error("Ungültige Video-Adresse.");
     }
     const nsfw = data.nsfw ?? false;
     if (nsfw) {
@@ -552,9 +563,9 @@ export const createPost = createServerFn({ method: "POST" })
     const previewUrl = nsfw ? data.previewUrl : null;
     const sql = await getSql();
     const inserted = await sql<{ id: number }>`
-      insert into posts (user_id, image_url, caption, nsfw, preview_url, tags)
+      insert into posts (user_id, image_url, caption, nsfw, preview_url, tags, video_url)
       values (${context.userId}, ${data.imageUrl}, ${data.caption}, ${nsfw}, ${previewUrl},
-              ${[...new Set(data.tags ?? [])]})
+              ${[...new Set(data.tags ?? [])]}, ${data.videoUrl ?? null})
       returning id
     `;
     const id = inserted[0]?.id;
@@ -565,6 +576,7 @@ export const createPost = createServerFn({ method: "POST" })
         p.user_id,
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
+        p.video_url,
         p.nsfw,
         p.tags,
         (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
@@ -592,7 +604,11 @@ export const deletePost = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdult(context.userId);
     const sql = await getSql();
-    await sql`delete from posts where id = ${data.id} and user_id = ${context.userId}`;
+    const removed = await sql<{ video_url: string | null }>`
+      delete from posts where id = ${data.id} and user_id = ${context.userId} returning video_url
+    `;
+    const { deleteVideoFile } = await import("./moderation");
+    await deleteVideoFile(removed[0]?.video_url);
     return { ok: true };
   });
 
@@ -1287,3 +1303,8 @@ export const setFsk18Approval = createServerFn({ method: "POST" })
     if (!result) throw new Error("Profil nicht gefunden.");
     return result;
   });
+
+/** Whether video uploads are set up (Vercel Blob store connected). */
+export const videoUploadEnabled = createServerFn({ method: "GET" }).handler(
+  async (): Promise<boolean> => Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim()),
+);

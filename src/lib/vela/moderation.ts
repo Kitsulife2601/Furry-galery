@@ -12,10 +12,11 @@ function siteUrl(): string {
 
 export async function deletePostById(postId: number): Promise<void> {
   const sql = await getSql();
-  const rows = await sql<{ user_id: string; caption: string }>`
-    delete from posts where id = ${postId} returning user_id, caption
+  const rows = await sql<{ user_id: string; caption: string; video_url: string | null }>`
+    delete from posts where id = ${postId} returning user_id, caption, video_url
   `;
   const post = rows[0];
+  await deleteVideoFile(post?.video_url);
   if (post) {
     await notifySystem(
       post.user_id,
@@ -136,4 +137,15 @@ export async function setManualFsk18ByHandle(
       : "Die FSK-18-Freischaltung wurde vom Team zurückgenommen.",
   );
   return { displayName: row.display_name };
+}
+
+/** Remove a post's video from Vercel Blob; a failure only leaves an orphaned file. */
+export async function deleteVideoFile(url: string | null | undefined): Promise<void> {
+  if (!url || !process.env.BLOB_READ_WRITE_TOKEN?.trim()) return;
+  try {
+    const { del } = await import("@vercel/blob");
+    await del(url);
+  } catch (err) {
+    console.error("[video] delete failed", err);
+  }
 }

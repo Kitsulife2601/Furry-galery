@@ -39,7 +39,12 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
   }
 
   async function remove() {
-    if (!window.confirm("Dieses Bild endgültig löschen?")) return;
+    if (
+      !window.confirm(
+        post.videoUrl ? "Dieses Video endgültig löschen?" : "Dieses Bild endgültig löschen?",
+      )
+    )
+      return;
     setDeleting(true);
     try {
       await deletePost({ data: { id: post.id } });
@@ -80,11 +85,23 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
             </div>
           ) : (
             <div className="relative">
-              <img
-                src={post.imageUrl}
-                alt={post.caption || ""}
-                className="max-h-[60dvh] w-full bg-bg object-contain"
-              />
+              {post.videoUrl ? (
+                <video
+                  src={post.videoUrl}
+                  poster={post.imageUrl}
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  className="max-h-[60dvh] w-full bg-bg object-contain"
+                />
+              ) : (
+                <img
+                  src={post.imageUrl}
+                  alt={post.caption || ""}
+                  className="max-h-[60dvh] w-full bg-bg object-contain"
+                />
+              )}
               {post.nsfw ? <Fsk18Badge locked={false} /> : null}
             </div>
           )}

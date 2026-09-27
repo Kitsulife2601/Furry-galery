@@ -23,6 +23,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SettingsPanel } from "@/components/settings-panel";
+import { cn } from "@/lib/utils";
 
 export function AdminSections() {
   return (
@@ -36,8 +38,14 @@ export function AdminSections() {
   );
 }
 
-/** Popup opened by the paw icon (top right). Closes on Escape, backdrop click or navigation. */
-export function ModerationDialog({ onClose }: { onClose: () => void }) {
+type PawTab = "settings" | "moderation";
+
+/**
+ * Popup opened by the paw icon (top right): settings for everyone, plus
+ * moderation for admins. Closes on Escape, backdrop click or navigation.
+ */
+export function PawDialog({ isAdmin, onClose }: { isAdmin: boolean; onClose: () => void }) {
+  const [tab, setTab] = useState<PawTab>("settings");
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   const [openedAt] = useState(pathname);
   useEffect(() => {
@@ -63,16 +71,41 @@ export function ModerationDialog({ onClose }: { onClose: () => void }) {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="moderation-title"
+      aria-labelledby="paw-title"
     >
       <div
         className="relative flex h-dvh w-full max-w-2xl flex-col overflow-hidden border-border bg-bg-elevated sm:h-[88dvh] sm:rounded-2xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h2 id="moderation-title" className="font-display text-2xl">
-            Moderation
-          </h2>
+          {isAdmin ? (
+            <div role="tablist" className="flex gap-1" id="paw-title" aria-label="Menü">
+              {(
+                [
+                  ["settings", "Einstellungen"],
+                  ["moderation", "Moderation"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                  className={cn(
+                    "h-10 rounded-lg px-3 font-display text-lg",
+                    tab === id ? "bg-bg-subtle text-fg" : "text-fg-muted hover:text-fg",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <h2 id="paw-title" className="font-display text-2xl">
+              Einstellungen
+            </h2>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -83,7 +116,7 @@ export function ModerationDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 pb-10 [&>section:first-child]:mt-4">
-          <AdminSections />
+          {isAdmin && tab === "moderation" ? <AdminSections /> : <SettingsPanel embedded />}
         </div>
       </div>
     </div>

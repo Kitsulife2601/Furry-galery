@@ -11,6 +11,7 @@ import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { FittedImage } from "@/components/fitted-image";
+import { FeedVideo } from "@/components/post-video";
 import { PostViewer } from "@/components/post-viewer";
 import { cn } from "@/lib/utils";
 
@@ -96,11 +97,20 @@ export function FeedCard({ post }: { post: PostCard }) {
             onClick={onImageClick}
             aria-label="Doppeltippen zum Liken"
           >
-            <FittedImage
-              src={post.imageUrl}
-              alt={post.caption || `Bild von ${post.author.displayName}`}
-              className="h-full w-full"
-            />
+            {post.videoUrl ? (
+              <FeedVideo
+                src={post.videoUrl}
+                poster={post.imageUrl}
+                label={post.caption || `Video von ${post.author.displayName}`}
+                className="h-full w-full"
+              />
+            ) : (
+              <FittedImage
+                src={post.imageUrl}
+                alt={post.caption || `Bild von ${post.author.displayName}`}
+                className="h-full w-full"
+              />
+            )}
           </button>
         )}
         {post.nsfw ? <Fsk18Badge locked={post.locked} /> : null}

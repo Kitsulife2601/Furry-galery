@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
+import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ImagePlus } from "lucide-react";
@@ -9,7 +11,10 @@ import { MEDIA_LIMITS } from "@/lib/vela/media-limits";
 import { POST_TAGS, type PostTag } from "@/lib/vela/types";
 import { cn } from "@/lib/utils";
 import { FittedImage } from "@/components/fitted-image";
-import { createPost } from "@/lib/vela/server";
+import { createPost, videoUploadEnabled } from "@/lib/vela/server";
+import { VIDEO_MAX_BYTES, VIDEO_TYPES } from "@/lib/vela/video";
+import { videoPoster } from "@/lib/vela/video-poster";
+import { formatMb } from "@/lib/vela/media-limits";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,11 +30,39 @@ function Upload() {
   const [nsfw, setNsfw] = useState(false);
   const [tags, setTags] = useState<PostTag[]>([]);
   const [busy, setBusy] = useState(false);
+  const [video, setVideo] = useState<{ file: File; url: string } | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const videosOn = useQuery({ queryKey: ["video-upload"], queryFn: () => videoUploadEnabled() });
   const { profile } = useAppSession();
   const canPostNsfw = Boolean(profile?.fsk18?.verified);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
+    if (video) URL.revokeObjectURL(video.url);
+    setVideo(null);
+    if (file.type.startsWith("video/")) {
+      if (!(VIDEO_TYPES as readonly string[]).includes(file.type)) {
+        toast.error("Nur MP4, WebM oder MOV.");
+        return;
+      }
+      if (file.size > VIDEO_MAX_BYTES) {
+        toast.error(`Video zu groß (max. ${formatMb(VIDEO_MAX_BYTES)}).`);
+        return;
+      }
+      if (videosOn.data === false) {
+        toast.error("Video-Upload ist noch nicht eingerichtet.");
+        return;
+      }
+      try {
+        const { poster, tiny } = await videoPoster(file);
+        setPreview(poster);
+        setThumb(tiny);
+        setVideo({ file, url: URL.createObjectURL(file) });
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Video unlesbar.");
+      }
+      return;
+    }
     try {
       const [dataUrl, tiny] = await Promise.all([
         compressImageFile(file, { maxEdge: 1080, quality: 0.72, keepGifUpTo: MEDIA_LIMITS.post }),
@@ -47,9 +80,22 @@ function Upload() {
     if (!preview) return;
     setBusy(true);
     try {
+      let videoUrl: string | undefined;
+      if (video) {
+        setProgress(0);
+        const ext = video.file.name.split(".").pop()?.toLowerCase() || "mp4";
+        const blob = await upload(`videos/video.${ext}`, video.file, {
+          access: "public",
+          handleUploadUrl: "/api/upload",
+          contentType: video.file.type,
+          onUploadProgress: (e) => setProgress(Math.round(e.percentage)),
+        });
+        videoUrl = blob.url;
+      }
       await createPost({
         data: {
           imageUrl: preview,
+          videoUrl,
           caption,
           nsfw,
           tags,
@@ -68,6 +114,7 @@ function Upload() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload fehlgeschlagen.");
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -75,24 +122,52 @@ function Upload() {
     <div className="mx-auto max-w-md px-5 py-8">
       <p className="text-xs tracking-[0.22em] text-fg-subtle uppercase">Neu</p>
       <h1 className="mt-1 font-display text-3xl">Hochladen</h1>
-      <p className="mt-2 text-sm text-fg-muted">Ein Bild, eine Zeile. Kein Lärm.</p>
+      <p className="mt-2 text-sm text-fg-muted">Ein Bild oder Video, eine Zeile. Kein Lärm.</p>
 
       <label className="mt-8 flex aspect-3/4 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border-strong bg-bg-elevated">
-        {preview ? (
+        {video ? (
+          <video
+            src={video.url}
+            poster={preview ?? undefined}
+            controls
+            muted
+            loop
+            playsInline
+            className="h-full w-full bg-bg object-contain"
+          />
+        ) : preview ? (
           <FittedImage src={preview} alt="Vorschau" className="h-full w-full" />
         ) : (
           <span className="flex flex-col items-center gap-3 text-fg-muted">
             <ImagePlus className="size-8" />
-            <span className="text-sm">Bild oder GIF wählen</span>
+            <span className="text-sm">Bild, GIF oder Video wählen</span>
+            <span className="text-xs text-fg-subtle">
+              Videos: MP4, WebM, MOV bis {formatMb(VIDEO_MAX_BYTES)}
+            </span>
           </span>
         )}
         <input
           type="file"
-          accept="image/*"
+          accept={videosOn.data === false ? "image/*" : `image/*,${VIDEO_TYPES.join(",")}`}
           className="sr-only"
           onChange={(e) => void onFile(e.target.files?.[0])}
         />
       </label>
+
+      {video ? (
+        <button
+          type="button"
+          onClick={() => {
+            URL.revokeObjectURL(video.url);
+            setVideo(null);
+            setPreview(null);
+            setThumb(null);
+          }}
+          className="mt-2 text-sm text-fg-muted underline underline-offset-4"
+        >
+          Anderes auswählen
+        </button>
+      ) : null}
 
       <div className="mt-5 space-y-2">
         <Label htmlFor="caption">Caption</Label>
@@ -141,8 +216,8 @@ function Upload() {
           <span>
             <span className="block text-sm font-medium">FSK 18</span>
             <span className="block text-xs text-fg-muted">
-              Für alle, die nicht über Discord verifiziert sind, wird das Bild unkenntlich gemacht.
-              Du selbst siehst es immer.
+              Für alle, die nicht über Discord verifiziert sind, wird der Beitrag unkenntlich
+              gemacht. Du selbst siehst es immer.
             </span>
           </span>
         </label>
@@ -163,7 +238,11 @@ function Upload() {
         disabled={!preview || busy}
         onClick={() => void publish()}
       >
-        {busy ? "Wird veröffentlicht…" : "Veröffentlichen"}
+        {busy
+          ? progress !== null && progress < 100
+            ? `Video wird hochgeladen… ${progress}%`
+            : "Wird veröffentlicht…"
+          : "Veröffentlichen"}
       </Button>
     </div>
   );
