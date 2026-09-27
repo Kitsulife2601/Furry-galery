@@ -315,31 +315,42 @@ export const updateBanner = createServerFn({ method: "POST" })
   });
 
 /**
- * "Für dich" ranking. Every post gets a score from:
- *  - how much the viewer engaged with its categories (like 3, comment 4, view 1),
- *  - how much they engaged with its author, and whether they follow them,
- *  - its popularity (likes) and freshness,
- * minus a penalty once they have already seen it. Guests get fresh + popular.
+ * "Für dich" ranking, driven by likes ("people who like what you like also like …"):
+ *  - posts liked by members who liked the same posts as the viewer,
+ *  - authors the viewer engages with (like 3, comment 4, view 1) or follows,
+ *  - popularity (likes) and freshness,
+ * minus a penalty for posts already seen or liked. Guests get fresh + popular.
  */
 export const listFeed = createServerFn({ method: "GET" }).handler(async (): Promise<PostCard[]> => {
   const viewerId = (await optionalViewerId()) ?? "";
   const canSeeNsfw = await isFsk18Verified(viewerId || null);
   const sql = await getSql();
   const rows = await sql<FeedRow>`
-      with signals as (
-        select p.tags, p.user_id as author, 3.0 as w
+      with my_likes as (
+        select post_id from likes where user_id = ${viewerId}
+      ),
+      -- Members with the same taste: how many of the viewer's liked posts they liked too.
+      similar_members as (
+        select l.user_id, count(*) as overlap
+        from likes l join my_likes m on m.post_id = l.post_id
+        where l.user_id <> ${viewerId}
+        group by l.user_id
+      ),
+      -- What those members liked, weighted by how similar they are.
+      liked_by_similar as (
+        select l.post_id, sum(sm.overlap) as score
+        from likes l join similar_members sm on sm.user_id = l.user_id
+        group by l.post_id
+      ),
+      signals as (
+        select p.user_id as author, 3.0 as w
         from likes l join posts p on p.id = l.post_id where l.user_id = ${viewerId}
         union all
-        select p.tags, p.user_id, 4.0
+        select p.user_id, 4.0
         from comments c join posts p on p.id = c.post_id where c.user_id = ${viewerId}
         union all
-        select p.tags, p.user_id, 1.0
+        select p.user_id, 1.0
         from post_views v join posts p on p.id = v.post_id where v.user_id = ${viewerId}
-      ),
-      tag_affinity as (
-        select t.tag, sum(s.w) as score
-        from signals s cross join lateral unnest(s.tags) as t(tag)
-        group by t.tag
       ),
       author_affinity as (
         select author, sum(w) as score from signals group by author
@@ -365,7 +376,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null
       order by (
-          1.5 * ln(1 + coalesce((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags)), 0))
+          2.0 * ln(1 + coalesce((select ls.score from liked_by_similar ls where ls.post_id = p.id), 0))
         + 1.0 * ln(1 + coalesce((select aa.score from author_affinity aa where aa.author = p.user_id), 0))
         + case when exists(select 1 from follows f
                            where f.follower_id = ${viewerId} and f.following_id = p.user_id)
@@ -376,6 +387,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
                            where v.user_id = ${viewerId} and v.post_id = p.id)
                then 2.5 else 0 end
         - case when p.user_id = ${viewerId} then 1.0 else 0 end
+        - case when exists(select 1 from my_likes ml where ml.post_id = p.id) then 1.5 else 0 end
       ) desc, p.created_at desc
       limit 60
     `;
