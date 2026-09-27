@@ -25,16 +25,21 @@ export const LEGAL_LINKS = [
   { to: "/datenschutz", label: "Datenschutz" },
 ] as const;
 
-/** Small footer row with the legal links; shown on gates, login and settings. */
-export function LegalLinks({ className = "" }: { className?: string }) {
+/** Site-wide footer: copyright plus Impressum and Datenschutz. */
+export function SiteFooter({ className = "" }: { className?: string }) {
   return (
-    <nav className={`flex justify-center gap-4 text-xs text-fg-subtle ${className}`}>
-      {LEGAL_LINKS.map((l) => (
-        <Link key={l.to} to={l.to} className="underline-offset-4 hover:underline">
-          {l.label}
-        </Link>
-      ))}
-    </nav>
+    <footer
+      className={`flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border px-5 py-5 text-xs text-fg-subtle md:justify-between ${className}`}
+    >
+      <span>© {new Date().getFullYear()} Furry Gallery</span>
+      <nav aria-label="Rechtliches" className="flex gap-5">
+        {LEGAL_LINKS.map((l) => (
+          <Link key={l.to} to={l.to} className="underline-offset-4 hover:text-fg hover:underline">
+            {l.label}
+          </Link>
+        ))}
+      </nav>
+    </footer>
   );
 }
 
@@ -49,7 +54,7 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
         <div className="legal-prose mt-8 space-y-6 text-sm leading-relaxed text-fg-muted">
           {children}
         </div>
-        <LegalLinks className="mt-12 justify-start" />
+        <SiteFooter className="mt-12 px-0" />
       </div>
     </main>
   );

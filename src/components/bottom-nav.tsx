@@ -2,7 +2,6 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, House, Plus, UserRound } from "lucide-react";
 import { useAppSession } from "@/lib/vela/app-session";
 import { cn } from "@/lib/utils";
-import { LegalLinks } from "@/components/legal-page";
 
 const ITEMS = [
   { to: "/", label: "Für dich", icon: House },
@@ -106,7 +105,6 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
             {userId ? "Profil anlegen" : "Eintreten"}
           </Link>
         )}
-        <LegalLinks className="justify-start px-3" />
       </div>
     </aside>
   );

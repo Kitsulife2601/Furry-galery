@@ -4,6 +4,7 @@ import { Settings } from "lucide-react";
 import type { Profile } from "@/lib/vela/types";
 import { BottomNav, SideNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
+import { SiteFooter } from "@/components/legal-page";
 
 export function AppShell({
   profile,
@@ -39,10 +40,11 @@ export function AppShell({
           <div
             className={cn(
               hideMobilePad ? "" : "pb-16 md:pb-0",
-              fullBleed ? "" : "min-h-dvh",
+              fullBleed ? "" : "flex min-h-dvh flex-col",
             )}
           >
-            {children}
+            {fullBleed ? children : <div className="flex-1">{children}</div>}
+            {fullBleed ? null : <SiteFooter />}
           </div>
         </div>
       </div>
