@@ -10,7 +10,9 @@ import {
   listBanned,
   listFeedback,
   listFsk18Approvals,
+  listProfileReports,
   listReports,
+  resolveProfileReports,
   publishUpdate,
   searchProfiles,
   setBanned,
@@ -30,6 +32,7 @@ export function AdminSections() {
   return (
     <>
       <Reports />
+      <ProfileReports />
       <Fsk18Approvals />
       <FeedbackList />
       <PublishUpdate />
@@ -120,6 +123,67 @@ export function PawDialog({ isAdmin, onClose }: { isAdmin: boolean; onClose: () 
         </div>
       </div>
     </div>
+  );
+}
+
+function ProfileReports() {
+  const queryClient = useQueryClient();
+  const reports = useQuery({
+    queryKey: ["admin-profile-reports"],
+    queryFn: () => listProfileReports(),
+  });
+
+  async function resolve(handle: string) {
+    try {
+      await resolveProfileReports({ data: { handle } });
+      toast.success("Erledigt.");
+      await queryClient.invalidateQueries({ queryKey: ["admin-profile-reports"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Das hat nicht geklappt.");
+    }
+  }
+
+  const list = reports.data ?? [];
+  return (
+    <section className="mt-12">
+      <h2 className="font-display text-xl">Gemeldete Profile</h2>
+      <p className="mt-1 text-sm text-fg-muted">
+        Sperren oder löschen: Profil öffnen und oben rechts auf ⋯.
+      </p>
+      {reports.isPending ? (
+        <Skeleton className="mt-4 h-16 w-full" />
+      ) : list.length === 0 ? (
+        <p className="mt-4 text-sm text-fg-muted">Keine offenen Meldungen.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-border">
+          {list.map((r) => (
+            <li key={r.handle} className="flex items-center gap-3 py-3 text-sm">
+              <span className="size-9 shrink-0 overflow-hidden rounded-full bg-bg-subtle">
+                {r.avatarUrl ? (
+                  <img src={r.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="grid h-full w-full place-items-center text-xs">
+                    {r.displayName.charAt(0)}
+                  </span>
+                )}
+              </span>
+              <Link to="/u/$handle" params={{ handle: r.handle }} className="min-w-0 flex-1">
+                <span className="block truncate">
+                  {r.displayName} <span className="text-fg-muted">@{r.handle}</span>
+                </span>
+                <span className="block truncate text-xs text-fg-subtle">
+                  {r.count}× · {r.reasons.join(", ")}
+                  {r.notes.length ? ` · „${r.notes[0]}“` : ""}
+                </span>
+              </Link>
+              <Button size="sm" variant="secondary" onClick={() => void resolve(r.handle)}>
+                Erledigt
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -264,8 +328,8 @@ function Bans() {
     <section className="mt-12">
       <h2 className="font-display text-xl">Gesperrte Profile</h2>
       <p className="mt-1 text-sm text-fg-muted">
-        Sperren und Löschen geht direkt auf dem Profil (Bereich „Team“). Gesperrte Profile und ihre
-        Bilder sind unsichtbar; sie können nichts mehr posten, liken oder kommentieren.
+        Sperren und Löschen geht direkt auf dem Profil über ⋯. Gesperrte Profile und ihre Bilder
+        sind unsichtbar; sie können nichts mehr posten, liken oder kommentieren.
       </p>
       {list.length === 0 ? (
         <p className="mt-4 text-sm text-fg-muted">Niemand gesperrt.</p>

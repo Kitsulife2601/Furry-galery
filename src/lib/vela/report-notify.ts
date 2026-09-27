@@ -11,7 +11,7 @@ import {
   reportImageName,
   reportMessage,
 } from "./discord-bot";
-import { REPORT_REASONS } from "./types";
+import { PROFILE_REPORT_REASONS, REPORT_REASONS } from "./types";
 
 type Row = {
   image_url: string;
@@ -77,4 +77,54 @@ export async function notifyDiscordOfReport(opts: {
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`Discord report post → ${res.status} ${await res.text()}`);
+}
+
+/** Posts a profile report into the team's Discord report channel. */
+export async function notifyDiscordOfProfileReport(opts: {
+  profileUserId: string;
+  reporterId: string;
+  reason: string;
+  note: string;
+  siteUrl: string;
+}): Promise<void> {
+  const cfg = botConfig();
+  if (!cfg) return;
+  const sql = await getSql();
+  const rows = await sql<{
+    handle: string;
+    display_name: string;
+    reporter_handle: string;
+    total: number;
+  }>`
+    select a.handle, a.display_name, me.handle as reporter_handle,
+           (select count(*)::int from profile_reports r
+            where r.profile_user_id = a.user_id and r.resolved_at is null) as total
+    from profiles a join profiles me on me.user_id = ${opts.reporterId}
+    where a.user_id = ${opts.profileUserId}
+  `;
+  const row = rows[0];
+  if (!row) return;
+  const api = makeDiscordApi(cfg.botToken);
+  const channelId = await ensureReportChannel(cfg, api);
+  const reason = PROFILE_REPORT_REASONS.find((r) => r.id === opts.reason)?.label ?? opts.reason;
+  const url = `${opts.siteUrl}/u/${row.handle}`;
+  await api("POST", `/channels/${channelId}/messages`, {
+    embeds: [
+      {
+        color: 0xc45c4a,
+        title: `🚩 Profil gemeldet: @${row.handle}`,
+        url,
+        fields: [
+          { name: "Profil", value: `[${row.display_name} (@${row.handle})](${url})`, inline: true },
+          { name: "Gemeldet von", value: `@${row.reporter_handle}`, inline: true },
+          { name: "Grund", value: reason },
+          ...(opts.note ? [{ name: "Hinweis", value: opts.note.slice(0, 1000) }] : []),
+          { name: "Offene Meldungen", value: String(Number(row.total) || 1), inline: true },
+        ],
+        footer: { text: "Sperren oder löschen: auf dem Profil über ⋯" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+    components: [{ type: 1, components: [{ type: 2, style: 5, label: "Profil öffnen", url }] }],
+  });
 }

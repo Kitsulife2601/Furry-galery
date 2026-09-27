@@ -63,6 +63,10 @@ export async function setBannedByHandle(
 
   let reasons: string[] = [];
   if (banned) {
+    await sql`
+      update profile_reports set resolved_at = now()
+      where profile_user_id = ${target.user_id} and resolved_at is null
+    `;
     const open = await sql<{ reason: string }>`
       update reports set resolved_at = now()
       where resolved_at is null
@@ -178,6 +182,7 @@ export async function deleteProfileNow(userId: string): Promise<string | null> {
   await sql`delete from post_views where user_id = ${userId}`;
   await sql`delete from notifications where user_id = ${userId} or actor_id = ${userId}`;
   await sql`delete from reports where reporter_id = ${userId}`;
+  await sql`delete from profile_reports where reporter_id = ${userId} or profile_user_id = ${userId}`;
   await sql`delete from feedback where user_id = ${userId}`;
   await sql`delete from profiles where user_id = ${userId}`;
   // Sessions and linked Google/Discord logins go with the user (on delete cascade).

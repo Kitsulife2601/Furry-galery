@@ -111,6 +111,17 @@ export const REPORT_REASONS = [
 
 export type ReportReason = (typeof REPORT_REASONS)[number]["id"];
 
+export const PROFILE_REPORT_REASONS = [
+  { id: "minor", label: "Person wirkt minderjährig" },
+  { id: "impersonation", label: "Gibt sich als jemand anderes aus" },
+  { id: "harassment", label: "Belästigung oder Hass" },
+  { id: "inappropriate", label: "Unangemessenes Profil" },
+  { id: "spam", label: "Spam oder Betrug" },
+  { id: "other", label: "Etwas anderes" },
+] as const;
+
+export type ProfileReportReason = (typeof PROFILE_REPORT_REASONS)[number]["id"];
+
 export function relationshipLabel(id: string): string {
   return RELATIONSHIP_STATUSES.find((s) => s.id === id)?.label ?? "Single";
 }
