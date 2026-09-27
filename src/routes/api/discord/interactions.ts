@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
 import { deletePostById, dismissReportsFor, setBannedByHandle } from "@/lib/vela/moderation";
+import { notifySystem } from "@/lib/vela/notifications";
 import {
   DISCORD_DEFAULTS,
   botConfig,
@@ -31,9 +32,17 @@ const setWebFsk18: WebFsk18 = async (handle, unlock, moderator) => {
     set fsk18_manual_at = ${unlock ? new Date().toISOString() : null},
         fsk18_manual_by = ${unlock ? moderator : null}
     where handle = ${handle}
-    returning display_name
+    returning display_name, user_id
   `;
-  return rows[0] ? { displayName: rows[0].display_name } : null;
+  const row = (rows as { display_name: string; user_id: string }[])[0];
+  if (!row) return null;
+  await notifySystem(
+    row.user_id,
+    unlock
+      ? "FSK 18 wurde vom Team für dich freigeschaltet. Du siehst jetzt alle Bilder."
+      : "Die FSK-18-Freischaltung wurde vom Team zurückgenommen.",
+  );
+  return { displayName: row.display_name };
 };
 
 /**

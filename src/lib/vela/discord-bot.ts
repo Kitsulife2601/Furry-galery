@@ -710,3 +710,61 @@ export function reportMessage(notice: ReportNotice, siteUrl: string, imageName: 
     ...(imageName ? { attachments: [{ id: 0, filename: imageName }] } : {}),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Direct messages from "System" (e.g. when a profile is banned or unbanned).
+
+export function banNoticeEmbed(opts: {
+  handle: string;
+  banned: boolean;
+  reasons: string[];
+  at: Date;
+  siteUrl: string;
+}) {
+  const unix = Math.floor(opts.at.getTime() / 1000);
+  return {
+    color: opts.banned ? 0xc45c4a : 0x3ba55c,
+    author: { name: "System · Furry Gallery", icon_url: `${opts.siteUrl}/icon.png` },
+    title: opts.banned ? "⛔ Dein Profil wurde gesperrt" : "✅ Dein Profil wurde entsperrt",
+    description: opts.banned
+      ? `Dein Profil **@${opts.handle}** auf der Furry Gallery wurde vom Team gesperrt. ` +
+        "Deine Bilder sind nicht mehr sichtbar, und du kannst nichts posten, liken oder kommentieren."
+      : `Dein Profil **@${opts.handle}** ist wieder freigeschaltet. Willkommen zurück!`,
+    fields: [
+      {
+        name: "Profil",
+        value: `[@${opts.handle}](${opts.siteUrl}/u/${opts.handle})`,
+        inline: true,
+      },
+      { name: "Zeitpunkt", value: `<t:${unix}:f>`, inline: true },
+      ...(opts.banned && opts.reasons.length
+        ? [{ name: "Grund", value: opts.reasons.join(", ").slice(0, 1000) }]
+        : []),
+      ...(opts.banned
+        ? [{ name: "Fragen?", value: "Melde dich beim Team auf unserem Discord-Server." }]
+        : []),
+    ],
+    footer: { text: "Furry Gallery · System" },
+    timestamp: opts.at.toISOString(),
+  };
+}
+
+/** Send a private message from the bot; fails quietly if the member blocks DMs. */
+export async function sendSystemDm(
+  api: DiscordApi,
+  discordUserId: string,
+  embed: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const channel = await api<{ id: string }>("POST", "/users/@me/channels", {
+      recipient_id: discordUserId,
+    });
+    await api("POST", `/channels/${channel.id}/messages`, {
+      embeds: [embed],
+      allowed_mentions: { parse: [] },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}

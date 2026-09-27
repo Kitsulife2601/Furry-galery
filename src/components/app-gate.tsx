@@ -9,13 +9,19 @@ import { AuthPrompt } from "@/components/auth-prompt";
 import { Onboarding } from "@/components/onboarding";
 import { Splash } from "@/components/splash";
 
-const PROTECTED = new Set(["/upload", "/profile", "/settings", "/admin"]);
+const PROTECTED = new Set(["/upload", "/profile", "/settings", "/admin", "/notifications"]);
 
 function promptCopy(pathname: string) {
   if (pathname === "/upload") {
     return {
       title: "Hochladen",
       body: "Melde dich an und lege ein Profil an, um Bilder zu teilen. Wir prüfen dein Alter — nur ab 18.",
+    };
+  }
+  if (pathname === "/notifications") {
+    return {
+      title: "Mitteilungen",
+      body: "Likes, Kommentare, neue Follower und Nachrichten vom System. Dafür brauchst du ein Konto.",
     };
   }
   if (pathname === "/settings") {
