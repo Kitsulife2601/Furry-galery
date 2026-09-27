@@ -1,0 +1,188 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-display: "Fraunces", "Times New Roman", serif;
+  --font-sans: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+
+  --color-bg: #0c0b0a;
+  --color-bg-elevated: #161412;
+  --color-bg-subtle: #1e1b18;
+  --color-fg: #f3efe8;
+  --color-fg-muted: #9a948c;
+  --color-fg-subtle: #6f6a64;
+  --color-accent: #d4c4b0;
+  --color-accent-fg: #0c0b0a;
+  --color-heart: #c45c4a;
+  --color-on-media: #f3efe8;
+  --color-border: color-mix(in oklab, var(--color-fg) 12%, transparent);
+  --color-border-strong: color-mix(in oklab, var(--color-fg) 22%, transparent);
+  --color-ring: #d4c4b0;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+  }
+
+  body {
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    font-family: var(--font-display);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 40%, transparent);
+    color: var(--color-fg);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+.vela-shell {
+  min-height: 100dvh;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.vela-shell[data-bg="midnight"] {
+  --color-bg: #0c0b0a;
+  --color-bg-elevated: #161412;
+  --color-bg-subtle: #1e1b18;
+  --color-fg: #f3efe8;
+  --color-fg-muted: #9a948c;
+  --color-fg-subtle: #6f6a64;
+  --color-accent: #d4c4b0;
+  --color-accent-fg: #0c0b0a;
+}
+
+.vela-shell[data-bg="ember"] {
+  --color-bg: #140e0c;
+  --color-bg-elevated: #1e1410;
+  --color-bg-subtle: #2a1812;
+  --color-fg: #f6efe8;
+  --color-fg-muted: #b29a8c;
+  --color-fg-subtle: #8a7064;
+  --color-accent: #e0c4b0;
+  --color-accent-fg: #140e0c;
+}
+
+.vela-shell[data-bg="harbor"] {
+  --color-bg: #0b1112;
+  --color-bg-elevated: #10181a;
+  --color-bg-subtle: #152226;
+  --color-fg: #eaf3f2;
+  --color-fg-muted: #8aa0a0;
+  --color-fg-subtle: #6a7e7e;
+  --color-accent: #b8cfcb;
+  --color-accent-fg: #0b1112;
+}
+
+.vela-shell[data-bg="studio"] {
+  --color-bg: #121212;
+  --color-bg-elevated: #1a1a1a;
+  --color-bg-subtle: #242424;
+  --color-fg: #f2f2f0;
+  --color-fg-muted: #9a9a96;
+  --color-fg-subtle: #6e6e6a;
+  --color-accent: #d8d6d0;
+  --color-accent-fg: #121212;
+}
+
+.vela-shell[data-bg="fog"] {
+  --color-bg: #0d120f;
+  --color-bg-elevated: #141c16;
+  --color-bg-subtle: #1c261e;
+  --color-fg: #eef3ee;
+  --color-fg-muted: #8a9a8e;
+  --color-fg-subtle: #6a7a6e;
+  --color-accent: #c5d4c8;
+  --color-accent-fg: #0d120f;
+}
+
+.vela-shell[data-bg="paper"] {
+  --color-bg: #ece7de;
+  --color-bg-elevated: #e4ddd2;
+  --color-bg-subtle: #d8d0c4;
+  --color-fg: #1c1915;
+  --color-fg-muted: #6a645c;
+  --color-fg-subtle: #8a847a;
+  --color-accent: #2c2824;
+  --color-accent-fg: #ece7de;
+  --color-heart: #a44438;
+}
+
+.feed-scroller {
+  height: 100dvh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.feed-slide {
+  height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.bg-swatch[data-bg="midnight"] {
+  background: #141210;
+}
+.bg-swatch[data-bg="ember"] {
+  background: #2a1812;
+}
+.bg-swatch[data-bg="harbor"] {
+  background: #163033;
+}
+.bg-swatch[data-bg="studio"] {
+  background: #2a2a2a;
+}
+.bg-swatch[data-bg="fog"] {
+  background: #24362c;
+}
+.bg-swatch[data-bg="paper"] {
+  background: #d5cdc0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-scroller {
+    scroll-behavior: auto;
+  }
+}
