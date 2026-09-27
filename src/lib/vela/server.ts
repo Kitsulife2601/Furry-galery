@@ -26,7 +26,14 @@ import type {
   RelationshipStatus,
   ReportReason,
 } from "./types";
-import { FEEDBACK_KINDS, POST_TAGS, REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
+import {
+  FEEDBACK_KINDS,
+  POST_TAGS,
+  PROFILE_REPORT_REASONS,
+  REPORT_REASONS,
+  RELATIONSHIP_STATUSES,
+  type ProfileReportReason,
+} from "./types";
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 const MAX_PREVIEW_CHARS = 4_000;
@@ -798,6 +805,113 @@ export const reportPost = createServerFn({ method: "POST" })
     } catch (err) {
       console.error("[report] Discord notification failed", err);
     }
+    return { ok: true };
+  });
+
+const PROFILE_REPORT_REASON_IDS = PROFILE_REPORT_REASONS.map((r) => r.id) as [
+  ProfileReportReason,
+  ...ProfileReportReason[],
+];
+
+export const reportProfile = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      handle: z.string().trim().toLowerCase(),
+      reason: z.enum(PROFILE_REPORT_REASON_IDS),
+      note: z.string().trim().max(300).optional().default(""),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdult(context.userId);
+    const sql = await getSql();
+    const target = await sql<{ user_id: string }>`
+      select user_id from profiles where handle = ${data.handle.replace(/^@/, "")}
+    `;
+    const profileUserId = target[0]?.user_id;
+    if (!profileUserId) throw new Error("Profil nicht gefunden.");
+    if (profileUserId === context.userId)
+      throw new Error("Dein eigenes Profil kannst du nicht melden.");
+    await sql`
+      insert into profile_reports (profile_user_id, reporter_id, reason, note)
+      values (${profileUserId}, ${context.userId}, ${data.reason}, ${data.note ?? ""})
+      on conflict (profile_user_id, reporter_id) do update
+        set reason = excluded.reason, note = excluded.note, created_at = now(), resolved_at = null
+    `;
+    try {
+      const { notifyDiscordOfProfileReport } = await import("./report-notify");
+      await notifyDiscordOfProfileReport({
+        profileUserId,
+        reporterId: context.userId,
+        reason: data.reason,
+        note: data.note ?? "",
+        siteUrl: await currentSiteUrl(),
+      });
+    } catch (err) {
+      console.error("[report] Discord profile notification failed", err);
+    }
+    return { ok: true };
+  });
+
+export type ProfileReportItem = {
+  displayName: string;
+  handle: string;
+  avatarUrl: string | null;
+  reasons: string[];
+  notes: string[];
+  count: number;
+  lastAt: string;
+};
+
+export const listProfileReports = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<ProfileReportItem[]> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{
+      display_name: string;
+      handle: string;
+      avatar_url: string | null;
+      reasons: string[];
+      notes: string[];
+      count: number;
+      last_at: string;
+    }>`
+      select pr.display_name, pr.handle,
+             case when pr.avatar_url is null then null
+                  else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
+             array_agg(distinct r.reason) as reasons,
+             array_remove(array_agg(nullif(r.note, '')), null) as notes,
+             count(*)::int as count, max(r.created_at)::text as last_at
+      from profile_reports r join profiles pr on pr.user_id = r.profile_user_id
+      where r.resolved_at is null
+      group by pr.user_id, pr.display_name, pr.handle, pr.avatar_url, pr.avatar_version
+      order by max(r.created_at) desc
+    `;
+    return rows.map((r) => ({
+      displayName: r.display_name,
+      handle: r.handle,
+      avatarUrl: r.avatar_url,
+      reasons: (r.reasons ?? []).map(
+        (id) => PROFILE_REPORT_REASONS.find((x) => x.id === id)?.label ?? id,
+      ),
+      notes: r.notes ?? [],
+      count: Number(r.count),
+      lastAt: asTime(r.last_at),
+    }));
+  });
+
+export const resolveProfileReports = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ handle: z.string().trim().toLowerCase() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    await sql`
+      update profile_reports set resolved_at = now()
+      where resolved_at is null
+        and profile_user_id = (select user_id from profiles where handle = ${data.handle})
+    `;
     return { ok: true };
   });
 

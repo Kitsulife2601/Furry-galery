@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { cn } from "@/lib/utils";
-import { ProfileModeration } from "@/components/profile-moderation";
+import { ProfileMenu } from "@/components/profile-menu";
 import { formatDay } from "@/lib/vela/durations";
 
 export function ProfileView({ profile, posts }: { profile: Profile; posts: PostCard[] }) {
@@ -68,16 +68,21 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
               </div>
             )}
           </div>
-          {profile.isOwn || profile.banned ? null : (
-            <Button
-              size="sm"
-              variant={following ? "secondary" : "primary"}
-              onClick={() => void follow()}
-              disabled={busy}
-            >
-              {following ? "Folgst du" : "Folgen"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {profile.isOwn || profile.banned ? null : (
+              <Button
+                size="sm"
+                variant={following ? "secondary" : "primary"}
+                onClick={() => void follow()}
+                disabled={busy}
+              >
+                {following ? "Folgst du" : "Folgen"}
+              </Button>
+            )}
+            {profile.isOwn ? null : (
+              <ProfileMenu profile={profile} isAdmin={Boolean(session.profile?.isAdmin)} />
+            )}
+          </div>
         </div>
         <h1 className="mt-4 font-display text-2xl">{profile.displayName}</h1>
         <p className="text-sm text-fg-muted">@{profile.handle}</p>
@@ -116,8 +121,10 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
             auf unserem Discord.
           </p>
         ) : null}
-        {session.profile?.isAdmin && !profile.isOwn ? (
-          <ProfileModeration profile={profile} />
+        {session.profile?.isAdmin && !profile.isOwn && profile.deleteAt ? (
+          <p className="mt-3 text-xs text-heart">
+            Wird am {formatDay(profile.deleteAt)} gelöscht (Team).
+          </p>
         ) : null}
         {profile.bio ? <p className="mt-4 text-sm leading-relaxed text-fg">{profile.bio}</p> : null}
         <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
