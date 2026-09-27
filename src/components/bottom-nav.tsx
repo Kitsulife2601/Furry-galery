@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, House, Plus, UserRound } from "lucide-react";
 import { useAppSession } from "@/lib/vela/app-session";
 import { cn } from "@/lib/utils";
+import { LegalLinks } from "@/components/legal-page";
 
 const ITEMS = [
   { to: "/", label: "Für dich", icon: House },
@@ -81,21 +82,24 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
           })}
         </nav>
       </div>
-      {hasProfile ? (
-        <Link
-          to="/settings"
-          className="rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-bg-subtle"
-        >
-          Einstellungen
-        </Link>
-      ) : (
-        <Link
-          to={userId ? "/profile" : "/login"}
-          className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-medium text-accent-fg"
-        >
-          {userId ? "Profil anlegen" : "Eintreten"}
-        </Link>
-      )}
+      <div className="flex flex-col gap-4">
+        {hasProfile ? (
+          <Link
+            to="/settings"
+            className="rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-bg-subtle"
+          >
+            Einstellungen
+          </Link>
+        ) : (
+          <Link
+            to={userId ? "/profile" : "/login"}
+            className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-medium text-accent-fg"
+          >
+            {userId ? "Profil anlegen" : "Eintreten"}
+          </Link>
+        )}
+        <LegalLinks className="justify-start px-3" />
+      </div>
     </aside>
   );
 }

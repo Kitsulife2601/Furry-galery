@@ -42,6 +42,17 @@ export type PostCard = {
   };
 };
 
+export const REPORT_REASONS = [
+  { id: "minor", label: "Person wirkt minderjährig" },
+  { id: "nonconsensual", label: "Ohne Einverständnis veröffentlicht" },
+  { id: "illegal", label: "Illegaler Inhalt" },
+  { id: "harassment", label: "Belästigung oder Hass" },
+  { id: "spam", label: "Spam oder Betrug" },
+  { id: "other", label: "Etwas anderes" },
+] as const;
+
+export type ReportReason = (typeof REPORT_REASONS)[number]["id"];
+
 export function relationshipLabel(id: string): string {
   return RELATIONSHIP_STATUSES.find((s) => s.id === id)?.label ?? "Single";
 }

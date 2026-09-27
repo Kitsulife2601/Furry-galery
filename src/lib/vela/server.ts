@@ -4,14 +4,15 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { ageFromBirthdate, isAdultBirthdate } from "./age";
 import { isBackgroundId } from "./backgrounds";
-import type { PostCard, Profile, RelationshipStatus } from "./types";
-import { RELATIONSHIP_STATUSES } from "./types";
+import type { PostCard, Profile, RelationshipStatus, ReportReason } from "./types";
+import { REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 const RELATIONSHIP_IDS = RELATIONSHIP_STATUSES.map((s) => s.id) as [
   RelationshipStatus,
   ...RelationshipStatus[],
 ];
+const REPORT_REASON_IDS = REPORT_REASONS.map((r) => r.id) as [ReportReason, ...ReportReason[]];
 
 type ProfileRow = {
   user_id: string;
@@ -61,10 +62,7 @@ async function requireAdult(userId: string): Promise<ProfileRow> {
   return row;
 }
 
-async function toPublicProfile(
-  row: ProfileRow,
-  viewerId: string,
-): Promise<Profile> {
+async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profile> {
   const sql = await getSql();
   const [posts, followers, following, followRow] = await Promise.all([
     sql<CountRow>`select count(*)::int as n from posts where user_id = ${row.user_id}`,
@@ -141,7 +139,6 @@ function mapFeed(rows: FeedRow[]): PostCard[] {
   }));
 }
 
-
 export const getMyProfile = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<Profile | null> => {
@@ -159,13 +156,7 @@ export const createProfile = createServerFn({ method: "POST" })
       handle: z.string().trim().toLowerCase(),
       bio: z.string().trim().max(160).optional().default(""),
       birthdate: z.string(),
-      relationshipStatus: z.enum([
-        "single",
-        "taken",
-        "open",
-        "complicated",
-        "private",
-      ]),
+      relationshipStatus: z.enum(["single", "taken", "open", "complicated", "private"]),
     }),
   )
   .handler(async ({ context, data }): Promise<Profile> => {
@@ -206,13 +197,7 @@ export const updateProfile = createServerFn({ method: "POST" })
     z.object({
       displayName: z.string().trim().min(2).max(40),
       bio: z.string().trim().max(160),
-      relationshipStatus: z.enum([
-        "single",
-        "taken",
-        "open",
-        "complicated",
-        "private",
-      ]),
+      relationshipStatus: z.enum(["single", "taken", "open", "complicated", "private"]),
       backgroundId: z.string(),
     }),
   )
@@ -252,11 +237,10 @@ export const updateAvatar = createServerFn({ method: "POST" })
     return toPublicProfile(row, context.userId);
   });
 
-export const listFeed = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PostCard[]> => {
-    const viewerId = (await optionalViewerId()) ?? "";
-    const sql = await getSql();
-    const rows = await sql<FeedRow>`
+export const listFeed = createServerFn({ method: "GET" }).handler(async (): Promise<PostCard[]> => {
+  const viewerId = (await optionalViewerId()) ?? "";
+  const sql = await getSql();
+  const rows = await sql<FeedRow>`
       select
         p.id,
         p.user_id,
@@ -275,9 +259,8 @@ export const listFeed = createServerFn({ method: "GET" }).handler(
       order by p.created_at desc
       limit 60
     `;
-    return mapFeed(rows);
-  },
-);
+  return mapFeed(rows);
+});
 
 export const listExplore = createServerFn({ method: "GET" }).handler(
   async (): Promise<PostCard[]> => {
@@ -485,3 +468,30 @@ export const toggleFollow = createServerFn({ method: "POST" })
     return { following: !existing[0], followerCount: count[0]?.n ?? 0 };
   });
 
+export const reportPost = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      postId: z.number().int().positive(),
+      reason: z.enum(REPORT_REASON_IDS),
+      note: z.string().trim().max(300).optional().default(""),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdult(context.userId);
+    const sql = await getSql();
+    const post = await sql<{ user_id: string }>`
+      select user_id from posts where id = ${data.postId}
+    `;
+    if (!post[0]) throw new Error("Bild nicht gefunden.");
+    if (post[0].user_id === context.userId) {
+      throw new Error("Eigene Bilder kannst du löschen statt melden.");
+    }
+    await sql`
+      insert into reports (post_id, reporter_id, reason, note)
+      values (${data.postId}, ${context.userId}, ${data.reason}, ${data.note ?? ""})
+      on conflict (post_id, reporter_id) do update
+        set reason = excluded.reason, note = excluded.note, created_at = now()
+    `;
+    return { ok: true };
+  });

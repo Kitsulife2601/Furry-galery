@@ -7,6 +7,7 @@ import { getMyProfile, updateAvatar, updateProfile } from "@/lib/vela/server";
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { BackgroundPicker } from "@/components/background-picker";
 import { SignOutButton } from "@/components/sign-out-button";
+import { LegalLinks } from "@/components/legal-page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,15 @@ function Settings() {
     );
   }
 
+  // Name, avatar and status also show on posts and the public profile page.
+  function invalidateOwnProfile() {
+    return Promise.all(
+      ["me", "profile", "feed", "explore", "profile-posts", "creators"].map((key) =>
+        queryClient.invalidateQueries({ queryKey: [key] }),
+      ),
+    );
+  }
+
   async function save() {
     setBusy(true);
     try {
@@ -49,15 +59,11 @@ function Settings() {
           displayName,
           bio,
           relationshipStatus: relationshipStatus as
-            | "single"
-            | "taken"
-            | "open"
-            | "complicated"
-            | "private",
+            "single" | "taken" | "open" | "complicated" | "private",
           backgroundId,
         },
       });
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      await invalidateOwnProfile();
       toast.success("Gespeichert.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Speichern fehlgeschlagen.");
@@ -71,7 +77,7 @@ function Settings() {
     try {
       const dataUrl = await compressImageFile(file, { maxEdge: 512, quality: 0.78 });
       await updateAvatar({ data: { dataUrl } });
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      await invalidateOwnProfile();
       toast.success("Portrait aktualisiert.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Portrait fehlgeschlagen.");
@@ -128,12 +134,7 @@ function Settings() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="bio">Bio</Label>
-          <Textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            maxLength={160}
-          />
+          <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} maxLength={160} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="rel">Beziehung</Label>
@@ -162,6 +163,7 @@ function Settings() {
       <div className="mt-10">
         <SignOutButton />
       </div>
+      <LegalLinks className="mt-8" />
     </div>
   );
 }

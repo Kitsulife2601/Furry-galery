@@ -1,35 +1,38 @@
 import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Heart } from "lucide-react";
+import { Flag, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
+import { patchPostInCaches } from "@/lib/vela/post-cache";
 import { toggleLike } from "@/lib/vela/server";
 import { relationshipLabel, type PostCard } from "@/lib/vela/types";
+import { ReportDialog } from "@/components/report-dialog";
 import { cn } from "@/lib/utils";
 
-export function FeedCard({
-  post,
-  onChange,
-}: {
-  post: PostCard;
-  onChange: (next: PostCard) => void;
-}) {
+export function FeedCard({ post }: { post: PostCard }) {
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const { profile, userId } = useAppSession();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isOwn = Boolean(userId) && userId === post.userId;
+
+  function requireProfile(action: string): boolean {
+    if (profile) return true;
+    toast.error(`Anmelden und Profil anlegen, um zu ${action}.`);
+    void navigate({ to: userId ? "/profile" : "/login" });
+    return false;
+  }
 
   async function like(forceOn = false) {
-    if (!profile) {
-      toast.error("Anmelden und Profil anlegen, um zu liken.");
-      void navigate({ to: userId ? "/profile" : "/login" });
-      return;
-    }
+    if (!requireProfile("liken")) return;
     if (forceOn && post.liked) return;
     try {
       const result = await toggleLike({ data: { postId: post.id } });
-      onChange({ ...post, liked: result.liked, likeCount: result.likeCount });
+      patchPostInCaches(queryClient, { ...post, liked: result.liked, likeCount: result.likeCount });
       if (result.liked) {
         setBurst(true);
         window.setTimeout(() => setBurst(false), 500);
@@ -76,11 +79,7 @@ export function FeedCard({
             aria-label={`${post.author.displayName} öffnen`}
           >
             {post.author.avatarUrl ? (
-              <img
-                src={post.author.avatarUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              <img src={post.author.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <span className="grid h-full w-full place-items-center bg-bg-subtle text-sm">
                 {post.author.displayName.charAt(0)}
@@ -99,24 +98,35 @@ export function FeedCard({
             />
             <span className="text-xs tabular-nums">{post.likeCount}</span>
           </button>
+          {isOwn ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                if (requireProfile("melden")) setReporting(true);
+              }}
+              className="grid min-h-11 min-w-11 place-items-center"
+              aria-label="Bild melden"
+            >
+              <Flag className="size-5 opacity-80" strokeWidth={1.7} />
+            </button>
+          )}
         </div>
 
-        <div className="absolute inset-x-0 bottom-20 z-10 px-5 pb-2 text-on-media md:bottom-8">
+        <div className="pointer-events-none absolute inset-x-0 bottom-20 z-10 px-5 pr-20 pb-2 text-on-media md:bottom-8">
           <Link
             to="/u/$handle"
             params={{ handle: post.author.handle }}
-            className="font-medium"
+            className="pointer-events-auto font-medium"
           >
             @{post.author.handle}
           </Link>
           <p className="mt-0.5 text-xs text-on-media/70">
             {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
           </p>
-          {post.caption ? (
-            <p className="mt-2 max-w-[80%] text-sm leading-snug">{post.caption}</p>
-          ) : null}
+          {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
         </div>
       </div>
+      {reporting ? <ReportDialog postId={post.id} onClose={() => setReporting(false)} /> : null}
     </article>
   );
 }

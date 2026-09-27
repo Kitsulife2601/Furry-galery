@@ -1,7 +1,8 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { TriangleAlert } from "lucide-react";
 
-const FALLBACK_MESSAGE = "An unexpected error occurred. Try reloading the page.";
+const FALLBACK_MESSAGE = "Etwas ist schiefgelaufen. Bitte lade die Seite neu.";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -9,21 +10,29 @@ function errorMessage(error: unknown): string {
   return FALLBACK_MESSAGE;
 }
 
-export function AppErrorComponent({ error }: ErrorComponentProps) {
+function StatusScreen({ title, body, icon }: { title: string; body: string; icon?: boolean }) {
   return (
-    <main
-      className={
-        "flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center " +
-        "bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50"
-      }
-    >
-      <span className="text-red-500" aria-hidden="true">
-        <TriangleAlert className="size-10" strokeWidth={2} />
-      </span>
-      <h1 className="text-lg font-semibold">Something went wrong</h1>
-      <p className="max-w-md text-sm break-words text-zinc-500 dark:text-zinc-400">
-        {errorMessage(error)}
-      </p>
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg px-6 text-center text-fg">
+      {icon ? (
+        <span className="text-heart" aria-hidden="true">
+          <TriangleAlert className="size-10" strokeWidth={1.8} />
+        </span>
+      ) : (
+        <p className="text-xs tracking-[0.28em] text-accent uppercase">VELA</p>
+      )}
+      <h1 className="font-display text-3xl">{title}</h1>
+      <p className="max-w-md text-sm break-words text-fg-muted">{body}</p>
+      <Link to="/" className="mt-4 min-h-11 text-sm text-fg underline-offset-4 hover:underline">
+        Zurück zum Feed
+      </Link>
     </main>
   );
+}
+
+export function AppErrorComponent({ error }: ErrorComponentProps) {
+  return <StatusScreen icon title="Das hat nicht geklappt" body={errorMessage(error)} />;
+}
+
+export function NotFound() {
+  return <StatusScreen title="Nicht gefunden" body="Diese Seite gibt es hier nicht." />;
 }

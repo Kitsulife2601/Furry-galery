@@ -1,10 +1,8 @@
-import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { listCreators, listExplore } from "@/lib/vela/server";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { PostCard } from "@/lib/vela/types";
 
 export const Route = createFileRoute("/_app/explore")({ component: Explore });
 
@@ -17,8 +15,6 @@ function Explore() {
     queryKey: ["creators"],
     queryFn: () => listCreators(),
   });
-  const [posts, setPosts] = useState<PostCard[] | null>(null);
-  const items = posts ?? query.data ?? [];
 
   return (
     <div className="mx-auto max-w-3xl pt-6">
@@ -46,11 +42,7 @@ function Explore() {
                   >
                     <span className="size-14 overflow-hidden rounded-full bg-bg-subtle">
                       {person.avatarUrl ? (
-                        <img
-                          src={person.avatarUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
+                        <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <span className="grid h-full w-full place-items-center text-sm">
                           {person.displayName.charAt(0)}
@@ -73,11 +65,7 @@ function Explore() {
           ))}
         </div>
       ) : (
-        <GalleryGrid
-          posts={items}
-          onChange={setPosts}
-          emptyLabel="Die Gallery ist noch leer."
-        />
+        <GalleryGrid posts={query.data ?? []} emptyLabel="Die Gallery ist noch leer." />
       )}
     </div>
   );

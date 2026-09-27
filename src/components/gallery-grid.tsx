@@ -2,21 +2,13 @@ import { useState } from "react";
 import type { PostCard } from "@/lib/vela/types";
 import { PostViewer } from "@/components/post-viewer";
 
-export function GalleryGrid({
-  posts,
-  onChange,
-  emptyLabel,
-}: {
-  posts: PostCard[];
-  onChange?: (posts: PostCard[]) => void;
-  emptyLabel: string;
-}) {
-  const [active, setActive] = useState<PostCard | null>(null);
+export function GalleryGrid({ posts, emptyLabel }: { posts: PostCard[]; emptyLabel: string }) {
+  const [activeId, setActiveId] = useState<number | null>(null);
+  // Read the open post from the live list, so likes and deletes show up at once.
+  const active = posts.find((p) => p.id === activeId) ?? null;
 
   if (posts.length === 0) {
-    return (
-      <p className="px-5 py-16 text-center text-sm text-fg-muted">{emptyLabel}</p>
-    );
+    return <p className="px-5 py-16 text-center text-sm text-fg-muted">{emptyLabel}</p>;
   }
 
   return (
@@ -27,7 +19,7 @@ export function GalleryGrid({
             <button
               type="button"
               className="aspect-3/4 w-full overflow-hidden"
-              onClick={() => setActive(post)}
+              onClick={() => setActiveId(post.id)}
             >
               <img
                 src={post.imageUrl}
@@ -38,15 +30,7 @@ export function GalleryGrid({
           </li>
         ))}
       </ul>
-      {active ? (
-        <PostViewer
-          post={posts.find((p) => p.id === active.id) ?? active}
-          onClose={() => setActive(null)}
-          onChange={(next) => {
-            onChange?.(posts.map((p) => (p.id === next.id ? next : p)));
-          }}
-        />
-      ) : null}
+      {active ? <PostViewer post={active} onClose={() => setActiveId(null)} /> : null}
     </>
   );
 }

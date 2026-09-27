@@ -36,5 +36,6 @@ function PublicProfile() {
     );
   }
 
-  return <ProfileView profile={profile.data} posts={posts.data ?? []} />;
+  // Keyed by user so follow state never carries over between profiles.
+  return <ProfileView key={profile.data.userId} profile={profile.data} posts={posts.data ?? []} />;
 }

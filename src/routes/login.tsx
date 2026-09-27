@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Splash } from "@/components/splash";
+import { LegalLinks } from "@/components/legal-page";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -56,9 +57,7 @@ function Login() {
         <Link to="/" className="font-display text-3xl tracking-tight">
           VELA
         </Link>
-        <p className="mt-2 text-sm text-fg-muted">
-          Eintritt ab 18. Google, X oder E-Mail.
-        </p>
+        <p className="mt-2 text-sm text-fg-muted">Eintritt ab 18. Google, X oder E-Mail.</p>
 
         {authEnabled ? (
           <div className="mt-8 space-y-3">
@@ -122,11 +121,7 @@ function Login() {
           </div>
           {error ? <p className="text-sm text-heart">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={busy || !authEnabled}>
-            {busy
-              ? "Einen Moment…"
-              : mode === "up"
-                ? "Konto anlegen"
-                : "Anmelden"}
+            {busy ? "Einen Moment…" : mode === "up" ? "Konto anlegen" : "Anmelden"}
           </Button>
         </form>
 
@@ -135,10 +130,9 @@ function Login() {
           className="mt-4 text-sm text-fg-muted underline-offset-4 hover:underline"
           onClick={() => setMode(mode === "up" ? "in" : "up")}
         >
-          {mode === "up"
-            ? "Schon ein Konto? Anmelden"
-            : "Neu hier? Konto anlegen"}
+          {mode === "up" ? "Schon ein Konto? Anmelden" : "Neu hier? Konto anlegen"}
         </button>
+        <LegalLinks className="mt-10" />
       </div>
     </main>
   );

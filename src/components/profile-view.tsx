@@ -11,15 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GalleryGrid } from "@/components/gallery-grid";
 
-export function ProfileView({
-  profile,
-  posts,
-  onPostsChange,
-}: {
-  profile: Profile;
-  posts: PostCard[];
-  onPostsChange?: (posts: PostCard[]) => void;
-}) {
+export function ProfileView({ profile, posts }: { profile: Profile; posts: PostCard[] }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const session = useAppSession();
@@ -38,7 +30,10 @@ export function ProfileView({
       const result = await toggleFollow({ data: { handle: profile.handle } });
       setFollowing(result.following);
       setFollowers(result.followerCount);
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["me"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile", profile.handle] }),
+      ]);
     } catch (err) {
       toast.error(memberErrorMessage(err, "Folgen fehlgeschlagen."));
     } finally {
@@ -48,10 +43,7 @@ export function ProfileView({
 
   return (
     <div className="mx-auto max-w-lg pb-8">
-      <div
-        className="bg-swatch relative h-40 w-full"
-        data-bg={profile.backgroundId}
-      />
+      <div className="bg-swatch relative h-40 w-full" data-bg={profile.backgroundId} />
       <div className="px-5">
         <div className="-mt-10 flex items-end justify-between">
           <div className="size-20 overflow-hidden rounded-full border-4 border-bg bg-bg-subtle">
@@ -87,9 +79,7 @@ export function ProfileView({
           <Badge>{profile.age} Jahre</Badge>
           <Badge>{relationshipLabel(profile.relationshipStatus)}</Badge>
         </div>
-        {profile.bio ? (
-          <p className="mt-4 text-sm leading-relaxed text-fg">{profile.bio}</p>
-        ) : null}
+        {profile.bio ? <p className="mt-4 text-sm leading-relaxed text-fg">{profile.bio}</p> : null}
         <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
           <div>
             <dt className="text-xs text-fg-subtle">Bilder</dt>
@@ -106,7 +96,7 @@ export function ProfileView({
         </dl>
       </div>
       <div className="mt-8">
-        <GalleryGrid posts={posts} onChange={onPostsChange} emptyLabel="Noch keine Bilder." />
+        <GalleryGrid posts={posts} emptyLabel="Noch keine Bilder." />
       </div>
     </div>
   );

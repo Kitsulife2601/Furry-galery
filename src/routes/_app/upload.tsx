@@ -37,6 +37,8 @@ function Upload() {
         queryClient.invalidateQueries({ queryKey: ["feed"] }),
         queryClient.invalidateQueries({ queryKey: ["explore"] }),
         queryClient.invalidateQueries({ queryKey: ["me"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile-posts"] }),
+        queryClient.invalidateQueries({ queryKey: ["profile"] }),
       ]);
       toast.success("Veröffentlicht.");
       await navigate({ to: "/" });
@@ -50,9 +52,7 @@ function Upload() {
     <div className="mx-auto max-w-md px-5 py-8">
       <p className="text-xs tracking-[0.22em] text-fg-subtle uppercase">Neu</p>
       <h1 className="mt-1 font-display text-3xl">Hochladen</h1>
-      <p className="mt-2 text-sm text-fg-muted">
-        Ein Bild, eine Zeile. Kein Lärm.
-      </p>
+      <p className="mt-2 text-sm text-fg-muted">Ein Bild, eine Zeile. Kein Lärm.</p>
 
       <label className="mt-8 flex aspect-3/4 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border-strong bg-bg-elevated">
         {preview ? (
