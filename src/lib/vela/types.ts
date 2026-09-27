@@ -31,6 +31,8 @@ export type Profile = {
 
 export type Fsk18Status = {
   verified: boolean;
+  /** Unlocked by hand by the team, not through a linked Discord account. */
+  manual: boolean;
   discordUsername: string | null;
 };
 

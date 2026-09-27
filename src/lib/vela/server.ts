@@ -104,11 +104,13 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
 
 async function loadFsk18Status(userId: string): Promise<Fsk18Status> {
   const sql = await getSql();
-  const rows = await sql<{ discord_username: string | null }>`
-    select discord_username from profiles where user_id = ${userId}
+  const rows = await sql<{ discord_username: string | null; manual: boolean }>`
+    select discord_username, fsk18_manual_at is not null as manual
+    from profiles where user_id = ${userId}
   `;
   return {
     verified: await isFsk18Verified(userId),
+    manual: Boolean(rows[0]?.manual),
     discordUsername: rows[0]?.discord_username ?? null,
   };
 }

@@ -64,9 +64,10 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
 
       {status?.verified ? (
         <p className="mt-2 text-sm text-fg-muted">
-          Freigeschaltet über Discord
-          {status.discordUsername ? ` (${status.discordUsername})` : ""}. Du siehst alle Bilder und
-          kannst selbst FSK-18-Bilder posten.
+          {status.manual
+            ? "Vom Team freigeschaltet."
+            : `Freigeschaltet über Discord${status.discordUsername ? ` (${status.discordUsername})` : ""}.`}{" "}
+          Du siehst alle Bilder.
         </p>
       ) : (
         <>
