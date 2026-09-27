@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { PawPrint, Settings } from "lucide-react";
 import type { Profile } from "@/lib/vela/types";
 import { BottomNav, SideNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
 import { SiteFooter } from "@/components/legal-page";
+import { ModerationDialog } from "@/components/admin-panel";
 
 export function AppShell({
   profile,
@@ -15,6 +16,8 @@ export function AppShell({
   children: ReactNode;
   fullBleed?: boolean;
 }) {
+  const [moderating, setModerating] = useState(false);
+  const closeModeration = useCallback(() => setModerating(false), []);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hideMobilePad = pathname === "/";
 
@@ -26,17 +29,18 @@ export function AppShell({
           {profile && !fullBleed ? (
             <header className="absolute top-0 right-0 z-30 flex gap-1 p-2 md:p-4">
               {profile.isAdmin ? (
-                <Link
-                  to="/admin"
+                <button
+                  type="button"
+                  onClick={() => setModerating(true)}
                   aria-label="Moderation"
                   title="Moderation"
                   className={cn(
                     "grid size-11 place-items-center rounded-lg",
-                    pathname === "/admin" ? "text-accent" : "text-fg-muted hover:text-fg",
+                    moderating ? "text-accent" : "text-fg-muted hover:text-fg",
                   )}
                 >
                   <PawPrint className="size-5" />
-                </Link>
+                </button>
               ) : null}
               <Link
                 to="/settings"
@@ -62,6 +66,7 @@ export function AppShell({
         </div>
       </div>
       <BottomNav />
+      {moderating ? <ModerationDialog onClose={closeModeration} /> : null}
     </div>
   );
 }

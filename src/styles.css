@@ -186,3 +186,14 @@
     scroll-behavior: auto;
   }
 }
+
+/* Invisible scrollbars (scrolling still works) — the default light bars clash with the dark UI. */
+:root {
+  color-scheme: dark;
+}
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
