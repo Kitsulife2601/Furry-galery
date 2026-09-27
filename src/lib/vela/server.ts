@@ -544,6 +544,8 @@ export const createPost = createServerFn({ method: "POST" })
       previewUrl: z.string().max(MAX_PREVIEW_CHARS).optional(),
       // Video posts: the file is already in Vercel Blob; imageUrl is its poster frame.
       videoUrl: z.string().max(500).optional(),
+      // Video posts: a few small frames (≤320px JPEG) for the FSK18 check.
+      videoFrames: z.array(z.string().max(120_000)).max(4).optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<PostCard> => {
@@ -555,6 +557,13 @@ export const createPost = createServerFn({ method: "POST" })
       throw new Error("Ungültige Video-Adresse.");
     }
     const nsfw = data.nsfw ?? false;
+    if (!nsfw) {
+      const { assertFsk18Marked } = await import("./nsfw-server");
+      if (data.videoUrl && !data.videoFrames?.length) {
+        throw new Error("Video konnte nicht geprüft werden. Bitte erneut auswählen.");
+      }
+      await assertFsk18Marked([data.imageUrl, ...(data.videoUrl ? (data.videoFrames ?? []) : [])]);
+    }
     if (nsfw) {
       if (!data.previewUrl?.startsWith("data:image/")) {
         throw new Error("Vorschau fehlt.");

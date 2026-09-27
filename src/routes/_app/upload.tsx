@@ -31,7 +31,7 @@ function Upload() {
   const [nsfw, setNsfw] = useState(false);
   const [tags, setTags] = useState<PostTag[]>([]);
   const [busy, setBusy] = useState(false);
-  const [video, setVideo] = useState<{ file: File; url: string } | null>(null);
+  const [video, setVideo] = useState<{ file: File; url: string; frames: string[] } | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   // Automatic FSK18 check: explicit content can only be posted with the box ticked.
   const [check, setCheck] = useState<"idle" | "checking" | "ok" | "fsk18" | "error">("idle");
@@ -81,7 +81,7 @@ function Upload() {
         const { poster, tiny, samples } = await videoPoster(file);
         setPreview(poster);
         setThumb(tiny);
-        setVideo({ file, url: URL.createObjectURL(file) });
+        setVideo({ file, url: URL.createObjectURL(file), frames: samples });
         void runCheck(samples);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Video unlesbar.");
@@ -126,6 +126,7 @@ function Upload() {
         data: {
           imageUrl: preview,
           videoUrl,
+          videoFrames: video?.frames,
           caption,
           nsfw,
           tags,
