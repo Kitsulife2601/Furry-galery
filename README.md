@@ -159,9 +159,11 @@ mit demselben Token keine Befehle und Button-Klicks mehr.
 
 ## Moderation, Kommentare, Kategorien
 
-- **Admin-Seite** `/admin` (Link in den Einstellungen): offene Meldungen je Bild mit Gründen,
-  Bild löschen, Meldung verwerfen, Profil sperren/entsperren. Admins sind die Handles in
-  `ADMIN_HANDLES` (kommagetrennt, Standard: `kitsulife`).
+- **Admin-Seite** `/admin` (Pfote oben rechts): Meldungen, FSK-18-Freigaben, Feedback, Updates,
+  Sperren. Admin ist, wer auf dem Discord-Server die Rolle **Owner** (`1553843194993582253`)
+  oder **Fluff Admin** (`1553862150710239345`) hat und Discord verknüpft bzw. sich damit
+  angemeldet hat — oder dessen Handle in `ADMIN_HANDLES` steht (Standard: `kitsulife`). Die
+  Rollen zählen auch im Bot als Team; ändern über `DISCORD_ADMIN_ROLE_IDS`.
 - **Gesperrte Profile** und ihre Bilder sind unsichtbar; sie können nichts posten, liken oder
   kommentieren.
 - **Kommentare** unter jedem Bild; löschen dürfen Verfasser*in, Bild-Uploader*in und Admins.

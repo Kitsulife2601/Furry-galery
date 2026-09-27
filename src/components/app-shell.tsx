@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Settings } from "lucide-react";
+import { PawPrint, Settings } from "lucide-react";
 import type { Profile } from "@/lib/vela/types";
 import { BottomNav, SideNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
@@ -24,12 +24,25 @@ export function AppShell({
         <SideNav hasProfile={Boolean(profile)} />
         <div className="relative min-w-0 flex-1">
           {profile && !fullBleed ? (
-            <header className="absolute top-0 right-0 z-30 hidden p-4 md:block">
+            <header className="absolute top-0 right-0 z-30 flex gap-1 p-2 md:p-4">
+              {profile.isAdmin ? (
+                <Link
+                  to="/admin"
+                  aria-label="Moderation"
+                  title="Moderation"
+                  className={cn(
+                    "grid size-11 place-items-center rounded-lg",
+                    pathname === "/admin" ? "text-accent" : "text-fg-muted hover:text-fg",
+                  )}
+                >
+                  <PawPrint className="size-5" />
+                </Link>
+              ) : null}
               <Link
                 to="/settings"
                 aria-label="Einstellungen"
                 className={cn(
-                  "grid size-11 place-items-center rounded-lg",
+                  "hidden size-11 place-items-center rounded-lg md:grid",
                   pathname === "/settings" ? "text-fg" : "text-fg-muted",
                 )}
               >

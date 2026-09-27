@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
   REPORT_CATEGORY_NAME,
+  ensureChannel,
   banNoticeEmbed,
   sendSystemDm,
   deferredReplyFor,
@@ -25,6 +26,7 @@ const cfg: BotConfig = {
   categoryId: "cat1",
   verifiedRoleId: "role-18",
   modRoleId: "mods",
+  adminRoleIds: ["owner", "fluff-admin"],
 };
 const siteUrl = "https://furry.example";
 
@@ -496,5 +498,33 @@ describe("feedback in Discord", () => {
     assert.deepEqual(done, [4]);
     assert.equal(reply.type, 7);
     assert.match(JSON.stringify(reply.data), /Erledigt von userm1/);
+  });
+});
+
+describe("team roles", () => {
+  it("Owner / Fluff Admin count as moderators", async () => {
+    const done: number[] = [];
+    const feedback = { done: async (id: number) => void done.push(id) };
+    const { api } = fakeApi();
+    await handleInteraction(click("feedback:done:9", member("o1", { roles: ["fluff-admin"] })), {
+      cfg,
+      api,
+      siteUrl,
+      feedback,
+    });
+    assert.deepEqual(done, [9]);
+  });
+
+  it("team-only channels are visible to the admin roles", async () => {
+    const calls: Call[] = [];
+    const api = async (method: string, path: string, body?: unknown) => {
+      calls.push({ method, path, body });
+      return (method === "GET" ? [] : { id: "c" + calls.length }) as never;
+    };
+    await ensureChannel(cfg, api, { category: "Team X", channel: "x", topic: "t" });
+    const ids = (
+      calls[1].body as { permission_overwrites: { id: string }[] }
+    ).permission_overwrites.map((o) => o.id);
+    assert.ok(ids.includes("owner") && ids.includes("fluff-admin") && ids.includes("mods"));
   });
 });

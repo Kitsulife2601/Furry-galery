@@ -22,6 +22,8 @@ export type BotConfig = {
   verifiedRoleId: string;
   /** Optional: role whose members may approve. Admins / "Manage Roles" always may. */
   modRoleId: string | null;
+  /** Team roles (Owner, Fluff Admin): moderators in Discord and admins on the website. */
+  adminRoleIds: string[];
 };
 
 /**
@@ -35,6 +37,8 @@ export const DISCORD_DEFAULTS = {
   guildId: "1553802179431899266",
   verifyChannelId: "1553814568852136097",
   categoryId: "1553815320202973281",
+  /** Owner, Fluff Admin */
+  adminRoleIds: ["1553843194993582253", "1553862150710239345"],
 } as const;
 
 function env(key: string): string | undefined {
@@ -55,6 +59,9 @@ export function botConfig(): BotConfig | null {
     verifyChannelId: env("DISCORD_VERIFY_CHANNEL_ID") ?? DISCORD_DEFAULTS.verifyChannelId,
     categoryId: env("DISCORD_VERIFY_CATEGORY_ID") ?? DISCORD_DEFAULTS.categoryId,
     modRoleId: env("DISCORD_MOD_ROLE_ID") ?? null,
+    adminRoleIds: (env("DISCORD_ADMIN_ROLE_IDS")?.split(",") ?? [...DISCORD_DEFAULTS.adminRoleIds])
+      .map((id) => id.trim())
+      .filter(Boolean),
   };
 }
 
@@ -212,7 +219,12 @@ function ephemeral(content: string): InteractionReply {
 function isModerator(cfg: BotConfig, member: NonNullable<Interaction["member"]>): boolean {
   const perms = BigInt(member.permissions || "0");
   if (perms & (Perm.Administrator | Perm.ManageRoles)) return true;
-  return cfg.modRoleId !== null && member.roles.includes(cfg.modRoleId);
+  return teamRoleIds(cfg).some((id) => member.roles.includes(id));
+}
+
+/** Mod role plus the admin roles — everyone who counts as "the team". */
+export function teamRoleIds(cfg: BotConfig): string[] {
+  return [...new Set([...(cfg.modRoleId ? [cfg.modRoleId] : []), ...cfg.adminRoleIds])];
 }
 
 function channelName(username: string, userId: string): string {
@@ -432,12 +444,8 @@ export async function handleInteraction(
         allow: String(MEMBER_ACCESS | Perm.ManageChannels | Perm.EmbedLinks),
       },
     ];
-    if (cfg.modRoleId) {
-      overwrites.push({
-        id: cfg.modRoleId,
-        type: 0,
-        allow: String(MEMBER_ACCESS | Perm.ManageMessages),
-      });
+    for (const roleId of teamRoleIds(cfg)) {
+      overwrites.push({ id: roleId, type: 0, allow: String(MEMBER_ACCESS | Perm.ManageMessages) });
     }
     const channel = await api<Channel>("POST", `/guilds/${cfg.guildId}/channels`, {
       name: channelName(member.user.global_name || member.user.username, userId),
@@ -686,7 +694,7 @@ export async function ensureChannel(
     : [
         { id: cfg.guildId, type: 0, deny: String(Perm.ViewChannel) }, // @everyone
         bot,
-        ...(cfg.modRoleId ? [{ id: cfg.modRoleId, type: 0, allow: String(MEMBER_ACCESS) }] : []),
+        ...teamRoleIds(cfg).map((id) => ({ id, type: 0, allow: String(MEMBER_ACCESS) })),
       ];
   const channels = await api<Channel[]>("GET", `/guilds/${cfg.guildId}/channels`);
   const category =
@@ -844,7 +852,6 @@ export async function sendSystemDm(
 
 // ---------------------------------------------------------------------------
 // Feedback and site updates
-
 
 export function feedbackMessage(opts: {
   id: number;
