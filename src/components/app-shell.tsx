@@ -6,6 +6,7 @@ import { BottomNav, SideNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
 import { SiteFooter } from "@/components/legal-page";
 import { PawDialog } from "@/components/admin-panel";
+import { InterestsDialog } from "@/components/interests";
 
 export function AppShell({
   profile,
@@ -18,6 +19,7 @@ export function AppShell({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const [interestsDone, setInterestsDone] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hideMobilePad = pathname === "/";
 
@@ -54,6 +56,9 @@ export function AppShell({
         </div>
       </div>
       <BottomNav />
+      {profile?.needsInterests && !interestsDone ? (
+        <InterestsDialog onDone={() => setInterestsDone(true)} />
+      ) : null}
       {menuOpen && profile ? <PawDialog isAdmin={profile.isAdmin} onClose={closeMenu} /> : null}
     </div>
   );
