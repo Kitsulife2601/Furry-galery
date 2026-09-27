@@ -134,6 +134,13 @@ export const COMMANDS = [
 ];
 
 /** Website side of /web-freischalten and /web-sperren (injected: needs the database). */
+/** Website moderation actions behind the report buttons (injected: needs the database). */
+export type ReportActions = {
+  deletePost: (postId: number) => Promise<void>;
+  dismiss: (postId: number) => Promise<void>;
+  ban: (handle: string) => Promise<boolean>;
+};
+
 export type WebFsk18 = (
   handle: string,
   unlock: boolean,
@@ -189,7 +196,13 @@ export type Interaction = {
 
 export type InteractionReply = { type: number; data?: Record<string, unknown> };
 
-type Channel = { id: string; parent_id?: string | null; topic?: string | null };
+type Channel = {
+  id: string;
+  type?: number;
+  name?: string;
+  parent_id?: string | null;
+  topic?: string | null;
+};
 
 function ephemeral(content: string): InteractionReply {
   return { type: Reply.Message, data: { content, flags: EPHEMERAL } };
@@ -289,9 +302,15 @@ function decidedComponents() {
 
 export async function handleInteraction(
   interaction: Interaction,
-  ctx: { cfg: BotConfig; api: DiscordApi; siteUrl: string; web?: WebFsk18 },
+  ctx: {
+    cfg: BotConfig;
+    api: DiscordApi;
+    siteUrl: string;
+    web?: WebFsk18;
+    reports?: ReportActions;
+  },
 ): Promise<InteractionReply> {
-  const { cfg, api, siteUrl, web } = ctx;
+  const { cfg, api, siteUrl, web, reports } = ctx;
 
   if (interaction.type === InteractionType.Ping) return { type: Reply.Pong };
 
@@ -331,7 +350,39 @@ export async function handleInteraction(
   }
 
   if (interaction.type !== InteractionType.Component) return ephemeral("Unbekannte Aktion.");
-  const [, action, targetId] = (interaction.data?.custom_id ?? "").split(":");
+  const [prefix, action, targetId] = (interaction.data?.custom_id ?? "").split(":");
+
+  if (prefix === "report") {
+    if (!isModerator(cfg, member)) return ephemeral("Nur das Team kann Meldungen bearbeiten.");
+    if (!reports || !targetId) return ephemeral("Die Webseite ist gerade nicht erreichbar.");
+    const by = member.user.global_name || member.user.username;
+    let outcome: string;
+    if (action === "delete") {
+      await reports.deletePost(Number(targetId));
+      outcome = `🗑️ Bild gelöscht von ${by}`;
+    } else if (action === "dismiss") {
+      await reports.dismiss(Number(targetId));
+      outcome = `✔️ Verworfen von ${by}`;
+    } else if (action === "ban") {
+      if (!(await reports.ban(targetId))) return ephemeral(`Profil @${targetId} nicht gefunden.`);
+      outcome = `⛔ @${targetId} gesperrt von ${by}`;
+    } else {
+      return ephemeral("Unbekannte Aktion.");
+    }
+    return {
+      type: Reply.Update,
+      data: {
+        components: [
+          {
+            type: 1,
+            components: [
+              { type: 2, style: 2, label: outcome, custom_id: "report:done", disabled: true },
+            ],
+          },
+        ],
+      },
+    };
+  }
 
   if (action === "open") {
     if (member.roles.includes(cfg.verifiedRoleId)) {
@@ -549,4 +600,113 @@ export async function deliverReply(
   }
   // A private note after a silent acknowledgement (e.g. "no permission").
   await send("POST", base, { ...data, flags: EPHEMERAL });
+}
+
+// ---------------------------------------------------------------------------
+// Reports from the website → a private channel for the team.
+
+export const REPORT_CATEGORY_NAME = "🚩 Meldungen";
+export const REPORT_CHANNEL_NAME = "meldungen";
+
+let reportChannelCache: string | null = null;
+
+/** Find or create the team-only "🚩 Meldungen" category with its #meldungen channel. */
+export async function ensureReportChannel(cfg: BotConfig, api: DiscordApi): Promise<string> {
+  if (reportChannelCache) return reportChannelCache;
+  const overwrites = [
+    { id: cfg.guildId, type: 0, deny: String(Perm.ViewChannel) }, // @everyone
+    {
+      id: cfg.applicationId,
+      type: 1,
+      allow: String(MEMBER_ACCESS | Perm.EmbedLinks | Perm.ManageChannels),
+    },
+    ...(cfg.modRoleId ? [{ id: cfg.modRoleId, type: 0, allow: String(MEMBER_ACCESS) }] : []),
+  ];
+  const channels = await api<Channel[]>("GET", `/guilds/${cfg.guildId}/channels`);
+  const category =
+    channels.find((c) => c.type === 4 && c.name === REPORT_CATEGORY_NAME) ??
+    (await api<Channel>("POST", `/guilds/${cfg.guildId}/channels`, {
+      name: REPORT_CATEGORY_NAME,
+      type: 4,
+      permission_overwrites: overwrites,
+    }));
+  const channel =
+    channels.find(
+      (c) => c.type === 0 && c.parent_id === category.id && c.name === REPORT_CHANNEL_NAME,
+    ) ??
+    (await api<Channel>("POST", `/guilds/${cfg.guildId}/channels`, {
+      name: REPORT_CHANNEL_NAME,
+      type: 0,
+      parent_id: category.id,
+      topic: "Meldungen von der Webseite — nur fürs Team",
+      permission_overwrites: overwrites,
+    }));
+  reportChannelCache = channel.id;
+  return channel.id;
+}
+
+export type ReportNotice = {
+  postId: number;
+  reason: string;
+  note: string;
+  caption: string;
+  nsfw: boolean;
+  totalReports: number;
+  reportedAt: Date;
+  author: { handle: string; displayName: string };
+  reporter: { handle: string; displayName: string };
+};
+
+/** File name of the attached image; FSK 18 images go in as a spoiler. */
+export function reportImageName(notice: ReportNotice, extension: string): string {
+  return `${notice.nsfw ? "SPOILER_" : ""}beitrag-${notice.postId}.${extension}`;
+}
+
+export function reportMessage(notice: ReportNotice, siteUrl: string, imageName: string | null) {
+  const unix = Math.floor(notice.reportedAt.getTime() / 1000);
+  const fields = [
+    {
+      name: "Uploader",
+      value: `[@${notice.author.handle}](${siteUrl}/u/${notice.author.handle}) · ${notice.author.displayName}`,
+      inline: true,
+    },
+    {
+      name: "Gemeldet von",
+      value: `[@${notice.reporter.handle}](${siteUrl}/u/${notice.reporter.handle})`,
+      inline: true,
+    },
+    { name: "Uhrzeit", value: `<t:${unix}:f> (<t:${unix}:R>)`, inline: true },
+    { name: "Begründung", value: notice.reason },
+    ...(notice.note ? [{ name: "Details", value: notice.note.slice(0, 1000) }] : []),
+    ...(notice.totalReports > 1
+      ? [{ name: "Meldungen insgesamt", value: String(notice.totalReports), inline: true }]
+      : []),
+  ];
+  return {
+    embeds: [
+      {
+        color: 0xc45c4a,
+        title: "🚩 Neue Meldung",
+        url: `${siteUrl}/admin`,
+        description: notice.caption ? `„${notice.caption.slice(0, 300)}“` : undefined,
+        fields,
+        // FSK 18 images are not shown in the embed but attached as a spoiler below it.
+        image: imageName && !notice.nsfw ? { url: `attachment://${imageName}` } : undefined,
+        footer: { text: `Beitrag #${notice.postId}${notice.nsfw ? " · FSK 18" : ""}` },
+        timestamp: notice.reportedAt.toISOString(),
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          button("Bild löschen", `report:delete:${notice.postId}`, 4, "🗑️"),
+          button("Verwerfen", `report:dismiss:${notice.postId}`, 2, "✔️"),
+          button("Uploader sperren", `report:ban:${notice.author.handle}`, 4, "⛔"),
+        ],
+      },
+    ],
+    allowed_mentions: { parse: [] },
+    ...(imageName ? { attachments: [{ id: 0, filename: imageName }] } : {}),
+  };
 }

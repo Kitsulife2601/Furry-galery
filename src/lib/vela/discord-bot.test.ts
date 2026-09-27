@@ -2,7 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
+  REPORT_CATEGORY_NAME,
   deferredReplyFor,
+  ensureReportChannel,
+  reportImageName,
+  reportMessage,
   deliverReply,
   diagnoseBot,
   handleInteraction,
@@ -341,5 +345,93 @@ describe("/web-freischalten and /web-sperren", () => {
       { cfg, api, siteUrl, web },
     );
     assert.match(String(missing.data?.content), /kein Profil @niemand/);
+  });
+});
+
+describe("reports in Discord", () => {
+  const notice = {
+    postId: 7,
+    reason: "Spam oder Betrug",
+    note: "sieht geklaut aus",
+    caption: "Mein Bild",
+    nsfw: false,
+    totalReports: 2,
+    reportedAt: new Date("2026-09-27T18:00:00Z"),
+    author: { handle: "artist", displayName: "Artist" },
+    reporter: { handle: "viewer", displayName: "Viewer" },
+  };
+
+  it("creates the private category and channel once", async () => {
+    let created = 0;
+    const calls: Call[] = [];
+    const api = async (method: string, path: string, body?: unknown) => {
+      calls.push({ method, path, body });
+      if (method === "GET") return [] as never;
+      created += 1;
+      return { id: `new${created}` } as never;
+    };
+    const id = await ensureReportChannel(cfg, api);
+    assert.equal(id, "new2");
+    const [category, channel] = calls.filter((c) => c.method === "POST");
+    assert.equal((category.body as { name: string; type: number }).name, REPORT_CATEGORY_NAME);
+    assert.equal((category.body as { type: number }).type, 4);
+    assert.equal((channel.body as { parent_id: string }).parent_id, "new1");
+    const everyone = (
+      channel.body as { permission_overwrites: { id: string; deny?: string }[] }
+    ).permission_overwrites.find((o) => o.id === "g1");
+    assert.equal(everyone?.deny, String(1n << 10n), "hidden from @everyone");
+    // Cached afterwards: no more Discord calls.
+    const again = await ensureReportChannel(cfg, api);
+    assert.equal(again, "new2");
+    assert.equal(calls.length, 3);
+  });
+
+  it("builds the message with name, time, reason and action buttons", () => {
+    const msg = reportMessage(notice, siteUrl, "beitrag-7.jpg");
+    const embed = msg.embeds[0];
+    const text = JSON.stringify(embed.fields);
+    assert.match(text, /@artist/);
+    assert.match(text, /@viewer/);
+    assert.match(text, /<t:1790532000:f>/);
+    assert.match(text, /Spam oder Betrug/);
+    assert.match(text, /sieht geklaut aus/);
+    assert.equal(embed.image?.url, "attachment://beitrag-7.jpg");
+    const ids = msg.components[0].components.map((b) => b.custom_id);
+    assert.deepEqual(ids, ["report:delete:7", "report:dismiss:7", "report:ban:artist"]);
+  });
+
+  it("attaches FSK 18 images as a spoiler, not in the embed", () => {
+    const fsk = { ...notice, nsfw: true };
+    const name = reportImageName(fsk, "jpg");
+    assert.equal(name, "SPOILER_beitrag-7.jpg");
+    assert.equal(reportMessage(fsk, siteUrl, name).embeds[0].image, undefined);
+  });
+
+  it("report buttons: only moderators, then the message shows who did what", async () => {
+    const done: string[] = [];
+    const reports = {
+      deletePost: async (id: number) => void done.push(`delete ${id}`),
+      dismiss: async (id: number) => void done.push(`dismiss ${id}`),
+      ban: async (handle: string) => (done.push(`ban ${handle}`), true),
+    };
+    const { api } = fakeApi();
+    const denied = await handleInteraction(click("report:delete:7", member("u1")), {
+      cfg,
+      api,
+      siteUrl,
+      reports,
+    });
+    assert.equal(done.length, 0);
+    assert.match(String(denied.data?.content), /Nur das Team/);
+    const mod = member("m1", { roles: ["mods"] });
+    const reply = await handleInteraction(click("report:ban:artist", mod), {
+      cfg,
+      api,
+      siteUrl,
+      reports,
+    });
+    assert.deepEqual(done, ["ban artist"]);
+    assert.equal(reply.type, 7);
+    assert.match(JSON.stringify(reply.data), /@artist gesperrt von userm1/);
   });
 });

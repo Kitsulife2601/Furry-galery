@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Flag, Heart, MessageCircle } from "lucide-react";
@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
 import { patchPostInCaches } from "@/lib/vela/post-cache";
-import { toggleLike } from "@/lib/vela/server";
+import { recordView, toggleLike } from "@/lib/vela/server";
 import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
@@ -24,6 +24,33 @@ export function FeedCard({ post }: { post: PostCard }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isOwn = Boolean(userId) && userId === post.userId;
+  const slideRef = useRef<HTMLElement>(null);
+
+  // Count a view once the slide has been mostly on screen for 1.5 s; the
+  // "Für dich" ranking learns from it. Only for members, only once.
+  useEffect(() => {
+    const el = slideRef.current;
+    if (!el || !profile || post.locked || typeof IntersectionObserver === "undefined") return;
+    let timer: number | undefined;
+    let done = false;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        window.clearTimeout(timer);
+        if (done || !entry?.isIntersecting) return;
+        timer = window.setTimeout(() => {
+          done = true;
+          observer.disconnect();
+          void recordView({ data: { postId: post.id } }).catch(() => undefined);
+        }, 1500);
+      },
+      { threshold: 0.6 },
+    );
+    observer.observe(el);
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [post.id, post.locked, profile]);
 
   function requireProfile(action: string): boolean {
     if (profile) return true;
@@ -56,7 +83,7 @@ export function FeedCard({ post }: { post: PostCard }) {
   }
 
   return (
-    <article className="feed-slide relative flex items-center justify-center bg-bg">
+    <article ref={slideRef} className="feed-slide relative flex items-center justify-center bg-bg">
       <div className="relative h-full w-full max-w-lg overflow-hidden bg-bg-elevated md:max-h-[min(100dvh,920px)]">
         {post.locked ? (
           <>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
+import { deletePostById, dismissReportsFor, setBannedByHandle } from "@/lib/vela/moderation";
 import {
   DISCORD_DEFAULTS,
   botConfig,
@@ -11,8 +12,16 @@ import {
   registerCommands,
   verifyDiscordSignature,
   type Interaction,
+  type ReportActions,
   type WebFsk18,
 } from "@/lib/vela/discord-bot";
+
+/** The report buttons in the team's #meldungen channel. */
+const reportActions: ReportActions = {
+  deletePost: deletePostById,
+  dismiss: dismissReportsFor,
+  ban: async (handle) => Boolean(await setBannedByHandle(handle, true)),
+};
 
 /** /web-freischalten and /web-sperren: set or clear the team's manual FSK 18 unlock. */
 const setWebFsk18: WebFsk18 = async (handle, unlock, moderator) => {
@@ -109,6 +118,7 @@ export const Route = createFileRoute("/api/discord/interactions")({
           api: makeDiscordApi(cfg.botToken),
           siteUrl,
           web: setWebFsk18,
+          reports: reportActions,
         })
           .catch((err) => {
             console.error("[discord-bot]", err);
