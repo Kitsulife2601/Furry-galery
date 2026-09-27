@@ -9,7 +9,7 @@ import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
 import { isAdminUser } from "./admin";
 import { deletePostById, dismissReportsFor, setBannedByHandle } from "./moderation";
 import { notify } from "./notifications";
-import { isBlobVideoUrl } from "./video";
+import { blobToken, isBlobVideoUrl } from "./video";
 import type {
   Fsk18Status,
   PostCard,
@@ -1306,5 +1306,5 @@ export const setFsk18Approval = createServerFn({ method: "POST" })
 
 /** Whether video uploads are set up (Vercel Blob store connected). */
 export const videoUploadEnabled = createServerFn({ method: "GET" }).handler(
-  async (): Promise<boolean> => Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim()),
+  async (): Promise<boolean> => Boolean(blobToken()),
 );
