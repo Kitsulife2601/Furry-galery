@@ -112,7 +112,33 @@ export const COMMANDS = [
     default_member_permissions: String(1 << 5), // Manage Server
     contexts: [0],
   },
+  ...(
+    [
+      ["web-freischalten", "Schaltet FSK 18 auf der Webseite für ein Profil frei"],
+      ["web-sperren", "Nimmt die FSK-18-Freischaltung auf der Webseite zurück"],
+    ] as const
+  ).map(([name, description]) => ({
+    name,
+    description,
+    default_member_permissions: String(1 << 28), // Manage Roles
+    contexts: [0],
+    options: [
+      {
+        type: 3, // string
+        name: "profil",
+        description: "Handle auf der Webseite, z. B. kitsulife",
+        required: true,
+      },
+    ],
+  })),
 ];
+
+/** Website side of /web-freischalten and /web-sperren (injected: needs the database). */
+export type WebFsk18 = (
+  handle: string,
+  unlock: boolean,
+  moderator: string,
+) => Promise<{ displayName: string } | null>;
 
 export async function registerCommands(cfg: BotConfig, api: DiscordApi) {
   await api("PUT", `/applications/${cfg.applicationId}/guilds/${cfg.guildId}/commands`, COMMANDS);
@@ -148,7 +174,11 @@ export type Interaction = {
   application_id?: string;
   guild_id?: string;
   channel_id?: string;
-  data?: { name?: string; custom_id?: string };
+  data?: {
+    name?: string;
+    custom_id?: string;
+    options?: { name: string; value: string | number | boolean }[];
+  };
   member?: {
     user: { id: string; username: string; global_name?: string | null };
     roles: string[];
@@ -190,13 +220,13 @@ export function panelMessage(siteUrl: string) {
     embeds: [
       {
         color: COLOR,
-        author: { name: "Furry Gallery", icon_url: `${siteUrl}/__grok/icon-180.png` },
+        author: { name: "Furry Gallery", icon_url: `${siteUrl}/icon.png` },
         title: "🔞 Verifizierung",
         url: siteUrl,
         description:
           "Um FSK-18-Inhalte hier im Server und auf der **Furry Gallery** freizuschalten, " +
           "musst du bestätigen, dass du volljährig bist.",
-        thumbnail: { url: `${siteUrl}/__grok/icon-180.png` },
+        thumbnail: { url: `${siteUrl}/icon.png` },
         fields: [
           {
             name: "So funktioniert’s",
@@ -259,9 +289,9 @@ function decidedComponents() {
 
 export async function handleInteraction(
   interaction: Interaction,
-  ctx: { cfg: BotConfig; api: DiscordApi; siteUrl: string },
+  ctx: { cfg: BotConfig; api: DiscordApi; siteUrl: string; web?: WebFsk18 },
 ): Promise<InteractionReply> {
-  const { cfg, api, siteUrl } = ctx;
+  const { cfg, api, siteUrl, web } = ctx;
 
   if (interaction.type === InteractionType.Ping) return { type: Reply.Pong };
 
@@ -274,6 +304,30 @@ export async function handleInteraction(
     if (!isModerator(cfg, member)) return ephemeral("Dafür fehlen dir die Rechte.");
     await api("POST", `/channels/${cfg.verifyChannelId}/messages`, panelMessage(siteUrl));
     return ephemeral(`Panel gepostet in <#${cfg.verifyChannelId}>.`);
+  }
+
+  const command = interaction.data?.name;
+  if (
+    interaction.type === InteractionType.Command &&
+    (command === "web-freischalten" || command === "web-sperren")
+  ) {
+    if (!isModerator(cfg, member)) return ephemeral("Dafür fehlen dir die Rechte.");
+    if (!web) return ephemeral("Die Webseite ist gerade nicht erreichbar.");
+    const raw = interaction.data?.options?.find((o) => o.name === "profil")?.value;
+    const handle = String(raw ?? "")
+      .trim()
+      .replace(/^@/, "")
+      .toLowerCase();
+    if (!handle) return ephemeral("Bitte ein Profil angeben, z. B. `kitsulife`.");
+    const unlock = command === "web-freischalten";
+    const moderator = member.user.global_name || member.user.username;
+    const profile = await web(handle, unlock, moderator);
+    if (!profile) return ephemeral(`Auf der Webseite gibt es kein Profil @${handle}.`);
+    return ephemeral(
+      unlock
+        ? `✅ FSK 18 ist für **${profile.displayName}** (@${handle}) auf der Webseite freigeschaltet.`
+        : `✖️ FSK 18 ist für **${profile.displayName}** (@${handle}) wieder gesperrt.`,
+    );
   }
 
   if (interaction.type !== InteractionType.Component) return ephemeral("Unbekannte Aktion.");

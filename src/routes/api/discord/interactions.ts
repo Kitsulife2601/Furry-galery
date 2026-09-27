@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getSql } from "@/lib/db";
 import {
   DISCORD_DEFAULTS,
   botConfig,
@@ -10,7 +11,21 @@ import {
   registerCommands,
   verifyDiscordSignature,
   type Interaction,
+  type WebFsk18,
 } from "@/lib/vela/discord-bot";
+
+/** /web-freischalten and /web-sperren: set or clear the team's manual FSK 18 unlock. */
+const setWebFsk18: WebFsk18 = async (handle, unlock, moderator) => {
+  const sql = await getSql();
+  const rows = await sql<{ display_name: string }>`
+    update profiles
+    set fsk18_manual_at = ${unlock ? new Date().toISOString() : null},
+        fsk18_manual_by = ${unlock ? moderator : null}
+    where handle = ${handle}
+    returning display_name
+  `;
+  return rows[0] ? { displayName: rows[0].display_name } : null;
+};
 
 /**
  * Keep the function alive for work that continues after the response has been
@@ -93,6 +108,7 @@ export const Route = createFileRoute("/api/discord/interactions")({
           cfg,
           api: makeDiscordApi(cfg.botToken),
           siteUrl,
+          web: setWebFsk18,
         })
           .catch((err) => {
             console.error("[discord-bot]", err);

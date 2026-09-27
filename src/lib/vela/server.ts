@@ -6,8 +6,16 @@ import { ageFromBirthdate, isAdultBirthdate } from "./age";
 import { isBackgroundId } from "./backgrounds";
 import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
 import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
-import type { Fsk18Status, PostCard, Profile, RelationshipStatus, ReportReason } from "./types";
-import { REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
+import { isAdminUser } from "./admin";
+import type {
+  Fsk18Status,
+  PostCard,
+  PostTag,
+  Profile,
+  RelationshipStatus,
+  ReportReason,
+} from "./types";
+import { POST_TAGS, REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 const MAX_PREVIEW_CHARS = 4_000;
@@ -15,6 +23,7 @@ const RELATIONSHIP_IDS = RELATIONSHIP_STATUSES.map((s) => s.id) as [
   RelationshipStatus,
   ...RelationshipStatus[],
 ];
+const POST_TAG_IDS = POST_TAGS.map((t) => t.id) as [PostTag, ...PostTag[]];
 const REPORT_REASON_IDS = REPORT_REASONS.map((r) => r.id) as [ReportReason, ...ReportReason[]];
 
 type ProfileRow = {
@@ -27,6 +36,7 @@ type ProfileRow = {
   avatar_url: string | null;
   banner_url: string | null;
   background_id: string;
+  banned: boolean;
   created_at: string;
 };
 
@@ -55,7 +65,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, created_at::text as created_at
+           background_id, banned_at is not null as banned, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -66,6 +76,7 @@ async function requireAdult(userId: string): Promise<ProfileRow> {
   if (!row || ageFromBirthdate(asIsoDate(row.birthdate)) < 18) {
     throw new Error("Age verification required");
   }
+  if (row.banned) throw new Error("Dein Konto ist gesperrt.");
   return row;
 }
 
@@ -99,16 +110,19 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     isOwn: viewerId === row.user_id,
     isFollowing: followRow.length > 0,
     fsk18: viewerId === row.user_id ? await loadFsk18Status(row.user_id) : null,
+    isAdmin: viewerId === row.user_id && (await isAdminUser(row.user_id)),
   };
 }
 
 async function loadFsk18Status(userId: string): Promise<Fsk18Status> {
   const sql = await getSql();
-  const rows = await sql<{ discord_username: string | null }>`
-    select discord_username from profiles where user_id = ${userId}
+  const rows = await sql<{ discord_username: string | null; manual: boolean }>`
+    select discord_username, fsk18_manual_at is not null as manual
+    from profiles where user_id = ${userId}
   `;
   return {
     verified: await isFsk18Verified(userId),
+    manual: Boolean(rows[0]?.manual),
     discordUsername: rows[0]?.discord_username ?? null,
   };
 }
@@ -119,6 +133,8 @@ type FeedRow = {
   image_url: string;
   preview_url: string | null;
   nsfw: boolean;
+  tags: string[] | null;
+  comment_count: number;
   caption: string;
   created_at: string;
   like_count: number;
@@ -156,6 +172,8 @@ function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[
       createdAt: asTime(row.created_at),
       nsfw: Boolean(row.nsfw),
       locked,
+      commentCount: Number(row.comment_count) || 0,
+      tags: (row.tags ?? []).filter((t): t is PostTag => POST_TAG_IDS.includes(t as PostTag)),
       likeCount: Number(row.like_count) || 0,
       liked: Boolean(row.liked),
       author: {
@@ -302,6 +320,8 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
+        p.tags,
+        (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
         p.caption,
         p.created_at::text as created_at,
         (select count(*)::int from likes l where l.post_id = p.id) as like_count,
@@ -313,14 +333,17 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         pr.birthdate::text as birthdate
       from posts p
       join profiles pr on pr.user_id = p.user_id
+      where pr.banned_at is null
       order by p.created_at desc
       limit 60
     `;
   return mapFeed(rows, canSeeNsfw, viewerId);
 });
 
-export const listExplore = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PostCard[]> => {
+export const listExplore = createServerFn({ method: "GET" })
+  .validator(z.object({ tag: z.enum(POST_TAG_IDS).nullable().optional() }).optional())
+  .handler(async ({ data }): Promise<PostCard[]> => {
+    const tag = data?.tag ?? null;
     const viewerId = (await optionalViewerId()) ?? "";
     const canSeeNsfw = await isFsk18Verified(viewerId || null);
     const sql = await getSql();
@@ -331,6 +354,8 @@ export const listExplore = createServerFn({ method: "GET" }).handler(
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
+        p.tags,
+        (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
         p.caption,
         p.created_at::text as created_at,
         (select count(*)::int from likes l where l.post_id = p.id) as like_count,
@@ -342,12 +367,12 @@ export const listExplore = createServerFn({ method: "GET" }).handler(
         pr.birthdate::text as birthdate
       from posts p
       join profiles pr on pr.user_id = p.user_id
+      where pr.banned_at is null and (${tag}::text is null or ${tag}::text = any(p.tags))
       order by (select count(*) from likes l where l.post_id = p.id) desc, p.created_at desc
       limit 80
     `;
     return mapFeed(rows, canSeeNsfw, viewerId);
-  },
-);
+  });
 
 export type CreatorPreview = {
   displayName: string;
@@ -365,8 +390,9 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, created_at::text as created_at
+           background_id, banned_at is not null as banned, created_at::text as created_at
       from profiles
+      where banned_at is null
       order by created_at asc
       limit 16
     `;
@@ -395,6 +421,8 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
+        p.tags,
+        (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
         p.caption,
         p.created_at::text as created_at,
         (select count(*)::int from likes l where l.post_id = p.id) as like_count,
@@ -406,7 +434,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         pr.birthdate::text as birthdate
       from posts p
       join profiles pr on pr.user_id = p.user_id
-      where pr.handle = ${data.handle}
+      where pr.handle = ${data.handle} and pr.banned_at is null
       order by p.created_at desc
     `;
     return mapFeed(rows, canSeeNsfw, viewerId);
@@ -422,8 +450,8 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, created_at::text as created_at
-      from profiles where handle = ${data.handle}
+           background_id, banned_at is not null as banned, created_at::text as created_at
+      from profiles where handle = ${data.handle} and banned_at is null
     `;
     const row = rows[0];
     if (!row) return null;
@@ -437,6 +465,7 @@ export const createPost = createServerFn({ method: "POST" })
       imageUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.post)),
       caption: z.string().trim().max(180),
       nsfw: z.boolean().optional().default(false),
+      tags: z.array(z.enum(POST_TAG_IDS)).max(3).optional().default([]),
       // Tiny thumbnail (~16px). The size cap keeps it unrecognisable by construction.
       previewUrl: z.string().max(MAX_PREVIEW_CHARS).optional(),
     }),
@@ -455,8 +484,9 @@ export const createPost = createServerFn({ method: "POST" })
     const previewUrl = nsfw ? data.previewUrl : null;
     const sql = await getSql();
     const inserted = await sql<{ id: number }>`
-      insert into posts (user_id, image_url, caption, nsfw, preview_url)
-      values (${context.userId}, ${data.imageUrl}, ${data.caption}, ${nsfw}, ${previewUrl})
+      insert into posts (user_id, image_url, caption, nsfw, preview_url, tags)
+      values (${context.userId}, ${data.imageUrl}, ${data.caption}, ${nsfw}, ${previewUrl},
+              ${[...new Set(data.tags ?? [])]})
       returning id
     `;
     const id = inserted[0]?.id;
@@ -468,6 +498,8 @@ export const createPost = createServerFn({ method: "POST" })
         '/api/media/post/' || p.id as image_url,
         p.preview_url,
         p.nsfw,
+        p.tags,
+        (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
         p.caption,
         p.created_at::text as created_at,
         0::int as like_count,
@@ -601,9 +633,10 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, created_at::text as created_at
+           background_id, banned_at is not null as banned, created_at::text as created_at
       from profiles
-      where handle like ${contains} or lower(display_name) like ${contains}
+      where banned_at is null
+        and (handle like ${contains} or lower(display_name) like ${contains})
       order by (handle = ${q}) desc, (handle like ${prefix}) desc,
                (lower(display_name) like ${prefix}) desc, display_name asc
       limit 20
@@ -637,5 +670,227 @@ export const unlinkDiscord = createServerFn({ method: "POST" })
           fsk18_verified_at = null, fsk18_checked_at = null
       where user_id = ${context.userId}
     `;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// Comments
+
+type CommentRow = {
+  id: number;
+  body: string;
+  created_at: string;
+  user_id: string;
+  display_name: string;
+  handle: string;
+  avatar_url: string | null;
+};
+
+/** May this viewer see the post (FSK 18 rules)? Comments follow the same rule. */
+async function canViewPost(postId: number, viewerId: string): Promise<boolean> {
+  const sql = await getSql();
+  const rows = await sql<{ nsfw: boolean; user_id: string }>`
+    select nsfw, user_id from posts where id = ${postId}
+  `;
+  const post = rows[0];
+  if (!post) return false;
+  if (!post.nsfw || post.user_id === viewerId) return true;
+  return isFsk18Verified(viewerId || null);
+}
+
+export const listComments = createServerFn({ method: "GET" })
+  .validator(z.object({ postId: z.number().int().positive() }))
+  .handler(async ({ data }) => {
+    const viewerId = (await optionalViewerId()) ?? "";
+    if (!(await canViewPost(data.postId, viewerId))) return { locked: true, comments: [] };
+    const sql = await getSql();
+    const [rows, admin, owner] = await Promise.all([
+      sql<CommentRow>`
+        select c.id, c.body, c.created_at::text as created_at, c.user_id,
+               pr.display_name, pr.handle,
+               case when pr.avatar_url is null then null
+                    else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url
+        from comments c
+        join profiles pr on pr.user_id = c.user_id
+        where c.post_id = ${data.postId} and pr.banned_at is null
+        order by c.created_at asc
+        limit 200
+      `,
+      isAdminUser(viewerId),
+      sql<{ user_id: string }>`select user_id from posts where id = ${data.postId}`,
+    ]);
+    const postOwner = owner[0]?.user_id;
+    return {
+      locked: false,
+      comments: rows.map((r) => ({
+        id: Number(r.id),
+        body: r.body,
+        createdAt: asTime(r.created_at),
+        canDelete: Boolean(viewerId) && (r.user_id === viewerId || postOwner === viewerId || admin),
+        author: { displayName: r.display_name, handle: r.handle, avatarUrl: r.avatar_url },
+      })),
+    };
+  });
+
+export const addComment = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({ postId: z.number().int().positive(), body: z.string().trim().min(1).max(300) }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdult(context.userId);
+    if (!(await canViewPost(data.postId, context.userId))) {
+      throw new Error("Dieses Bild kannst du nicht kommentieren.");
+    }
+    const sql = await getSql();
+    await sql`
+      insert into comments (post_id, user_id, body)
+      values (${data.postId}, ${context.userId}, ${data.body})
+    `;
+    return { ok: true };
+  });
+
+export const deleteComment = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.number().int().positive() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    const admin = await isAdminUser(context.userId);
+    // Own comment, a comment under your own post, or any comment as admin.
+    await sql`
+      delete from comments c
+      where c.id = ${data.id}
+        and (${admin} or c.user_id = ${context.userId}
+             or exists(select 1 from posts p where p.id = c.post_id and p.user_id = ${context.userId}))
+    `;
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// Moderation (admins only, see ./admin.ts)
+
+async function requireAdmin(userId: string) {
+  if (!(await isAdminUser(userId))) throw new Error("Nur für Admins.");
+}
+
+export type ReportedPost = {
+  postId: number;
+  imageUrl: string;
+  caption: string;
+  author: { displayName: string; handle: string; banned: boolean };
+  count: number;
+  reasons: string[];
+  notes: string[];
+  lastReportedAt: string;
+};
+
+export const listReports = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<ReportedPost[]> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{
+      post_id: number;
+      caption: string;
+      display_name: string;
+      handle: string;
+      banned: boolean;
+      count: number;
+      reasons: string[];
+      notes: string[];
+      last_at: string;
+    }>`
+      select p.id as post_id, p.caption, pr.display_name, pr.handle,
+             pr.banned_at is not null as banned,
+             count(*)::int as count,
+             array_agg(distinct r.reason) as reasons,
+             array_remove(array_agg(nullif(r.note, '')), null) as notes,
+             max(r.created_at)::text as last_at
+      from reports r
+      join posts p on p.id = r.post_id
+      join profiles pr on pr.user_id = p.user_id
+      where r.resolved_at is null
+      group by p.id, pr.display_name, pr.handle, pr.banned_at
+      order by count(*) desc, max(r.created_at) desc
+      limit 100
+    `;
+    return rows.map((r) => ({
+      postId: Number(r.post_id),
+      imageUrl: `/api/media/post/${r.post_id}`,
+      caption: r.caption,
+      author: { displayName: r.display_name, handle: r.handle, banned: Boolean(r.banned) },
+      count: Number(r.count),
+      reasons: r.reasons ?? [],
+      notes: r.notes ?? [],
+      lastReportedAt: asTime(r.last_at),
+    }));
+  });
+
+export const dismissReports = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ postId: z.number().int().positive() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    await sql`
+      update reports set resolved_at = now()
+      where post_id = ${data.postId} and resolved_at is null
+    `;
+    return { ok: true };
+  });
+
+export const adminDeletePost = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ postId: z.number().int().positive() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    await sql`delete from posts where id = ${data.postId}`;
+    return { ok: true };
+  });
+
+export type BannedProfile = { displayName: string; handle: string; bannedAt: string };
+
+export const listBanned = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<BannedProfile[]> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{ display_name: string; handle: string; banned_at: string }>`
+      select display_name, handle, banned_at::text as banned_at
+      from profiles where banned_at is not null
+      order by banned_at desc
+    `;
+    return rows.map((r) => ({
+      displayName: r.display_name,
+      handle: r.handle,
+      bannedAt: asTime(r.banned_at),
+    }));
+  });
+
+export const setBanned = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ handle: z.string().trim().toLowerCase(), banned: z.boolean() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const target = await sql<{ user_id: string }>`
+      select user_id from profiles where handle = ${data.handle}
+    `;
+    if (!target[0]) throw new Error("Profil nicht gefunden.");
+    if (target[0].user_id === context.userId)
+      throw new Error("Dich selbst kannst du nicht sperren.");
+    await sql`
+      update profiles set banned_at = ${data.banned ? new Date().toISOString() : null}
+      where user_id = ${target[0].user_id}
+    `;
+    if (data.banned) {
+      // Their open reports are handled by the ban.
+      await sql`
+        update reports set resolved_at = now()
+        where resolved_at is null
+          and post_id in (select id from posts where user_id = ${target[0].user_id})
+      `;
+    }
     return { ok: true };
   });

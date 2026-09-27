@@ -9,7 +9,7 @@ import { AuthPrompt } from "@/components/auth-prompt";
 import { Onboarding } from "@/components/onboarding";
 import { Splash } from "@/components/splash";
 
-const PROTECTED = new Set(["/upload", "/profile", "/settings"]);
+const PROTECTED = new Set(["/upload", "/profile", "/settings", "/admin"]);
 
 function promptCopy(pathname: string) {
   if (pathname === "/upload") {

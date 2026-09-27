@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Flag, Heart } from "lucide-react";
+import { Flag, Heart, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -11,12 +11,15 @@ import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { FittedImage } from "@/components/fitted-image";
+import { PostViewer } from "@/components/post-viewer";
+import { TagList } from "@/components/tag-list";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const { profile, userId } = useAppSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -109,6 +112,16 @@ export function FeedCard({ post }: { post: PostCard }) {
             />
             <span className="text-xs tabular-nums">{post.likeCount}</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setViewing(true)}
+            disabled={post.locked}
+            className="flex min-h-11 min-w-11 flex-col items-center gap-1 disabled:opacity-40"
+            aria-label="Kommentare"
+          >
+            <MessageCircle className="size-7" strokeWidth={1.7} />
+            <span className="text-xs tabular-nums">{post.commentCount}</span>
+          </button>
           {isOwn ? null : (
             <button
               type="button"
@@ -135,9 +148,11 @@ export function FeedCard({ post }: { post: PostCard }) {
             {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
           </p>
           {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
+          <TagList tags={post.tags} className="mt-2" />
         </div>
       </div>
       {reporting ? <ReportDialog postId={post.id} onClose={() => setReporting(false)} /> : null}
+      {viewing ? <PostViewer post={post} onClose={() => setViewing(false)} /> : null}
     </article>
   );
 }

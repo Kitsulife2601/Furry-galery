@@ -294,3 +294,52 @@ describe("deferred replies", () => {
     assert.equal(sent.length, 0);
   });
 });
+
+describe("/web-freischalten and /web-sperren", () => {
+  const run = (name: string, m: ReturnType<typeof member>, value = "@KitsuLife") => ({
+    type: 2,
+    guild_id: "g1",
+    data: { name, options: [{ name: "profil", value }] },
+    member: m,
+  });
+
+  it("lets moderators unlock and lock a website profile", async () => {
+    const calls: [string, boolean, string][] = [];
+    const web = async (handle: string, unlock: boolean, mod: string) => {
+      calls.push([handle, unlock, mod]);
+      return { displayName: "Denni" };
+    };
+    const { api } = fakeApi();
+    const mod = member("m1", { roles: ["mods"] });
+    const on = await handleInteraction(run("web-freischalten", mod), { cfg, api, siteUrl, web });
+    const off = await handleInteraction(run("web-sperren", mod), { cfg, api, siteUrl, web });
+    assert.deepEqual(calls, [
+      ["kitsulife", true, "userm1"],
+      ["kitsulife", false, "userm1"],
+    ]);
+    assert.match(String(on.data?.content), /freigeschaltet/);
+    assert.match(String(off.data?.content), /gesperrt/);
+  });
+
+  it("refuses non-moderators and reports unknown profiles", async () => {
+    let called = false;
+    const web = async () => {
+      called = true;
+      return null;
+    };
+    const { api } = fakeApi();
+    const denied = await handleInteraction(run("web-freischalten", member("u1")), {
+      cfg,
+      api,
+      siteUrl,
+      web,
+    });
+    assert.equal(called, false);
+    assert.match(String(denied.data?.content), /Rechte/);
+    const missing = await handleInteraction(
+      run("web-freischalten", member("m1", { roles: ["mods"] }), "niemand"),
+      { cfg, api, siteUrl, web },
+    );
+    assert.match(String(missing.data?.content), /kein Profil @niemand/);
+  });
+});

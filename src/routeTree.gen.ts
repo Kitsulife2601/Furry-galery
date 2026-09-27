@@ -14,6 +14,7 @@ import { Route as DatenschutzRouteImport } from './routes/datenschutz'
 import { Route as ImpressumRouteImport } from './routes/impressum'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppExploreRouteImport } from './routes/_app/explore'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
@@ -47,6 +48,11 @@ const LoginRoute = LoginRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
 const AppExploreRoute = AppExploreRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/datenschutz': typeof DatenschutzRoute
   '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRoute
   '/explore': typeof AppExploreRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/datenschutz': typeof DatenschutzRoute
   '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AppAdminRoute
   '/explore': typeof AppExploreRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/datenschutz': typeof DatenschutzRoute
   '/impressum': typeof ImpressumRoute
   '/login': typeof LoginRoute
+  '/_app/admin': typeof AppAdminRoute
   '/_app/explore': typeof AppExploreRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/datenschutz'
     | '/impressum'
     | '/login'
+    | '/admin'
     | '/explore'
     | '/profile'
     | '/settings'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/datenschutz'
     | '/impressum'
     | '/login'
+    | '/admin'
     | '/explore'
     | '/profile'
     | '/settings'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/datenschutz'
     | '/impressum'
     | '/login'
+    | '/_app/admin'
     | '/_app/explore'
     | '/_app/profile'
     | '/_app/settings'
@@ -249,6 +261,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/explore': {
@@ -325,6 +344,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppExploreRoute: typeof AppExploreRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -334,6 +354,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppExploreRoute: AppExploreRoute,
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRoute,

@@ -25,12 +25,16 @@ export type Profile = {
   followingCount: number;
   isOwn: boolean;
   isFollowing: boolean;
+  /** Only true on your own profile, if you may moderate the site. */
+  isAdmin: boolean;
   /** Discord/FSK18 status — only filled in on your own profile. */
   fsk18: Fsk18Status | null;
 };
 
 export type Fsk18Status = {
   verified: boolean;
+  /** Unlocked by hand by the team, not through a linked Discord account. */
+  manual: boolean;
   discordUsername: string | null;
 };
 
@@ -46,6 +50,8 @@ export type PostCard = {
   locked: boolean;
   likeCount: number;
   liked: boolean;
+  commentCount: number;
+  tags: PostTag[];
   author: {
     displayName: string;
     handle: string;
@@ -53,6 +59,31 @@ export type PostCard = {
     relationshipStatus: RelationshipStatus;
     age: number;
   };
+};
+
+export const POST_TAGS = [
+  { id: "artwork", label: "Artwork" },
+  { id: "fursuit", label: "Fursuit" },
+  { id: "foto", label: "Foto" },
+  { id: "sketch", label: "Sketch" },
+  { id: "comic", label: "Comic" },
+  { id: "3d", label: "3D" },
+  { id: "pixel", label: "Pixel-Art" },
+  { id: "meme", label: "Meme" },
+] as const;
+
+export type PostTag = (typeof POST_TAGS)[number]["id"];
+
+export function tagLabel(id: string): string {
+  return POST_TAGS.find((t) => t.id === id)?.label ?? id;
+}
+
+export type Comment = {
+  id: number;
+  body: string;
+  createdAt: string;
+  canDelete: boolean;
+  author: { displayName: string; handle: string; avatarUrl: string | null };
 };
 
 export const REPORT_REASONS = [

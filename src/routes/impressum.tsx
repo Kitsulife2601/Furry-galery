@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LegalPage, Placeholder } from "@/components/legal-page";
+import { CONTACT, ContactEmail, LegalPage } from "@/components/legal-page";
 
 export const Route = createFileRoute("/impressum")({
   head: () => ({ meta: [{ title: "Impressum · Furry Gallery" }] }),
@@ -12,37 +12,31 @@ function Impressum() {
       <section>
         <h2 className="text-base font-medium text-fg">Angaben gemäß § 5 DDG</h2>
         <p className="mt-2">
-          <Placeholder>Vor- und Nachname / Firma</Placeholder>
+          {CONTACT.name}
           <br />
-          <Placeholder>Straße und Hausnummer</Placeholder>
+          {CONTACT.city}
           <br />
-          <Placeholder>PLZ Ort</Placeholder>
-          <br />
-          <Placeholder>Land</Placeholder>
+          {CONTACT.country}
         </p>
       </section>
       <section>
         <h2 className="text-base font-medium text-fg">Kontakt</h2>
         <p className="mt-2">
-          E-Mail: <Placeholder>kontakt@example.com</Placeholder>
-          <br />
-          Telefon: <Placeholder>optional</Placeholder>
+          E-Mail: <ContactEmail />
         </p>
       </section>
       <section>
         <h2 className="text-base font-medium text-fg">
           Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV
         </h2>
-        <p className="mt-2">
-          <Placeholder>Name, Anschrift wie oben</Placeholder>
-        </p>
+        <p className="mt-2">{CONTACT.name}, Anschrift wie oben</p>
       </section>
       <section>
         <h2 className="text-base font-medium text-fg">Jugendschutz</h2>
         <p className="mt-2">
           Die Furry Gallery richtet sich ausschließlich an Personen ab 18 Jahren. Profile werden nur
-          nach Angabe eines Geburtsdatums angelegt, das die Volljährigkeit ergibt.
-          Jugendschutzbeauftragte*r: <Placeholder>Name und E-Mail</Placeholder>
+          nach Angabe eines Geburtsdatums angelegt, das die Volljährigkeit ergibt. Ansprechpartner
+          für Jugendschutz: {CONTACT.name}, <ContactEmail />
         </p>
       </section>
       <section>

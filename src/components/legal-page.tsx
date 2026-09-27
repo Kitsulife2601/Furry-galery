@@ -1,6 +1,26 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
+/** Contact details for Impressum and Datenschutz (one place to change them). */
+export const CONTACT = {
+  name: "Dennis",
+  city: "21706 Drochtersen",
+  country: "Deutschland",
+  /** Still to be confirmed by the owner. */
+  email: null as string | null,
+};
+
+/** The contact e-mail as a mailto link, or a placeholder while it is missing. */
+export function ContactEmail() {
+  return CONTACT.email ? (
+    <a href={`mailto:${CONTACT.email}`} className="underline underline-offset-4">
+      {CONTACT.email}
+    </a>
+  ) : (
+    <Placeholder>E-Mail-Adresse</Placeholder>
+  );
+}
+
 export const LEGAL_LINKS = [
   { to: "/impressum", label: "Impressum" },
   { to: "/datenschutz", label: "Datenschutz" },

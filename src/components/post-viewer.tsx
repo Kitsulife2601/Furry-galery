@@ -10,6 +10,8 @@ import { deletePost, toggleLike } from "@/lib/vela/server";
 import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
+import { Comments } from "@/components/comments";
+import { TagList } from "@/components/tag-list";
 import { cn } from "@/lib/utils";
 
 export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => void }) {
@@ -69,11 +71,11 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
           <X className="size-5" />
         </button>
         <div
-          className="relative max-h-[90dvh] w-full max-w-md overflow-hidden rounded-2xl bg-bg-elevated"
+          className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-bg-elevated"
           onClick={(e) => e.stopPropagation()}
         >
           {post.locked ? (
-            <div className="relative aspect-3/4 max-h-[70dvh] w-full">
+            <div className="relative aspect-3/4 max-h-[60dvh] w-full">
               <PostImage post={post} className="h-full w-full" />
               <Fsk18Notice onNavigate={onClose} />
             </div>
@@ -82,7 +84,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
               <img
                 src={post.imageUrl}
                 alt={post.caption || ""}
-                className="max-h-[70dvh] w-full bg-bg object-contain"
+                className="max-h-[60dvh] w-full bg-bg object-contain"
               />
               {post.nsfw ? <Fsk18Badge locked={false} /> : null}
             </div>
@@ -101,6 +103,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
                 {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
               </p>
               {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
+              <TagList tags={post.tags} className="mt-2" />
             </div>
             <div className="flex shrink-0 items-start gap-1">
               {isOwn ? (
@@ -137,6 +140,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
               </button>
             </div>
           </div>
+          <Comments post={post} />
         </div>
       </div>
       {reporting ? <ReportDialog postId={post.id} onClose={() => setReporting(false)} /> : null}

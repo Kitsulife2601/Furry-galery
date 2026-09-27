@@ -143,6 +143,7 @@ async function fetchMemberAsBot(
 }
 
 type Fsk18Row = {
+  manual: boolean;
   discord_id: string | null;
   fsk18_verified_at: string | null;
   fsk18_checked_at: string | null;
@@ -155,15 +156,18 @@ type Fsk18Row = {
  */
 export async function isFsk18Verified(userId: string | null): Promise<boolean> {
   if (!userId) return false;
-  const cfg = discordConfig();
-  if (!cfg) return false;
   const sql = await getSql();
   const rows = await sql<Fsk18Row>`
-    select discord_id, fsk18_verified_at::text as fsk18_verified_at,
+    select fsk18_manual_at is not null as manual,
+           discord_id, fsk18_verified_at::text as fsk18_verified_at,
            fsk18_checked_at::text as fsk18_checked_at
     from profiles where user_id = ${userId}
   `;
   const row = rows[0];
+  // Unlocked by hand by the team (/web-freischalten) — no Discord link needed.
+  if (row?.manual) return true;
+  const cfg = discordConfig();
+  if (!cfg) return false;
   if (!row?.discord_id || !row.fsk18_verified_at) return false;
 
   const checkedAt = row.fsk18_checked_at ? Date.parse(row.fsk18_checked_at) : 0;
