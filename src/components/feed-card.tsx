@@ -10,6 +10,7 @@ import { toggleLike } from "@/lib/vela/server";
 import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
+import { FittedImage } from "@/components/fitted-image";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
@@ -66,10 +67,10 @@ export function FeedCard({ post }: { post: PostCard }) {
             onClick={onImageClick}
             aria-label="Doppeltippen zum Liken"
           >
-            <img
+            <FittedImage
               src={post.imageUrl}
               alt={post.caption || `Bild von ${post.author.displayName}`}
-              className="h-full w-full object-cover"
+              className="h-full w-full"
             />
           </button>
         )}

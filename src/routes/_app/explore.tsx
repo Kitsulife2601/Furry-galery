@@ -31,7 +31,10 @@ function Explore() {
 
       {searching ? null : (
         <>
-          <section className="px-5 pb-6">
+          <section
+            className="px-5 pb-6"
+            hidden={!creators.isPending && (creators.data ?? []).length === 0}
+          >
             <h2 className="text-sm font-medium text-fg-muted">Profile</h2>
             <ul className="mt-3 flex gap-4 overflow-x-auto pb-1">
               {creators.isPending
