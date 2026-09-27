@@ -5,6 +5,7 @@ import { ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { compressImageFile } from "@/lib/vela/compress-image";
+import { FittedImage } from "@/components/fitted-image";
 import { createPost } from "@/lib/vela/server";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -73,7 +74,7 @@ function Upload() {
 
       <label className="mt-8 flex aspect-3/4 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border-strong bg-bg-elevated">
         {preview ? (
-          <img src={preview} alt="Vorschau" className="h-full w-full object-cover" />
+          <FittedImage src={preview} alt="Vorschau" className="h-full w-full" />
         ) : (
           <span className="flex flex-col items-center gap-3 text-fg-muted">
             <ImagePlus className="size-8" />
@@ -105,19 +106,19 @@ function Upload() {
             type="checkbox"
             className="mt-1 size-4 accent-(--color-accent)"
             checked={nsfw}
-            disabled={!canPostNsfw}
             onChange={(e) => setNsfw(e.target.checked)}
           />
           <span>
             <span className="block text-sm font-medium">FSK 18</span>
             <span className="block text-xs text-fg-muted">
-              Für alle ohne Discord-Verifizierung wird das Bild unkenntlich gemacht.
+              Für alle, die nicht über Discord verifiziert sind, wird das Bild unkenntlich gemacht.
+              Du selbst siehst es immer.
             </span>
           </span>
         </label>
         {canPostNsfw ? null : (
           <p className="mt-3 text-xs text-fg-subtle">
-            FSK-18-Bilder posten kannst du nach der{" "}
+            FSK-18-Bilder von anderen siehst du nach der{" "}
             <Link to="/settings" hash="fsk18" className="underline underline-offset-4">
               Verifizierung über Discord
             </Link>

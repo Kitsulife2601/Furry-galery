@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   DISCORD_DEFAULTS,
   botConfig,
+  diagnoseBot,
   handleInteraction,
   makeDiscordApi,
   verifyDiscordSignature,
@@ -12,6 +13,29 @@ import {
 export const Route = createFileRoute("/api/discord/interactions")({
   server: {
     handlers: {
+      // Open this address in the browser to see what the bot still needs.
+      GET: async ({ request }) => {
+        const cfg = botConfig();
+        const lines = ["Furry Gallery – Bot-Status", ""];
+        if (!cfg) {
+          lines.push("✖ DISCORD_BOT_TOKEN fehlt in Vercel (danach neu deployen)");
+        } else {
+          for (const check of await diagnoseBot(cfg, makeDiscordApi(cfg.botToken))) {
+            lines.push(`${check.ok ? "✔" : "✖"} ${check.text}`);
+          }
+        }
+        lines.push(
+          process.env.DISCORD_CLIENT_SECRET?.trim()
+            ? "✔ DISCORD_CLIENT_SECRET ist gesetzt"
+            : "✖ DISCORD_CLIENT_SECRET fehlt in Vercel (für Discord-Anmeldung und Verknüpfung)",
+          "",
+          "Hinweis: Der Bot wird in Discord immer als „offline“ angezeigt — das ist normal.",
+          `Interactions Endpoint URL im Developer Portal: ${new URL(request.url).origin}/api/discord/interactions`,
+        );
+        return new Response(lines.join("\n"), {
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+        });
+      },
       POST: async ({ request }) => {
         const publicKey = process.env.DISCORD_PUBLIC_KEY?.trim() || DISCORD_DEFAULTS.publicKey;
         const cfg = botConfig();

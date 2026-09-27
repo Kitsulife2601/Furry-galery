@@ -112,8 +112,8 @@ Die Webseite prüft nur, ob jemand diese Rolle auf eurem Server hat.
 
 **Tokens und Secrets niemals in den Code oder ins Repository schreiben** — nur in Vercel.
 
-Ein Discord-Konto kann nur ein Profil freischalten. FSK-18-Bilder posten dürfen nur
-verifizierte Mitglieder.
+Ein Discord-Konto kann nur ein Profil freischalten. Als FSK 18 markieren kann jedes Mitglied
+sein eigenes Bild; die Uploader*innen sehen ihre eigenen Bilder immer.
 
 ## Verifizierungs-Bot
 

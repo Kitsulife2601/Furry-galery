@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
+  diagnoseBot,
   handleInteraction,
   verifyDiscordSignature,
   type BotConfig,
@@ -191,5 +192,48 @@ describe("handleInteraction", () => {
       { cfg, api, siteUrl },
     );
     assert.equal(calls.length, 0);
+  });
+});
+
+describe("diagnoseBot", () => {
+  const healthy = {
+    "GET /users/@me": { username: "FurryBot" },
+    "GET /guilds/g1": { name: "Furry Server" },
+    "GET /guilds/g1/roles": [
+      { id: "role-18", name: "18+", position: 2 },
+      { id: "bot-role", name: "Bot", position: 5 },
+    ],
+    "GET /guilds/g1/members/app1": { roles: ["bot-role"] },
+  };
+
+  it("reports all green for a working setup", async () => {
+    const { api } = fakeApi(healthy);
+    const checks = await diagnoseBot(cfg, api);
+    assert.ok(
+      checks.every((c) => c.ok),
+      JSON.stringify(checks),
+    );
+    assert.ok(checks.some((c) => /verify-panel/.test(c.text)));
+  });
+
+  it("stops early on an invalid token", async () => {
+    const api = async () => {
+      throw new Error("Discord GET /users/@me → 401 Unauthorized");
+    };
+    const checks = await diagnoseBot(cfg, api as never);
+    assert.equal(checks.length, 1);
+    assert.match(checks[0].text, /401/);
+  });
+
+  it("flags a bot role below the verified role", async () => {
+    const { api } = fakeApi({
+      ...healthy,
+      "GET /guilds/g1/roles": [
+        { id: "role-18", name: "18+", position: 6 },
+        { id: "bot-role", name: "Bot", position: 5 },
+      ],
+    });
+    const checks = await diagnoseBot(cfg, api);
+    assert.ok(checks.some((c) => !c.ok && /darüber ziehen/.test(c.text)));
   });
 });

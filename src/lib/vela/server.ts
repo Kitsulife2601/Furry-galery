@@ -138,9 +138,10 @@ async function optionalViewerId(): Promise<string | null> {
  * `canSeeNsfw` decides server-side which image leaves the server: unverified
  * viewers of an FSK18 post only ever receive the tiny preview, never the image.
  */
-function mapFeed(rows: FeedRow[], canSeeNsfw: boolean): PostCard[] {
+function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[] {
   return rows.map((row) => {
-    const locked = Boolean(row.nsfw) && !canSeeNsfw;
+    // Uploaders always see their own posts, verified or not.
+    const locked = Boolean(row.nsfw) && !canSeeNsfw && row.user_id !== viewerId;
     return {
       id: Number(row.id),
       userId: row.user_id,
@@ -287,7 +288,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       order by p.created_at desc
       limit 60
     `;
-  return mapFeed(rows, canSeeNsfw);
+  return mapFeed(rows, canSeeNsfw, viewerId);
 });
 
 export const listExplore = createServerFn({ method: "GET" }).handler(
@@ -316,7 +317,7 @@ export const listExplore = createServerFn({ method: "GET" }).handler(
       order by (select count(*) from likes l where l.post_id = p.id) desc, p.created_at desc
       limit 80
     `;
-    return mapFeed(rows, canSeeNsfw);
+    return mapFeed(rows, canSeeNsfw, viewerId);
   },
 );
 
@@ -377,7 +378,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
       where pr.handle = ${data.handle}
       order by p.created_at desc
     `;
-    return mapFeed(rows, canSeeNsfw);
+    return mapFeed(rows, canSeeNsfw, viewerId);
   });
 
 export const getProfileByHandle = createServerFn({ method: "POST" })
@@ -408,14 +409,11 @@ export const createPost = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }): Promise<PostCard> => {
     await requireAdult(context.userId);
-    if (!data.imageUrl.startsWith("data:image/") && !data.imageUrl.startsWith("/seed/")) {
+    if (!data.imageUrl.startsWith("data:image/")) {
       throw new Error("Nur Bilder sind erlaubt.");
     }
     const nsfw = data.nsfw ?? false;
     if (nsfw) {
-      if (!(await isFsk18Verified(context.userId))) {
-        throw new Error("FSK-18-Bilder kannst du erst nach der Discord-Verifizierung posten.");
-      }
       if (!data.previewUrl?.startsWith("data:image/")) {
         throw new Error("Vorschau fehlt.");
       }

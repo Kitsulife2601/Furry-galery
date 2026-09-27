@@ -355,3 +355,96 @@ export async function handleInteraction(
 
   return ephemeral("Unbekannte Aktion.");
 }
+
+// ---------------------------------------------------------------------------
+// Setup check (GET /api/discord/interactions) — says in plain words what is
+// missing, without ever printing a secret. Also (re)registers /verify-panel.
+
+type Check = { ok: boolean; text: string };
+
+function statusOf(err: unknown): string {
+  const match = /→ (\d{3})/.exec(err instanceof Error ? err.message : "");
+  return match ? match[1] : "?";
+}
+
+export async function diagnoseBot(cfg: BotConfig, api: DiscordApi): Promise<Check[]> {
+  const checks: Check[] = [];
+  try {
+    const me = await api<{ username: string }>("GET", "/users/@me");
+    checks.push({ ok: true, text: `Bot-Token gültig (Bot: ${me.username})` });
+  } catch (err) {
+    checks.push({
+      ok: false,
+      text: `Bot-Token ungültig (${statusOf(err)}) — DISCORD_BOT_TOKEN in Vercel neu eintragen und neu deployen`,
+    });
+    return checks;
+  }
+
+  let guildRoles: { id: string; name: string; position: number }[] = [];
+  try {
+    const guild = await api<{ name: string }>("GET", `/guilds/${cfg.guildId}`);
+    checks.push({ ok: true, text: `Bot ist auf dem Server „${guild.name}“` });
+    guildRoles = await api("GET", `/guilds/${cfg.guildId}/roles`);
+  } catch (err) {
+    checks.push({
+      ok: false,
+      text: `Bot ist nicht auf dem Server (${statusOf(err)}) — Bot über den Einladungslink hinzufügen`,
+    });
+    return checks;
+  }
+
+  try {
+    await registerCommands(cfg, api);
+    checks.push({ ok: true, text: "Befehl /verify-panel ist angemeldet" });
+  } catch (err) {
+    checks.push({
+      ok: false,
+      text: `Befehl /verify-panel konnte nicht angemeldet werden (${statusOf(err)}) — Bot mit „applications.commands“ neu einladen`,
+    });
+  }
+
+  for (const [label, id] of [
+    ["Verifizierungs-Kanal", cfg.verifyChannelId],
+    ["Verifizierungs-Kategorie", cfg.categoryId],
+  ] as const) {
+    try {
+      await api("GET", `/channels/${id}`);
+      checks.push({ ok: true, text: `${label} gefunden` });
+    } catch (err) {
+      checks.push({
+        ok: false,
+        text: `${label} ${id} nicht erreichbar (${statusOf(err)}) — ID prüfen oder dem Bot dort „Kanal ansehen“ erlauben`,
+      });
+    }
+  }
+
+  const verified = guildRoles.find((r) => r.id === cfg.verifiedRoleId);
+  if (!verified) {
+    checks.push({
+      ok: false,
+      text: `Verifiziert-Rolle ${cfg.verifiedRoleId} gibt es auf dem Server nicht`,
+    });
+  } else {
+    try {
+      const self = await api<{ roles: string[] }>(
+        "GET",
+        `/guilds/${cfg.guildId}/members/${cfg.applicationId}`,
+      );
+      const top = Math.max(
+        0,
+        ...guildRoles.filter((r) => self.roles.includes(r.id)).map((r) => r.position),
+      );
+      checks.push(
+        top > verified.position
+          ? { ok: true, text: `Bot-Rolle steht über „${verified.name}“ und kann sie vergeben` }
+          : {
+              ok: false,
+              text: `Bot-Rolle steht unter „${verified.name}“ — in den Servereinstellungen → Rollen die Bot-Rolle darüber ziehen`,
+            },
+      );
+    } catch (err) {
+      checks.push({ ok: false, text: `Rollen des Bots nicht lesbar (${statusOf(err)})` });
+    }
+  }
+  return checks;
+}
