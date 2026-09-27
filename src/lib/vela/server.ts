@@ -7,6 +7,7 @@ import { isBackgroundId } from "./backgrounds";
 import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
 import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
 import { isAdminUser } from "./admin";
+import { deletePostById, dismissReportsFor, setBannedByHandle } from "./moderation";
 import type {
   Fsk18Status,
   PostCard,
@@ -309,11 +310,36 @@ export const updateBanner = createServerFn({ method: "POST" })
     return toPublicProfile(row, context.userId);
   });
 
+/**
+ * "Für dich" ranking. Every post gets a score from:
+ *  - how much the viewer engaged with its categories (like 3, comment 4, view 1),
+ *  - how much they engaged with its author, and whether they follow them,
+ *  - its popularity (likes) and freshness,
+ * minus a penalty once they have already seen it. Guests get fresh + popular.
+ */
 export const listFeed = createServerFn({ method: "GET" }).handler(async (): Promise<PostCard[]> => {
   const viewerId = (await optionalViewerId()) ?? "";
   const canSeeNsfw = await isFsk18Verified(viewerId || null);
   const sql = await getSql();
   const rows = await sql<FeedRow>`
+      with signals as (
+        select p.tags, p.user_id as author, 3.0 as w
+        from likes l join posts p on p.id = l.post_id where l.user_id = ${viewerId}
+        union all
+        select p.tags, p.user_id, 4.0
+        from comments c join posts p on p.id = c.post_id where c.user_id = ${viewerId}
+        union all
+        select p.tags, p.user_id, 1.0
+        from post_views v join posts p on p.id = v.post_id where v.user_id = ${viewerId}
+      ),
+      tag_affinity as (
+        select t.tag, sum(s.w) as score
+        from signals s cross join lateral unnest(s.tags) as t(tag)
+        group by t.tag
+      ),
+      author_affinity as (
+        select author, sum(w) as score from signals group by author
+      )
       select
         p.id,
         p.user_id,
@@ -334,11 +360,37 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null
-      order by p.created_at desc
+      order by (
+          1.5 * ln(1 + coalesce((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags)), 0))
+        + 1.0 * ln(1 + coalesce((select aa.score from author_affinity aa where aa.author = p.user_id), 0))
+        + case when exists(select 1 from follows f
+                           where f.follower_id = ${viewerId} and f.following_id = p.user_id)
+               then 2.0 else 0 end
+        + 0.8 * ln(1 + (select count(*) from likes l where l.post_id = p.id))
+        + 3.0 / (1 + extract(epoch from (now() - p.created_at)) / 86400.0)
+        - case when exists(select 1 from post_views v
+                           where v.user_id = ${viewerId} and v.post_id = p.id)
+               then 2.5 else 0 end
+        - case when p.user_id = ${viewerId} then 1.0 else 0 end
+      ) desc, p.created_at desc
       limit 60
     `;
   return mapFeed(rows, canSeeNsfw, viewerId);
 });
+
+/** The viewer looked at a post in the feed (feeds the "Für dich" ranking). */
+export const recordView = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ postId: z.number().int().positive() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    await sql`
+      insert into post_views (user_id, post_id)
+      select ${context.userId}, id from posts where id = ${data.postId}
+      on conflict (user_id, post_id) do update set seen_at = now()
+    `;
+    return { ok: true };
+  });
 
 export const listExplore = createServerFn({ method: "GET" })
   .validator(z.object({ tag: z.enum(POST_TAG_IDS).nullable().optional() }).optional())
@@ -606,6 +658,21 @@ export const reportPost = createServerFn({ method: "POST" })
       on conflict (post_id, reporter_id) do update
         set reason = excluded.reason, note = excluded.note, created_at = now()
     `;
+    // Also post it to the team's Discord channel; a Discord hiccup must not fail the report.
+    try {
+      const { getRequest } = await import("@tanstack/react-start/server");
+      const origin = process.env.SITE_URL?.trim() || new URL(getRequest().url).origin;
+      const { notifyDiscordOfReport } = await import("./report-notify");
+      await notifyDiscordOfReport({
+        postId: data.postId,
+        reporterId: context.userId,
+        reason: data.reason,
+        note: data.note ?? "",
+        siteUrl: origin,
+      });
+    } catch (err) {
+      console.error("[report] Discord notification failed", err);
+    }
     return { ok: true };
   });
 
@@ -831,11 +898,7 @@ export const dismissReports = createServerFn({ method: "POST" })
   .validator(z.object({ postId: z.number().int().positive() }))
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdmin(context.userId);
-    const sql = await getSql();
-    await sql`
-      update reports set resolved_at = now()
-      where post_id = ${data.postId} and resolved_at is null
-    `;
+    await dismissReportsFor(data.postId);
     return { ok: true };
   });
 
@@ -844,8 +907,7 @@ export const adminDeletePost = createServerFn({ method: "POST" })
   .validator(z.object({ postId: z.number().int().positive() }))
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdmin(context.userId);
-    const sql = await getSql();
-    await sql`delete from posts where id = ${data.postId}`;
+    await deletePostById(data.postId);
     return { ok: true };
   });
 
@@ -873,24 +935,12 @@ export const setBanned = createServerFn({ method: "POST" })
   .validator(z.object({ handle: z.string().trim().toLowerCase(), banned: z.boolean() }))
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdmin(context.userId);
-    const sql = await getSql();
-    const target = await sql<{ user_id: string }>`
-      select user_id from profiles where handle = ${data.handle}
-    `;
-    if (!target[0]) throw new Error("Profil nicht gefunden.");
-    if (target[0].user_id === context.userId)
+    const me = await loadProfileRow(context.userId);
+    if (me?.handle === data.handle.replace(/^@/, "")) {
       throw new Error("Dich selbst kannst du nicht sperren.");
-    await sql`
-      update profiles set banned_at = ${data.banned ? new Date().toISOString() : null}
-      where user_id = ${target[0].user_id}
-    `;
-    if (data.banned) {
-      // Their open reports are handled by the ban.
-      await sql`
-        update reports set resolved_at = now()
-        where resolved_at is null
-          and post_id in (select id from posts where user_id = ${target[0].user_id})
-      `;
+    }
+    if (!(await setBannedByHandle(data.handle, data.banned))) {
+      throw new Error("Profil nicht gefunden.");
     }
     return { ok: true };
   });

@@ -170,6 +170,20 @@ mit demselben Token keine Befehle und Button-Klicks mehr.
   FSK 18 auf der Webseite von Hand frei bzw. wieder ab (Mods). Nach dem Deploy einmal
   `/api/discord/interactions` im Browser öffnen, damit neue Befehle angemeldet werden.
 
+## „Für dich“-Algorithmus
+
+Der Feed sortiert für angemeldete Mitglieder nach Interesse: Kategorien und Accounts, die man
+ansieht (Bild ≥ 1,5 s im Blick), liked (×3) oder kommentiert (×4), werden bevorzugt; gefolgte
+Accounts bekommen einen Bonus, dazu Beliebtheit und Frische. Schon Gesehenes rutscht nach
+hinten. Gäste sehen neu + beliebt. Die Gewichte stehen in `listFeed` (`src/lib/vela/server.ts`).
+
+## Meldungen in Discord
+
+Jede Meldung auf der Webseite postet der Bot in `#meldungen` in der Kategorie „🚩 Meldungen“
+(legt er beim ersten Mal selbst an, nur fürs Team sichtbar): Bild (FSK 18 als Spoiler),
+Uploader, Melder*in, Uhrzeit, Begründung und Details — mit Buttons **Bild löschen**,
+**Verwerfen** und **Uploader sperren**. Der Bot braucht dafür „Kanäle verwalten“.
+
 ## Bot „online“ anzeigen (optional)
 
 Die Befehle funktionieren ohne. Für den grünen Online-Status muss ein kleines Programm
