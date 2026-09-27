@@ -244,19 +244,13 @@ function Reports() {
 function Bans() {
   const queryClient = useQueryClient();
   const banned = useQuery({ queryKey: ["admin-banned"], queryFn: () => listBanned() });
-  const [handle, setHandle] = useState("");
-  const [reason, setReason] = useState("");
 
-  async function update(target: string, ban: boolean, why?: string) {
+  async function unban(target: string) {
     try {
-      await setBanned({
-        data: { handle: target.replace(/^@/, ""), banned: ban, reason: why || undefined },
-      });
-      setReason("");
-      toast.success(ban ? `@${target} gesperrt.` : `@${target} entsperrt.`);
-      setHandle("");
+      await setBanned({ data: { handle: target, banned: false } });
+      toast.success(`@${target} entsperrt.`);
       await Promise.all(
-        ["admin-banned", "admin-reports", "feed", "explore", "creators"].map((key) =>
+        ["admin-banned", "profile", "feed", "explore", "creators"].map((key) =>
           queryClient.invalidateQueries({ queryKey: [key] }),
         ),
       );
@@ -265,55 +259,34 @@ function Bans() {
     }
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (handle.trim() && window.confirm(`@${handle.trim()} sperren?`)) {
-      void update(handle.trim(), true, reason.trim());
-    }
-  }
-
+  const list = banned.data ?? [];
   return (
     <section className="mt-12">
       <h2 className="font-display text-xl">Gesperrte Profile</h2>
       <p className="mt-1 text-sm text-fg-muted">
-        Gesperrte Profile und ihre Bilder sind unsichtbar; sie können nichts mehr posten, liken oder
-        kommentieren.
+        Sperren und Löschen geht direkt auf dem Profil (Bereich „Team“). Gesperrte Profile und ihre
+        Bilder sind unsichtbar; sie können nichts mehr posten, liken oder kommentieren.
       </p>
-      <form onSubmit={onSubmit} className="mt-4 space-y-2">
-        <div className="flex gap-2">
-          <Input
-            value={handle}
-            onChange={(e) => setHandle(e.target.value.toLowerCase())}
-            placeholder="@handle"
-            aria-label="Profil zum Sperren"
-          />
-          <Button type="submit" variant="danger" disabled={!handle.trim()}>
-            Sperren
-          </Button>
-        </div>
-        <Input
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          maxLength={300}
-          placeholder="Begründung (wird auf dem Profil angezeigt)"
-          aria-label="Begründung"
-        />
-      </form>
-      <ul className="mt-4 divide-y divide-border">
-        {(banned.data ?? []).map((b) => (
-          <li key={b.handle} className="flex items-center justify-between py-3 text-sm">
-            <span className="min-w-0">
-              {b.displayName} <span className="text-fg-muted">@{b.handle}</span>
-              {b.reason ? (
-                <span className="block truncate text-xs text-fg-subtle">{b.reason}</span>
-              ) : null}
-            </span>
-            <Button size="sm" variant="secondary" onClick={() => void update(b.handle, false)}>
-              Entsperren
-            </Button>
-          </li>
-        ))}
-      </ul>
+      {list.length === 0 ? (
+        <p className="mt-4 text-sm text-fg-muted">Niemand gesperrt.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-border">
+          {list.map((b) => (
+            <li key={b.handle} className="flex items-center justify-between gap-3 py-3 text-sm">
+              <Link to="/u/$handle" params={{ handle: b.handle }} className="min-w-0">
+                {b.displayName} <span className="text-fg-muted">@{b.handle}</span>
+                <span className="block truncate text-xs text-fg-subtle">
+                  {b.until ? `bis ${dateFormat.format(new Date(b.until))}` : "dauerhaft"}
+                  {b.reason ? ` · ${b.reason}` : ""}
+                </span>
+              </Link>
+              <Button size="sm" variant="secondary" onClick={() => void unban(b.handle)}>
+                Entsperren
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

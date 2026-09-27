@@ -28,6 +28,10 @@ export type Profile = {
   /** Banned by the team: the profile shows a notice instead of its posts. */
   banned: boolean;
   banReason: string | null;
+  /** End of a temporary ban (null = permanent or not banned). */
+  bannedUntil: string | null;
+  /** Scheduled deletion — only shown to the member and the team. */
+  deleteAt: string | null;
   /** Only true on your own profile, if you may moderate the site. */
   isAdmin: boolean;
   /** Discord/FSK18 status — only filled in on your own profile. */
