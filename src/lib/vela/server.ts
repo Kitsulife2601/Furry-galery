@@ -8,6 +8,7 @@ import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
 import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
 import { isAdminUser } from "./admin";
 import { deletePostById, dismissReportsFor, setBannedByHandle } from "./moderation";
+import { notify } from "./notifications";
 import type {
   Fsk18Status,
   PostCard,
@@ -589,10 +590,26 @@ export const toggleLike = createServerFn({ method: "POST" })
     const existing = await sql<{ user_id: string }>`
       select user_id from likes where user_id = ${context.userId} and post_id = ${data.postId}
     `;
+    const owner = await sql<{
+      user_id: string;
+    }>`select user_id from posts where id = ${data.postId}`;
     if (existing[0]) {
       await sql`delete from likes where user_id = ${context.userId} and post_id = ${data.postId}`;
+      // Un-like: take the notification back too, so like/unlike doesn't spam.
+      await sql`
+        delete from notifications
+        where kind = 'like' and actor_id = ${context.userId} and post_id = ${data.postId}
+      `;
     } else {
       await sql`insert into likes (user_id, post_id) values (${context.userId}, ${data.postId})`;
+      if (owner[0]) {
+        await notify({
+          userId: owner[0].user_id,
+          kind: "like",
+          actorId: context.userId,
+          postId: data.postId,
+        });
+      }
     }
     const count = await sql<CountRow>`
       select count(*)::int as n from likes where post_id = ${data.postId}
@@ -626,6 +643,7 @@ export const toggleFollow = createServerFn({ method: "POST" })
         insert into follows (follower_id, following_id)
         values (${context.userId}, ${targetId})
       `;
+      await notify({ userId: targetId, kind: "follow", actorId: context.userId });
     }
     const count = await sql<CountRow>`
       select count(*)::int as n from follows where following_id = ${targetId}
@@ -814,6 +832,18 @@ export const addComment = createServerFn({ method: "POST" })
       insert into comments (post_id, user_id, body)
       values (${data.postId}, ${context.userId}, ${data.body})
     `;
+    const owner = await sql<{
+      user_id: string;
+    }>`select user_id from posts where id = ${data.postId}`;
+    if (owner[0]) {
+      await notify({
+        userId: owner[0].user_id,
+        kind: "comment",
+        actorId: context.userId,
+        postId: data.postId,
+        body: data.body.slice(0, 140),
+      });
+    }
     return { ok: true };
   });
 
@@ -942,5 +972,84 @@ export const setBanned = createServerFn({ method: "POST" })
     if (!(await setBannedByHandle(data.handle, data.banned))) {
       throw new Error("Profil nicht gefunden.");
     }
+    return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// Notifications
+
+export type NotificationItem = {
+  id: number;
+  kind: "like" | "comment" | "follow" | "system";
+  body: string;
+  createdAt: string;
+  read: boolean;
+  /** null for "System" messages. */
+  actor: { displayName: string; handle: string; avatarUrl: string | null } | null;
+  postImageUrl: string | null;
+};
+
+export const listNotifications = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<NotificationItem[]> => {
+    const sql = await getSql();
+    const rows = await sql<{
+      id: number;
+      kind: NotificationItem["kind"];
+      body: string;
+      created_at: string;
+      read: boolean;
+      post_id: number | null;
+      nsfw: boolean | null;
+      display_name: string | null;
+      handle: string | null;
+      avatar_url: string | null;
+    }>`
+      select n.id, n.kind, n.body, n.created_at::text as created_at,
+             n.read_at is not null as read, n.post_id, p.nsfw,
+             a.display_name, a.handle,
+             case when a.avatar_url is null then null
+                  else '/api/media/avatar/' || a.user_id || '?v=' || a.avatar_version end as avatar_url
+      from notifications n
+      left join profiles a on a.user_id = n.actor_id
+      left join posts p on p.id = n.post_id
+      where n.user_id = ${context.userId}
+        and (n.actor_id is null or a.banned_at is null)
+      order by n.created_at desc
+      limit 100
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      kind: r.kind,
+      body: r.body,
+      createdAt: asTime(r.created_at),
+      read: Boolean(r.read),
+      actor: r.handle
+        ? { displayName: r.display_name ?? r.handle, handle: r.handle, avatarUrl: r.avatar_url }
+        : null,
+      // Notifications are about your own posts, which you can always see.
+      postImageUrl: r.post_id ? `/api/media/post/${r.post_id}` : null,
+    }));
+  });
+
+export const unreadNotificationCount = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<number> => {
+    const sql = await getSql();
+    const rows = await sql<CountRow>`
+      select count(*)::int as n from notifications
+      where user_id = ${context.userId} and read_at is null
+    `;
+    return rows[0]?.n ?? 0;
+  });
+
+export const markNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    await sql`
+      update notifications set read_at = now()
+      where user_id = ${context.userId} and read_at is null
+    `;
     return { ok: true };
   });

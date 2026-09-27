@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
   REPORT_CATEGORY_NAME,
+  banNoticeEmbed,
+  sendSystemDm,
   deferredReplyFor,
   ensureReportChannel,
   reportImageName,
@@ -433,5 +435,39 @@ describe("reports in Discord", () => {
     assert.deepEqual(done, ["ban artist"]);
     assert.equal(reply.type, 7);
     assert.match(JSON.stringify(reply.data), /@artist gesperrt von userm1/);
+  });
+});
+
+describe("System DMs", () => {
+  const at = new Date("2026-09-27T18:00:00Z");
+
+  it("ban notice comes from System with reason and time", () => {
+    const e = banNoticeEmbed({
+      handle: "artist",
+      banned: true,
+      reasons: ["Spam oder Betrug"],
+      at,
+      siteUrl,
+    });
+    assert.match(e.author.name, /^System/);
+    assert.match(e.title, /gesperrt/);
+    const text = JSON.stringify(e.fields);
+    assert.match(text, /Spam oder Betrug/);
+    assert.match(text, /<t:1790532000:f>/);
+    assert.match(e.footer.text, /System/);
+    const back = banNoticeEmbed({ handle: "artist", banned: false, reasons: [], at, siteUrl });
+    assert.match(back.title, /entsperrt/);
+    assert.ok(!JSON.stringify(back.fields).includes("Grund"));
+  });
+
+  it("opens a DM channel and posts the embed; reports failure quietly", async () => {
+    const { api, calls } = fakeApi({ "POST /users/@me/channels": { id: "dm1" } });
+    assert.equal(await sendSystemDm(api, "555", { title: "x" }), true);
+    assert.deepEqual(calls[0].body, { recipient_id: "555" });
+    assert.equal(calls[1].path, "/channels/dm1/messages");
+    const failing = async () => {
+      throw new Error("Discord POST → 403 Cannot send messages to this user");
+    };
+    assert.equal(await sendSystemDm(failing as never, "555", { title: "x" }), false);
   });
 });
