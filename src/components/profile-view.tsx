@@ -43,10 +43,10 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
 
   return (
     <div className="mx-auto max-w-lg pb-8">
-      <div className="bg-swatch relative h-40 w-full" data-bg={profile.backgroundId} />
+      <div className="bg-swatch h-20 w-full md:rounded-b-2xl" data-bg={profile.backgroundId} />
       <div className="px-5">
-        <div className="-mt-10 flex items-end justify-between">
-          <div className="size-20 overflow-hidden rounded-full border-4 border-bg bg-bg-subtle">
+        <div className="relative z-10 -mt-12 flex items-end justify-between">
+          <div className="size-24 overflow-hidden rounded-full border-4 border-bg bg-bg-subtle shadow-lg">
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
