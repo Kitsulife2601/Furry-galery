@@ -6,8 +6,7 @@ export const CONTACT = {
   name: "Dennis",
   city: "21706 Drochtersen",
   country: "Deutschland",
-  /** Still to be confirmed by the owner. */
-  email: null as string | null,
+  email: "dennis210me@gmail.com" as string | null,
 };
 
 /** The contact e-mail as a mailto link, or a placeholder while it is missing. */
