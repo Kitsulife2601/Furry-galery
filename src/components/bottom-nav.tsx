@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Compass, House, PawPrint, Plus, UserRound } from "lucide-react";
+import { Bell, Compass, House, Plus, UserRound } from "lucide-react";
 import { useAppSession } from "@/lib/vela/app-session";
 import { unreadNotificationCount } from "@/lib/vela/server";
 import { cn } from "@/lib/utils";
@@ -76,7 +76,7 @@ export function BottomNav() {
 
 export function SideNav({ hasProfile }: { hasProfile: boolean }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { userId, profile } = useAppSession();
+  const { userId } = useAppSession();
   const unread = useUnreadCount();
   return (
     <aside className="hidden w-56 shrink-0 flex-col justify-between border-r border-border px-4 py-8 md:flex">
@@ -114,15 +114,6 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
         </nav>
       </div>
       <div className="flex flex-col gap-4">
-        {profile?.isAdmin ? (
-          <Link
-            to="/admin"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg-muted hover:bg-bg-subtle"
-          >
-            <PawPrint className="size-4" />
-            Moderation
-          </Link>
-        ) : null}
         {hasProfile ? (
           <Link
             to="/settings"
