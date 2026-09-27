@@ -2,12 +2,30 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   DISCORD_DEFAULTS,
   botConfig,
+  deferredReplyFor,
+  deliverReply,
   diagnoseBot,
   handleInteraction,
   makeDiscordApi,
+  registerCommands,
   verifyDiscordSignature,
   type Interaction,
 } from "@/lib/vela/discord-bot";
+
+/**
+ * Keep the function alive for work that continues after the response has been
+ * sent (Vercel's waitUntil; outside Vercel the promise simply keeps running).
+ */
+function runAfterResponse(request: Request, work: Promise<unknown>) {
+  const vercel = (globalThis as Record<symbol, { get?: () => { waitUntil?: unknown } }>)[
+    Symbol.for("@vercel/request-context")
+  ];
+  const waitUntil =
+    vercel?.get?.()?.waitUntil ?? (request as Request & { waitUntil?: unknown }).waitUntil;
+  if (typeof waitUntil === "function") waitUntil(work);
+}
+
+const ephemeral = (content: string) => Response.json({ type: 4, data: { content, flags: 64 } });
 
 /** Discord "Interactions Endpoint URL": https://DEINE-DOMAIN/api/discord/interactions */
 export const Route = createFileRoute("/api/discord/interactions")({
@@ -38,10 +56,6 @@ export const Route = createFileRoute("/api/discord/interactions")({
       },
       POST: async ({ request }) => {
         const publicKey = process.env.DISCORD_PUBLIC_KEY?.trim() || DISCORD_DEFAULTS.publicKey;
-        const cfg = botConfig();
-        if (!publicKey || !cfg) {
-          return new Response("Discord bot is not configured", { status: 503 });
-        }
         const rawBody = await request.text();
         const valid = verifyDiscordSignature(
           publicKey,
@@ -51,24 +65,46 @@ export const Route = createFileRoute("/api/discord/interactions")({
         );
         if (!valid) return new Response("Invalid signature", { status: 401 });
 
-        const siteUrl = process.env.SITE_URL?.trim() || new URL(request.url).origin;
-        try {
-          const reply = await handleInteraction(JSON.parse(rawBody) as Interaction, {
-            cfg,
-            api: makeDiscordApi(cfg.botToken),
-            siteUrl,
-          });
-          return Response.json(reply);
-        } catch (err) {
-          console.error("[discord-bot]", err);
-          return Response.json({
-            type: 4,
-            data: {
-              content: "Da ist etwas schiefgelaufen. Bitte versuch es gleich nochmal.",
-              flags: 64,
-            },
-          });
+        const interaction = JSON.parse(rawBody) as Interaction;
+        const cfg = botConfig();
+
+        // PING (sent when the endpoint URL is saved): answer at once, even
+        // before the bot token is set up, and (re)register /verify-panel.
+        if (interaction.type === 1) {
+          if (cfg) {
+            runAfterResponse(
+              request,
+              registerCommands(cfg, makeDiscordApi(cfg.botToken)).catch((err) =>
+                console.error("[discord-bot]", err),
+              ),
+            );
+          }
+          return Response.json({ type: 1 });
         }
+        if (!cfg) {
+          return ephemeral(
+            "Der Bot ist noch nicht fertig eingerichtet: DISCORD_BOT_TOKEN fehlt in Vercel.",
+          );
+        }
+
+        const siteUrl = process.env.SITE_URL?.trim() || new URL(request.url).origin;
+        const deferred = deferredReplyFor(interaction);
+        const work = handleInteraction(interaction, {
+          cfg,
+          api: makeDiscordApi(cfg.botToken),
+          siteUrl,
+        })
+          .catch((err) => {
+            console.error("[discord-bot]", err);
+            return {
+              type: 4,
+              data: { content: "Da ist etwas schiefgelaufen. Bitte versuch es gleich nochmal." },
+            };
+          })
+          .then((reply) => deliverReply(interaction, deferred, reply))
+          .catch((err) => console.error("[discord-bot] follow-up failed", err));
+        runAfterResponse(request, work);
+        return Response.json(deferred);
       },
     },
   },
