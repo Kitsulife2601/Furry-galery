@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -14,6 +14,7 @@ import { FittedImage } from "@/components/fitted-image";
 import { createPost, videoUploadEnabled } from "@/lib/vela/server";
 import { VIDEO_MAX_BYTES, VIDEO_TYPES } from "@/lib/vela/video";
 import { videoPoster } from "@/lib/vela/video-poster";
+import { FSK18_THRESHOLD, explicitScore, loadNsfwModel } from "@/lib/vela/nsfw-check";
 import { formatMb } from "@/lib/vela/media-limits";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,12 +33,33 @@ function Upload() {
   const [busy, setBusy] = useState(false);
   const [video, setVideo] = useState<{ file: File; url: string } | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  // Automatic FSK18 check: explicit content can only be posted with the box ticked.
+  const [check, setCheck] = useState<"idle" | "checking" | "ok" | "fsk18" | "error">("idle");
+  const checkRun = useRef(0);
   const videosOn = useQuery({ queryKey: ["video-upload"], queryFn: () => videoUploadEnabled() });
   const { profile } = useAppSession();
   const canPostNsfw = Boolean(profile?.fsk18?.verified);
 
+  useEffect(() => {
+    // Warm up the model while the member picks a file.
+    void loadNsfwModel().catch(() => undefined);
+  }, []);
+
+  async function runCheck(sources: string[]) {
+    const run = ++checkRun.current;
+    setCheck("checking");
+    try {
+      const score = await explicitScore(sources);
+      if (run === checkRun.current) setCheck(score >= FSK18_THRESHOLD ? "fsk18" : "ok");
+    } catch {
+      if (run === checkRun.current) setCheck("error");
+    }
+  }
+
   async function onFile(file: File | undefined) {
     if (!file) return;
+    checkRun.current++;
+    setCheck("idle");
     if (video) URL.revokeObjectURL(video.url);
     setVideo(null);
     if (file.type.startsWith("video/")) {
@@ -56,10 +78,11 @@ function Upload() {
         return;
       }
       try {
-        const { poster, tiny } = await videoPoster(file);
+        const { poster, tiny, samples } = await videoPoster(file);
         setPreview(poster);
         setThumb(tiny);
         setVideo({ file, url: URL.createObjectURL(file) });
+        void runCheck(samples);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Video unlesbar.");
       }
@@ -73,6 +96,7 @@ function Upload() {
       ]);
       setPreview(dataUrl);
       setThumb(tiny);
+      void runCheck([dataUrl]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Bild unlesbar.");
     }
@@ -80,6 +104,10 @@ function Upload() {
 
   async function publish() {
     if (!preview) return;
+    if (check === "fsk18" && !nsfw) {
+      toast.error("Das wirkt wie FSK 18 – bitte den Haken bei FSK 18 setzen.");
+      return;
+    }
     setBusy(true);
     try {
       let videoUrl: string | undefined;
@@ -169,6 +197,8 @@ function Upload() {
             setVideo(null);
             setPreview(null);
             setThumb(null);
+            checkRun.current++;
+            setCheck("idle");
           }}
           className="mt-2 text-sm text-fg-muted underline underline-offset-4"
         >
@@ -212,7 +242,12 @@ function Upload() {
         </ul>
       </div>
 
-      <div className="mt-5 rounded-xl border border-border p-4">
+      <div
+        className={cn(
+          "mt-5 rounded-xl border p-4",
+          check === "fsk18" && !nsfw ? "border-heart" : "border-border",
+        )}
+      >
         <label className="flex items-start gap-3">
           <input
             type="checkbox"
@@ -228,6 +263,16 @@ function Upload() {
             </span>
           </span>
         </label>
+        {check === "fsk18" ? (
+          <p
+            role="status"
+            className={cn("mt-3 text-xs", nsfw ? "text-fg-muted" : "font-medium text-heart")}
+          >
+            {nsfw
+              ? "Erkannt als FSK 18 – passt, der Haken ist gesetzt."
+              : "Dieser Beitrag wirkt wie FSK 18. Setze den Haken, sonst kannst du ihn nicht veröffentlichen."}
+          </p>
+        ) : null}
         {canPostNsfw ? null : (
           <p className="mt-3 text-xs text-fg-subtle">
             FSK-18-Bilder von anderen siehst du nach der{" "}
@@ -242,14 +287,16 @@ function Upload() {
       <Button
         className="mt-6 w-full"
         size="lg"
-        disabled={!preview || busy}
+        disabled={!preview || busy || check === "checking" || (check === "fsk18" && !nsfw)}
         onClick={() => void publish()}
       >
         {busy
           ? progress !== null && progress < 100
             ? `Video wird hochgeladen… ${progress}%`
             : "Wird veröffentlicht…"
-          : "Veröffentlichen"}
+          : check === "checking"
+            ? "Wird geprüft…"
+            : "Veröffentlichen"}
       </Button>
     </div>
   );

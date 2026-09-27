@@ -2,7 +2,9 @@
  * Grabs a still frame from a local video file: the poster shown in grids and
  * before playback, plus a 16px version for locked FSK18 posts.
  */
-export async function videoPoster(file: File): Promise<{ poster: string; tiny: string }> {
+export async function videoPoster(
+  file: File,
+): Promise<{ poster: string; tiny: string; samples: string[] }> {
   const url = URL.createObjectURL(file);
   try {
     const video = document.createElement("video");
@@ -29,7 +31,21 @@ export async function videoPoster(file: File): Promise<{ poster: string; tiny: s
       canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL("image/jpeg", quality);
     };
-    return { poster: frame(1080, 0.72), tiny: frame(16, 0.6) };
+    const poster = frame(1080, 0.72);
+    const tiny = frame(16, 0.6);
+    // A few more frames for the FSK18 check.
+    const samples = [frame(320, 0.8)];
+    const duration = video.duration || 0;
+    if (Number.isFinite(duration) && duration > 1) {
+      for (const t of [0.25, 0.5, 0.75]) {
+        await new Promise<void>((resolve) => {
+          video.onseeked = () => resolve();
+          video.currentTime = duration * t;
+        });
+        samples.push(frame(320, 0.8));
+      }
+    }
+    return { poster, tiny, samples };
   } finally {
     URL.revokeObjectURL(url);
   }

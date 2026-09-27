@@ -84,9 +84,6 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
         <Link to="/" className="font-display px-2 text-2xl tracking-tight">
           Furry Gallery
         </Link>
-        <p className="mt-1 px-2 text-[11px] tracking-[0.22em] text-fg-subtle uppercase">
-          18+ Community
-        </p>
         <nav className="mt-10 flex flex-col gap-1">
           {ITEMS.map((item) => {
             const active =
