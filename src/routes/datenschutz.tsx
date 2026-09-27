@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LegalPage, Placeholder } from "@/components/legal-page";
+import { CONTACT, ContactEmail, LegalPage } from "@/components/legal-page";
 
 export const Route = createFileRoute("/datenschutz")({
   head: () => ({ meta: [{ title: "Datenschutz · Furry Gallery" }] }),
@@ -16,7 +16,9 @@ function Datenschutz() {
       <section>
         <h2 className="text-base font-medium text-fg">Verantwortliche Stelle</h2>
         <p className="mt-2">
-          <Placeholder>Name, Anschrift, E-Mail — wie im Impressum</Placeholder>
+          {CONTACT.name}, {CONTACT.city}, {CONTACT.country}
+          <br />
+          E-Mail: <ContactEmail />
         </p>
       </section>
       <section>
@@ -48,12 +50,8 @@ function Datenschutz() {
       <section>
         <h2 className="text-base font-medium text-fg">Dienstleister</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5">
-          <li>
-            Hosting: <Placeholder>z. B. Vercel Inc., USA</Placeholder>
-          </li>
-          <li>
-            Datenbank: <Placeholder>z. B. Neon Inc., USA / Region</Placeholder>
-          </li>
+          <li>Hosting: Vercel Inc., USA</li>
+          <li>Datenbank: Neon Inc., USA</li>
           <li>
             Schriftarten werden von Google Fonts (Google Ireland Ltd.) geladen; dabei wird deine
             IP-Adresse an Google übertragen.
@@ -64,7 +62,7 @@ function Datenschutz() {
         <h2 className="text-base font-medium text-fg">Speicherdauer und Löschung</h2>
         <p className="mt-2">
           Eigene Bilder kannst du jederzeit selbst löschen. Für die Löschung deines gesamten Kontos
-          schreib an <Placeholder>kontakt@example.com</Placeholder>.
+          schreib an <ContactEmail />.
         </p>
       </section>
       <section>

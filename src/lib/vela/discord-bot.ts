@@ -220,13 +220,13 @@ export function panelMessage(siteUrl: string) {
     embeds: [
       {
         color: COLOR,
-        author: { name: "Furry Gallery", icon_url: `${siteUrl}/__grok/icon-180.png` },
+        author: { name: "Furry Gallery", icon_url: `${siteUrl}/icon.png` },
         title: "🔞 Verifizierung",
         url: siteUrl,
         description:
           "Um FSK-18-Inhalte hier im Server und auf der **Furry Gallery** freizuschalten, " +
           "musst du bestätigen, dass du volljährig bist.",
-        thumbnail: { url: `${siteUrl}/__grok/icon-180.png` },
+        thumbnail: { url: `${siteUrl}/icon.png` },
         fields: [
           {
             name: "So funktioniert’s",

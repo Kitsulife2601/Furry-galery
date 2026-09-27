@@ -157,6 +157,28 @@ Einrichtung:
 Achtung: Mit gesetzter Interactions Endpoint URL bekommt ein anderswo laufendes Bot-Programm
 mit demselben Token keine Befehle und Button-Klicks mehr.
 
+## Moderation, Kommentare, Kategorien
+
+- **Admin-Seite** `/admin` (Link in den Einstellungen): offene Meldungen je Bild mit Gründen,
+  Bild löschen, Meldung verwerfen, Profil sperren/entsperren. Admins sind die Handles in
+  `ADMIN_HANDLES` (kommagetrennt, Standard: `kitsulife`).
+- **Gesperrte Profile** und ihre Bilder sind unsichtbar; sie können nichts posten, liken oder
+  kommentieren.
+- **Kommentare** unter jedem Bild; löschen dürfen Verfasser*in, Bild-Uploader*in und Admins.
+- **Kategorien**: bis zu 3 pro Bild, Filter in der Gallery.
+- **Discord**: `/web-freischalten profil:<handle>` und `/web-sperren profil:<handle>` schalten
+  FSK 18 auf der Webseite von Hand frei bzw. wieder ab (Mods). Nach dem Deploy einmal
+  `/api/discord/interactions` im Browser öffnen, damit neue Befehle angemeldet werden.
+
+## Bot „online“ anzeigen (optional)
+
+Die Befehle funktionieren ohne. Für den grünen Online-Status muss ein kleines Programm
+dauerhaft laufen (eigener PC, Raspberry Pi, kleiner Server):
+
+```sh
+DISCORD_BOT_TOKEN=... npm run bot:online
+```
+
 ## Vor dem Livegang
 
 - **Impressum und Datenschutz ausfüllen** — alle markierten `[Platzhalter]` in
