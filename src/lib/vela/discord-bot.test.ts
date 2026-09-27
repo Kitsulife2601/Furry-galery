@@ -471,3 +471,30 @@ describe("System DMs", () => {
     assert.equal(await sendSystemDm(failing as never, "555", { title: "x" }), false);
   });
 });
+
+describe("feedback in Discord", () => {
+  it("the Erledigt button is for the team and marks the feedback done", async () => {
+    const done: number[] = [];
+    const feedback = { done: async (id: number) => void done.push(id) };
+    const { api } = fakeApi();
+    await handleInteraction(click("feedback:done:4", member("u1")), {
+      cfg,
+      api,
+      siteUrl,
+      feedback,
+    });
+    assert.deepEqual(done, []);
+    const reply = await handleInteraction(
+      click("feedback:done:4", member("m1", { roles: ["mods"] })),
+      {
+        cfg,
+        api,
+        siteUrl,
+        feedback,
+      },
+    );
+    assert.deepEqual(done, [4]);
+    assert.equal(reply.type, 7);
+    assert.match(JSON.stringify(reply.data), /Erledigt von userm1/);
+  });
+});

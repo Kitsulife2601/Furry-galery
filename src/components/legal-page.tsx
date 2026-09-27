@@ -20,6 +20,11 @@ export function ContactEmail() {
   );
 }
 
+export const COMMUNITY_LINKS = [
+  { to: "/updates", label: "Updates" },
+  { to: "/feedback", label: "Feedback" },
+] as const;
+
 export const LEGAL_LINKS = [
   { to: "/impressum", label: "Impressum" },
   { to: "/datenschutz", label: "Datenschutz" },
@@ -32,8 +37,8 @@ export function SiteFooter({ className = "" }: { className?: string }) {
       className={`flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-border px-5 py-5 text-xs text-fg-subtle md:justify-between ${className}`}
     >
       <span>© {new Date().getFullYear()} Furry Gallery</span>
-      <nav aria-label="Rechtliches" className="flex gap-5">
-        {LEGAL_LINKS.map((l) => (
+      <nav aria-label="Rechtliches" className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+        {[...COMMUNITY_LINKS, ...LEGAL_LINKS].map((l) => (
           <Link key={l.to} to={l.to} className="underline-offset-4 hover:text-fg hover:underline">
             {l.label}
           </Link>

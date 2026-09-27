@@ -17,7 +17,7 @@ import type {
   RelationshipStatus,
   ReportReason,
 } from "./types";
-import { POST_TAGS, REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
+import { FEEDBACK_KINDS, POST_TAGS, REPORT_REASONS, RELATIONSHIP_STATUSES } from "./types";
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 const MAX_PREVIEW_CHARS = 4_000;
@@ -39,6 +39,7 @@ type ProfileRow = {
   banner_url: string | null;
   background_id: string;
   banned: boolean;
+  ban_reason: string | null;
   created_at: string;
 };
 
@@ -67,7 +68,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -113,6 +114,8 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     isFollowing: followRow.length > 0,
     fsk18: viewerId === row.user_id ? await loadFsk18Status(row.user_id) : null,
     isAdmin: viewerId === row.user_id && (await isAdminUser(row.user_id)),
+    banned: Boolean(row.banned),
+    banReason: row.banned ? row.ban_reason : null,
   };
 }
 
@@ -443,7 +446,7 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
       from profiles
       where banned_at is null
       order by created_at asc
@@ -503,8 +506,8 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, created_at::text as created_at
-      from profiles where handle = ${data.handle} and banned_at is null
+           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
+      from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
     if (!row) return null;
@@ -718,7 +721,7 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, created_at::text as created_at
       from profiles
       where banned_at is null
         and (handle like ${contains} or lower(display_name) like ${contains})
@@ -941,15 +944,25 @@ export const adminDeletePost = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export type BannedProfile = { displayName: string; handle: string; bannedAt: string };
+export type BannedProfile = {
+  displayName: string;
+  handle: string;
+  bannedAt: string;
+  reason: string | null;
+};
 
 export const listBanned = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<BannedProfile[]> => {
     await requireAdmin(context.userId);
     const sql = await getSql();
-    const rows = await sql<{ display_name: string; handle: string; banned_at: string }>`
-      select display_name, handle, banned_at::text as banned_at
+    const rows = await sql<{
+      display_name: string;
+      handle: string;
+      banned_at: string;
+      ban_reason: string | null;
+    }>`
+      select display_name, handle, banned_at::text as banned_at, ban_reason
       from profiles where banned_at is not null
       order by banned_at desc
     `;
@@ -957,19 +970,26 @@ export const listBanned = createServerFn({ method: "GET" })
       displayName: r.display_name,
       handle: r.handle,
       bannedAt: asTime(r.banned_at),
+      reason: r.ban_reason,
     }));
   });
 
 export const setBanned = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ handle: z.string().trim().toLowerCase(), banned: z.boolean() }))
+  .validator(
+    z.object({
+      handle: z.string().trim().toLowerCase(),
+      banned: z.boolean(),
+      reason: z.string().trim().max(300).optional(),
+    }),
+  )
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdmin(context.userId);
     const me = await loadProfileRow(context.userId);
     if (me?.handle === data.handle.replace(/^@/, "")) {
       throw new Error("Dich selbst kannst du nicht sperren.");
     }
-    if (!(await setBannedByHandle(data.handle, data.banned))) {
+    if (!(await setBannedByHandle(data.handle, data.banned, data.reason))) {
       throw new Error("Profil nicht gefunden.");
     }
     return { ok: true };
@@ -1052,4 +1072,206 @@ export const markNotificationsRead = createServerFn({ method: "POST" })
       where user_id = ${context.userId} and read_at is null
     `;
     return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// Feedback & wishes, site updates
+
+const FEEDBACK_KIND_IDS = FEEDBACK_KINDS.map((k) => k.id) as [string, ...string[]];
+
+async function currentSiteUrl(): Promise<string> {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const { siteUrlFrom } = await import("./community-discord");
+  return siteUrlFrom(getRequest()?.url);
+}
+
+export const sendFeedback = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      kind: z.enum(FEEDBACK_KIND_IDS),
+      body: z.string().trim().min(3).max(1000),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const me = await requireAdult(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{ id: number }>`
+      insert into feedback (user_id, kind, body)
+      values (${context.userId}, ${data.kind}, ${data.body})
+      returning id
+    `;
+    const { postFeedbackToDiscord } = await import("./community-discord");
+    await postFeedbackToDiscord({
+      id: Number(rows[0]?.id),
+      kind: data.kind,
+      body: data.body,
+      handle: me.handle,
+      at: new Date(),
+      siteUrl: await currentSiteUrl(),
+    });
+    return { ok: true };
+  });
+
+export type FeedbackItem = {
+  id: number;
+  kind: string;
+  body: string;
+  createdAt: string;
+  done: boolean;
+  author: { displayName: string; handle: string };
+};
+
+export const listFeedback = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<FeedbackItem[]> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{
+      id: number;
+      kind: string;
+      body: string;
+      created_at: string;
+      done: boolean;
+      display_name: string;
+      handle: string;
+    }>`
+      select f.id, f.kind, f.body, f.created_at::text as created_at,
+             f.done_at is not null as done, pr.display_name, pr.handle
+      from feedback f join profiles pr on pr.user_id = f.user_id
+      order by f.done_at is not null, f.created_at desc
+      limit 100
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      kind: r.kind,
+      body: r.body,
+      createdAt: asTime(r.created_at),
+      done: Boolean(r.done),
+      author: { displayName: r.display_name, handle: r.handle },
+    }));
+  });
+
+export const setFeedbackDone = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.number().int().positive(), done: z.boolean() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdmin(context.userId);
+    const { markFeedbackDone } = await import("./moderation");
+    await markFeedbackDone(data.id, data.done);
+    return { ok: true };
+  });
+
+export type UpdateItem = { id: number; title: string; body: string; createdAt: string };
+
+export const listUpdates = createServerFn({ method: "GET" }).handler(
+  async (): Promise<UpdateItem[]> => {
+    const sql = await getSql();
+    const rows = await sql<{ id: number; title: string; body: string; created_at: string }>`
+      select id, title, body, created_at::text as created_at
+      from announcements order by created_at desc limit 50
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      title: r.title,
+      body: r.body,
+      createdAt: asTime(r.created_at),
+    }));
+  },
+);
+
+/** Admins: publish an update — changelog entry, System notification for everyone, Discord #updates. */
+export const publishUpdate = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      title: z.string().trim().min(3).max(120),
+      body: z.string().trim().min(3).max(3000),
+      toDiscord: z.boolean().optional().default(true),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ discord: boolean }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    await sql`
+      insert into announcements (title, body, created_by)
+      values (${data.title}, ${data.body}, ${context.userId})
+    `;
+    await sql`
+      insert into notifications (user_id, kind, body)
+      select user_id, 'system', ${`📢 Neues Update: ${data.title}`}
+      from profiles where banned_at is null
+    `;
+    let discord = false;
+    if (data.toDiscord) {
+      const { postUpdateToDiscord } = await import("./community-discord");
+      discord = await postUpdateToDiscord({
+        title: data.title,
+        body: data.body,
+        at: new Date(),
+        siteUrl: await currentSiteUrl(),
+      });
+    }
+    return { discord };
+  });
+
+// ---------------------------------------------------------------------------
+// FSK 18 approvals (admin page)
+
+export type Fsk18Approval = {
+  displayName: string;
+  handle: string;
+  avatarUrl: string | null;
+  /** "team" = unlocked by hand, "discord" = verified role on the Discord server. */
+  source: "team" | "discord";
+  by: string | null;
+  since: string;
+};
+
+export const listFsk18Approvals = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<Fsk18Approval[]> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{
+      display_name: string;
+      handle: string;
+      avatar_url: string | null;
+      manual: boolean;
+      by: string | null;
+      since: string;
+    }>`
+      select display_name, handle,
+             case when avatar_url is null then null
+                  else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
+             fsk18_manual_at is not null as manual, fsk18_manual_by as by,
+             coalesce(fsk18_manual_at, fsk18_verified_at)::text as since
+      from profiles
+      where banned_at is null and (fsk18_manual_at is not null or fsk18_verified_at is not null)
+      order by coalesce(fsk18_manual_at, fsk18_verified_at) desc
+    `;
+    return rows.map((r) => ({
+      displayName: r.display_name,
+      handle: r.handle,
+      avatarUrl: r.avatar_url,
+      source: r.manual ? "team" : "discord",
+      by: r.by,
+      since: asTime(r.since),
+    }));
+  });
+
+export const setFsk18Approval = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ handle: z.string().trim().min(1), unlock: z.boolean() }))
+  .handler(async ({ context, data }): Promise<{ displayName: string }> => {
+    await requireAdmin(context.userId);
+    const me = await loadProfileRow(context.userId);
+    const { setManualFsk18ByHandle } = await import("./moderation");
+    const result = await setManualFsk18ByHandle(
+      data.handle,
+      data.unlock,
+      me?.display_name ?? "Admin",
+    );
+    if (!result) throw new Error("Profil nicht gefunden.");
+    return result;
   });

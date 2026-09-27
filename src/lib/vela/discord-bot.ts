@@ -11,6 +11,7 @@
  * Kept free of `@/` imports and of the database so it can be unit-tested.
  */
 import { createPublicKey, verify } from "node:crypto";
+import { FEEDBACK_KINDS } from "./types.ts";
 
 export type BotConfig = {
   applicationId: string;
@@ -308,9 +309,10 @@ export async function handleInteraction(
     siteUrl: string;
     web?: WebFsk18;
     reports?: ReportActions;
+    feedback?: { done: (id: number) => Promise<void> };
   },
 ): Promise<InteractionReply> {
-  const { cfg, api, siteUrl, web, reports } = ctx;
+  const { cfg, api, siteUrl, web, reports, feedback } = ctx;
 
   if (interaction.type === InteractionType.Ping) return { type: Reply.Pong };
 
@@ -351,6 +353,32 @@ export async function handleInteraction(
 
   if (interaction.type !== InteractionType.Component) return ephemeral("Unbekannte Aktion.");
   const [prefix, action, targetId] = (interaction.data?.custom_id ?? "").split(":");
+
+  if (prefix === "feedback" && action === "done") {
+    if (!isModerator(cfg, member)) return ephemeral("Nur das Team kann Feedback abhaken.");
+    if (!feedback || !targetId) return ephemeral("Die Webseite ist gerade nicht erreichbar.");
+    await feedback.done(Number(targetId));
+    const by = member.user.global_name || member.user.username;
+    return {
+      type: Reply.Update,
+      data: {
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 2,
+                label: `✅ Erledigt von ${by}`,
+                custom_id: "feedback:x",
+                disabled: true,
+              },
+            ],
+          },
+        ],
+      },
+    };
+  }
 
   if (prefix === "report") {
     if (!isModerator(cfg, member)) return ephemeral("Nur das Team kann Meldungen bearbeiten.");
@@ -608,41 +636,86 @@ export async function deliverReply(
 export const REPORT_CATEGORY_NAME = "🚩 Meldungen";
 export const REPORT_CHANNEL_NAME = "meldungen";
 
-let reportChannelCache: string | null = null;
+export type ChannelSpec = {
+  category: string;
+  channel: string;
+  topic: string;
+  /** Public: everyone reads, only the bot writes. Otherwise team-only. */
+  public?: boolean;
+};
 
-/** Find or create the team-only "🚩 Meldungen" category with its #meldungen channel. */
-export async function ensureReportChannel(cfg: BotConfig, api: DiscordApi): Promise<string> {
-  if (reportChannelCache) return reportChannelCache;
-  const overwrites = [
-    { id: cfg.guildId, type: 0, deny: String(Perm.ViewChannel) }, // @everyone
-    {
-      id: cfg.applicationId,
-      type: 1,
-      allow: String(MEMBER_ACCESS | Perm.EmbedLinks | Perm.ManageChannels),
-    },
-    ...(cfg.modRoleId ? [{ id: cfg.modRoleId, type: 0, allow: String(MEMBER_ACCESS) }] : []),
-  ];
+export const FEEDBACK_CHANNEL: ChannelSpec = {
+  category: "📬 Feedback",
+  channel: "feedback",
+  topic: "Feedback und Wünsche von der Webseite — nur fürs Team",
+};
+
+export const UPDATES_CHANNEL: ChannelSpec = {
+  category: "📢 Furry Gallery",
+  channel: "updates",
+  topic: "Neuigkeiten und Updates der Webseite",
+  public: true,
+};
+
+const channelCache = new Map<string, string>();
+
+/** Find or create a category with one text channel in it (cached per instance). */
+export async function ensureChannel(
+  cfg: BotConfig,
+  api: DiscordApi,
+  spec: ChannelSpec,
+): Promise<string> {
+  const key = `${spec.category}/${spec.channel}`;
+  const cached = channelCache.get(key);
+  if (cached) return cached;
+  const bot = {
+    id: cfg.applicationId,
+    type: 1,
+    allow: String(MEMBER_ACCESS | Perm.EmbedLinks | Perm.ManageChannels),
+  };
+  const overwrites = spec.public
+    ? [
+        {
+          id: cfg.guildId,
+          type: 0,
+          allow: String(Perm.ViewChannel | Perm.ReadHistory),
+          deny: String(Perm.SendMessages),
+        },
+        bot,
+      ]
+    : [
+        { id: cfg.guildId, type: 0, deny: String(Perm.ViewChannel) }, // @everyone
+        bot,
+        ...(cfg.modRoleId ? [{ id: cfg.modRoleId, type: 0, allow: String(MEMBER_ACCESS) }] : []),
+      ];
   const channels = await api<Channel[]>("GET", `/guilds/${cfg.guildId}/channels`);
   const category =
-    channels.find((c) => c.type === 4 && c.name === REPORT_CATEGORY_NAME) ??
+    channels.find((c) => c.type === 4 && c.name === spec.category) ??
     (await api<Channel>("POST", `/guilds/${cfg.guildId}/channels`, {
-      name: REPORT_CATEGORY_NAME,
+      name: spec.category,
       type: 4,
       permission_overwrites: overwrites,
     }));
   const channel =
-    channels.find(
-      (c) => c.type === 0 && c.parent_id === category.id && c.name === REPORT_CHANNEL_NAME,
-    ) ??
+    channels.find((c) => c.type === 0 && c.parent_id === category.id && c.name === spec.channel) ??
     (await api<Channel>("POST", `/guilds/${cfg.guildId}/channels`, {
-      name: REPORT_CHANNEL_NAME,
+      name: spec.channel,
       type: 0,
       parent_id: category.id,
-      topic: "Meldungen von der Webseite — nur fürs Team",
+      topic: spec.topic,
       permission_overwrites: overwrites,
     }));
-  reportChannelCache = channel.id;
+  channelCache.set(key, channel.id);
   return channel.id;
+}
+
+/** The team-only "🚩 Meldungen" category with its #meldungen channel. */
+export function ensureReportChannel(cfg: BotConfig, api: DiscordApi): Promise<string> {
+  return ensureChannel(cfg, api, {
+    category: REPORT_CATEGORY_NAME,
+    channel: REPORT_CHANNEL_NAME,
+    topic: "Meldungen von der Webseite — nur fürs Team",
+  });
 }
 
 export type ReportNotice = {
@@ -767,4 +840,67 @@ export async function sendSystemDm(
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Feedback and site updates
+
+
+export function feedbackMessage(opts: {
+  id: number;
+  kind: string;
+  body: string;
+  handle: string;
+  at: Date;
+  siteUrl: string;
+}) {
+  const unix = Math.floor(opts.at.getTime() / 1000);
+  const kind = FEEDBACK_KINDS.find((k) => k.id === opts.kind)?.label ?? opts.kind;
+  return {
+    embeds: [
+      {
+        color: COLOR,
+        title: `📬 Neues Feedback · ${kind}`,
+        url: `${opts.siteUrl}/admin`,
+        description: opts.body.slice(0, 4000),
+        fields: [
+          {
+            name: "Von",
+            value: `[@${opts.handle}](${opts.siteUrl}/u/${opts.handle})`,
+            inline: true,
+          },
+          { name: "Uhrzeit", value: `<t:${unix}:f>`, inline: true },
+        ],
+        footer: { text: `Feedback #${opts.id}` },
+        timestamp: opts.at.toISOString(),
+      },
+    ],
+    components: [
+      { type: 1, components: [button("Erledigt", `feedback:done:${opts.id}`, 3, "✅")] },
+    ],
+    allowed_mentions: { parse: [] },
+  };
+}
+
+export function updateMessage(opts: { title: string; body: string; at: Date; siteUrl: string }) {
+  return {
+    embeds: [
+      {
+        color: COLOR,
+        author: { name: "System · Furry Gallery", icon_url: `${opts.siteUrl}/icon.png` },
+        title: `📢 ${opts.title}`.slice(0, 256),
+        url: `${opts.siteUrl}/updates`,
+        description: opts.body.slice(0, 4000),
+        footer: { text: "Furry Gallery · Update" },
+        timestamp: opts.at.toISOString(),
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [{ type: 2, style: 5, label: "Zur Webseite", url: opts.siteUrl }],
+      },
+    ],
+    allowed_mentions: { parse: [] },
+  };
 }

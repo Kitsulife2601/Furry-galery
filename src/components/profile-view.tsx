@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings } from "lucide-react";
+import { Ban, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -73,7 +73,7 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
                 Einstellungen
               </Link>
             </Button>
-          ) : (
+          ) : profile.banned ? null : (
             <Button
               size="sm"
               variant={following ? "secondary" : "primary"}
@@ -90,6 +90,25 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
           <Badge>{profile.age} Jahre</Badge>
           <Badge>{relationshipLabel(profile.relationshipStatus)}</Badge>
         </div>
+        {profile.banned ? (
+          <div
+            role="status"
+            className="mt-4 rounded-xl border border-heart/50 bg-heart/10 p-4 text-sm"
+          >
+            <p className="flex items-center gap-2 font-semibold text-fg">
+              <Ban className="size-4 text-heart" />
+              {profile.isOwn ? "Dein Konto wurde gesperrt" : "Dieses Konto wurde gesperrt"}
+            </p>
+            <p className="mt-1 text-fg-muted">
+              Begründung: {profile.banReason || "Verstoß gegen die Regeln der Community."}
+            </p>
+            {profile.isOwn ? (
+              <p className="mt-2 text-xs text-fg-subtle">
+                Fragen? Melde dich beim Team auf unserem Discord-Server.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {profile.bio ? <p className="mt-4 text-sm leading-relaxed text-fg">{profile.bio}</p> : null}
         <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
           <div>
@@ -107,7 +126,9 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
         </dl>
       </div>
       <div className="mt-8">
-        <GalleryGrid posts={posts} emptyLabel="Noch keine Bilder." />
+        {profile.banned && !profile.isOwn ? null : (
+          <GalleryGrid posts={posts} emptyLabel="Noch keine Bilder." />
+        )}
       </div>
     </div>
   );

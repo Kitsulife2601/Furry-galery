@@ -25,6 +25,9 @@ export type Profile = {
   followingCount: number;
   isOwn: boolean;
   isFollowing: boolean;
+  /** Banned by the team: the profile shows a notice instead of its posts. */
+  banned: boolean;
+  banReason: string | null;
   /** Only true on your own profile, if you may moderate the site. */
   isAdmin: boolean;
   /** Discord/FSK18 status — only filled in on your own profile. */
@@ -101,3 +104,12 @@ export type ReportReason = (typeof REPORT_REASONS)[number]["id"];
 export function relationshipLabel(id: string): string {
   return RELATIONSHIP_STATUSES.find((s) => s.id === id)?.label ?? "Single";
 }
+
+export const FEEDBACK_KINDS = [
+  { id: "wish", label: "💡 Wunsch" },
+  { id: "bug", label: "🐞 Fehler" },
+  { id: "praise", label: "💛 Lob" },
+  { id: "other", label: "💬 Sonstiges" },
+] as const;
+
+export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]["id"];
