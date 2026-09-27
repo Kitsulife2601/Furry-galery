@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Splash } from "@/components/splash";
-import { LegalLinks } from "@/components/legal-page";
+import { SiteFooter } from "@/components/legal-page";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -74,14 +74,14 @@ function Login() {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-bg text-fg">
+    <main className="relative flex min-h-dvh flex-col overflow-hidden bg-bg text-fg">
       <img
         src="/seed/post-loft.jpg"
         alt=""
         className="absolute inset-0 h-full w-full object-cover opacity-30"
       />
       <div className="absolute inset-0 bg-bg/75" />
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">
+      <div className="relative mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-12">
         <Link to="/" className="font-display text-3xl tracking-tight">
           Furry Gallery
         </Link>
@@ -165,8 +165,8 @@ function Login() {
         >
           {mode === "up" ? "Schon ein Konto? Anmelden" : "Neu hier? Konto anlegen"}
         </button>
-        <LegalLinks className="mt-10" />
       </div>
+      <SiteFooter className="relative" />
     </main>
   );
 }

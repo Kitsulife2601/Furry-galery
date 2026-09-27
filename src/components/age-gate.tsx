@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { readAdultConfirmed, writeAdultConfirmed } from "@/lib/vela/adult";
 import { Button } from "@/components/ui/button";
-import { LEGAL_LINKS, LegalLinks } from "@/components/legal-page";
+import { LEGAL_LINKS, SiteFooter } from "@/components/legal-page";
 
 const UNGATED_PATHS = new Set<string>(LEGAL_LINKS.map((l) => l.to));
 
@@ -32,13 +32,13 @@ export function AgeGate({ onConfirm }: { onConfirm: () => void }) {
 
   if (blocked) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-bg px-6 text-center text-fg">
+      <div className="relative flex min-h-dvh flex-col items-center justify-center bg-bg px-6 text-center text-fg">
         <p className="text-xs tracking-[0.28em] text-accent uppercase">Furry Gallery</p>
         <h1 className="mt-4 font-display text-3xl">Nur ab 18</h1>
         <p className="mt-4 max-w-sm text-sm leading-relaxed text-fg-muted">
           Die Gallery ist ausschließlich für Erwachsene. Kein Eintritt unter 18.
         </p>
-        <LegalLinks className="mt-10" />
+        <SiteFooter className="absolute inset-x-0 bottom-0" />
       </div>
     );
   }
@@ -51,7 +51,7 @@ export function AgeGate({ onConfirm }: { onConfirm: () => void }) {
         className="absolute inset-0 h-full w-full object-cover opacity-40"
       />
       <div className="absolute inset-0 bg-linear-to-b from-bg/50 via-bg/80 to-bg" />
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-6 py-10 text-center">
         <p className="text-xs font-medium tracking-[0.28em] text-accent uppercase">
           18+ · Community
         </p>
@@ -70,8 +70,8 @@ export function AgeGate({ onConfirm }: { onConfirm: () => void }) {
         >
           Ich bin unter 18
         </button>
-        <LegalLinks className="mt-10" />
       </div>
+      <SiteFooter className="relative z-10" />
     </div>
   );
 }

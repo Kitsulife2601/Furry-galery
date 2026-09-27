@@ -8,7 +8,6 @@ import { getMyProfile, updateAvatar, updateBanner, updateProfile } from "@/lib/v
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { BackgroundPicker } from "@/components/background-picker";
 import { SignOutButton } from "@/components/sign-out-button";
-import { LegalLinks } from "@/components/legal-page";
 import { Fsk18Settings } from "@/components/fsk18-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,7 +233,6 @@ function Settings() {
       <div className="mt-10">
         <SignOutButton />
       </div>
-      <LegalLinks className="mt-8" />
     </div>
   );
 }
