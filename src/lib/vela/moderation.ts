@@ -34,11 +34,18 @@ export async function dismissReportsFor(postId: number): Promise<void> {
  * The member gets a "System" notification and, if we know their Discord
  * account, a private message from the bot.
  */
-export async function setBannedByHandle(handle: string, banned: boolean): Promise<string | null> {
+export async function setBannedByHandle(
+  handle: string,
+  banned: boolean,
+  /** Written by the admin; otherwise the reasons of the profile's open reports are used. */
+  reason?: string | null,
+): Promise<string | null> {
   const sql = await getSql();
   const clean = handle.replace(/^@/, "").toLowerCase();
   const rows = await sql<{ user_id: string; handle: string; discord_id: string | null }>`
-    update profiles set banned_at = ${banned ? new Date().toISOString() : null}
+    update profiles
+    set banned_at = ${banned ? new Date().toISOString() : null},
+        ban_reason = ${banned ? reason?.trim() || null : null}
     where handle = ${clean}
     returning user_id, handle,
       coalesce(discord_id, (select a."accountId" from "account" a
@@ -56,9 +63,14 @@ export async function setBannedByHandle(handle: string, banned: boolean): Promis
         and post_id in (select id from posts where user_id = ${target.user_id})
       returning reason
     `;
-    reasons = [...new Set(open.map((r) => r.reason))].map(
-      (id) => REPORT_REASONS.find((r) => r.id === id)?.label ?? id,
-    );
+    reasons = reason?.trim()
+      ? [reason.trim()]
+      : [...new Set(open.map((r) => r.reason))].map(
+          (id) => REPORT_REASONS.find((r) => r.id === id)?.label ?? id,
+        );
+    if (!reason?.trim() && reasons.length) {
+      await sql`update profiles set ban_reason = ${reasons.join(", ")} where user_id = ${target.user_id}`;
+    }
   }
 
   await notifySystem(
@@ -91,4 +103,37 @@ export async function setBannedByHandle(handle: string, banned: boolean): Promis
     }
   }
   return target.user_id;
+}
+
+export async function markFeedbackDone(id: number, done = true): Promise<void> {
+  const sql = await getSql();
+  await sql`update feedback set done_at = ${done ? new Date().toISOString() : null} where id = ${id}`;
+}
+
+/**
+ * Unlock (or revoke) FSK 18 on the website by hand — from the admin page or the
+ * Discord /web-freischalten command. The member gets a "System" notification.
+ */
+export async function setManualFsk18ByHandle(
+  handle: string,
+  unlock: boolean,
+  moderator: string,
+): Promise<{ displayName: string } | null> {
+  const sql = await getSql();
+  const rows = await sql<{ display_name: string; user_id: string }>`
+    update profiles
+    set fsk18_manual_at = ${unlock ? new Date().toISOString() : null},
+        fsk18_manual_by = ${unlock ? moderator : null}
+    where handle = ${handle.replace(/^@/, "").toLowerCase()}
+    returning display_name, user_id
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  await notifySystem(
+    row.user_id,
+    unlock
+      ? "FSK 18 wurde vom Team für dich freigeschaltet. Du siehst jetzt alle Bilder."
+      : "Die FSK-18-Freischaltung wurde vom Team zurückgenommen.",
+  );
+  return { displayName: row.display_name };
 }

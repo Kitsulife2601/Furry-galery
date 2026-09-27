@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getSql } from "@/lib/db";
-import { deletePostById, dismissReportsFor, setBannedByHandle } from "@/lib/vela/moderation";
-import { notifySystem } from "@/lib/vela/notifications";
+import {
+  deletePostById,
+  dismissReportsFor,
+  markFeedbackDone,
+  setBannedByHandle,
+  setManualFsk18ByHandle,
+} from "@/lib/vela/moderation";
 import {
   DISCORD_DEFAULTS,
   botConfig,
@@ -25,25 +29,8 @@ const reportActions: ReportActions = {
 };
 
 /** /web-freischalten and /web-sperren: set or clear the team's manual FSK 18 unlock. */
-const setWebFsk18: WebFsk18 = async (handle, unlock, moderator) => {
-  const sql = await getSql();
-  const rows = await sql<{ display_name: string }>`
-    update profiles
-    set fsk18_manual_at = ${unlock ? new Date().toISOString() : null},
-        fsk18_manual_by = ${unlock ? moderator : null}
-    where handle = ${handle}
-    returning display_name, user_id
-  `;
-  const row = (rows as { display_name: string; user_id: string }[])[0];
-  if (!row) return null;
-  await notifySystem(
-    row.user_id,
-    unlock
-      ? "FSK 18 wurde vom Team für dich freigeschaltet. Du siehst jetzt alle Bilder."
-      : "Die FSK-18-Freischaltung wurde vom Team zurückgenommen.",
-  );
-  return { displayName: row.display_name };
-};
+const setWebFsk18: WebFsk18 = (handle, unlock, moderator) =>
+  setManualFsk18ByHandle(handle, unlock, moderator);
 
 /**
  * Keep the function alive for work that continues after the response has been
@@ -128,6 +115,7 @@ export const Route = createFileRoute("/api/discord/interactions")({
           siteUrl,
           web: setWebFsk18,
           reports: reportActions,
+          feedback: { done: (id) => markFeedbackDone(id) },
         })
           .catch((err) => {
             console.error("[discord-bot]", err);

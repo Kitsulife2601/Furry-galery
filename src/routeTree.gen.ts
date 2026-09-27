@@ -16,9 +16,11 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppExploreRouteImport } from './routes/_app/explore'
+import { Route as AppFeedbackRouteImport } from './routes/_app/feedback'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppUpdatesRouteImport } from './routes/_app/updates'
 import { Route as AppUploadRouteImport } from './routes/_app/upload'
 import { Route as AppUHandleRouteImport } from './routes/_app/u.$handle'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -61,6 +63,11 @@ const AppExploreRoute = AppExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFeedbackRoute = AppFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
@@ -74,6 +81,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUpdatesRoute = AppUpdatesRouteImport.update({
+  id: '/updates',
+  path: '/updates',
   getParentRoute: () => AppRoute,
 } as any)
 const AppUploadRoute = AppUploadRouteImport.update({
@@ -119,9 +131,11 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin': typeof AppAdminRoute
   '/explore': typeof AppExploreRoute
+  '/feedback': typeof AppFeedbackRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
+  '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
   '/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -136,9 +150,11 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin': typeof AppAdminRoute
   '/explore': typeof AppExploreRoute
+  '/feedback': typeof AppFeedbackRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
+  '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
   '/': typeof AppIndexRoute
   '/u/$handle': typeof AppUHandleRoute
@@ -156,9 +172,11 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/admin': typeof AppAdminRoute
   '/_app/explore': typeof AppExploreRoute
+  '/_app/feedback': typeof AppFeedbackRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/updates': typeof AppUpdatesRoute
   '/_app/upload': typeof AppUploadRoute
   '/_app/': typeof AppIndexRoute
   '/_app/u/$handle': typeof AppUHandleRoute
@@ -177,9 +195,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/explore'
+    | '/feedback'
     | '/notifications'
     | '/profile'
     | '/settings'
+    | '/updates'
     | '/upload'
     | '/u/$handle'
     | '/api/auth/$'
@@ -194,9 +214,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/explore'
+    | '/feedback'
     | '/notifications'
     | '/profile'
     | '/settings'
+    | '/updates'
     | '/upload'
     | '/'
     | '/u/$handle'
@@ -213,9 +235,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/admin'
     | '/_app/explore'
+    | '/_app/feedback'
     | '/_app/notifications'
     | '/_app/profile'
     | '/_app/settings'
+    | '/_app/updates'
     | '/_app/upload'
     | '/_app/'
     | '/_app/u/$handle'
@@ -289,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExploreRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/feedback': {
+      id: '/_app/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof AppFeedbackRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/notifications': {
       id: '/_app/notifications'
       path: '/notifications'
@@ -308,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/updates': {
+      id: '/_app/updates'
+      path: '/updates'
+      fullPath: '/updates'
+      preLoaderRoute: typeof AppUpdatesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/upload': {
@@ -365,9 +403,11 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppExploreRoute: typeof AppExploreRoute
+  AppFeedbackRoute: typeof AppFeedbackRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppUpdatesRoute: typeof AppUpdatesRoute
   AppUploadRoute: typeof AppUploadRoute
   AppIndexRoute: typeof AppIndexRoute
   AppUHandleRoute: typeof AppUHandleRoute
@@ -376,9 +416,11 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppExploreRoute: AppExploreRoute,
+  AppFeedbackRoute: AppFeedbackRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppUpdatesRoute: AppUpdatesRoute,
   AppUploadRoute: AppUploadRoute,
   AppIndexRoute: AppIndexRoute,
   AppUHandleRoute: AppUHandleRoute,
