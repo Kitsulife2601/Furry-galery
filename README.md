@@ -46,10 +46,12 @@ src/routes/            Seiten (dateibasiertes Routing)
   _app/profile.tsx     Eigenes Profil
   _app/u.$handle.tsx   Fremdes Profil
   _app/settings.tsx    Profil, Portrait, Hintergrund, FSK-18-Freischaltung, Abmelden
-  api/discord/         Discord-Login (start.ts) und Rückkehr mit Rollenprüfung (callback.ts)
+  api/discord/         Discord-Login (start.ts), Rückkehr mit Rollenprüfung (callback.ts)
+                       und der Verifizierungs-Bot (interactions.ts)
 src/components/        UI-Bausteine (Feed-Karte, Grid, Viewer, Melden-Dialog, …)
 src/lib/vela/          Fachlogik: Server-Funktionen, Typen, Alter, Hintergründe, Cache
   discord.ts           Discord-OAuth, Rollenprüfung und Nachprüfung per Bot
+  discord-bot.ts       Verifizierungs-Bot: Panel, private Kanäle, Freischalten
 src/lib/auth/          Better Auth + Middleware (vorkonfiguriert)
 src/lib/db.ts          Datenbankzugang (Neon oder PGLite)
 ```
@@ -77,7 +79,7 @@ Die Webseite prüft nur, ob jemand diese Rolle auf eurem Server hat.
 | -------------------------- | -------------------------------------------------------------------- |
 | `DISCORD_CLIENT_ID`        | Client ID der Anwendung                                              |
 | `DISCORD_CLIENT_SECRET`    | Client Secret                                                        |
-| `DISCORD_GUILD_ID`         | Server-ID eures Discords                                             |
+| `DISCORD_GUILD_ID`         | optional: Server-ID (ist voreingestellt)                             |
 | `DISCORD_VERIFIED_ROLE_ID` | ID der Rolle, die der Bot nach der Prüfung vergibt                   |
 | `DISCORD_BOT_TOKEN`        | optional: Bot-Token für die Nachprüfung                              |
 | `DISCORD_INVITE_URL`       | optional: Einladungslink, wird in den Einstellungen gezeigt          |
@@ -87,6 +89,46 @@ Die Webseite prüft nur, ob jemand diese Rolle auf eurem Server hat.
 
 Ein Discord-Konto kann nur ein Profil freischalten. FSK-18-Bilder posten dürfen nur
 verifizierte Mitglieder.
+
+## Verifizierungs-Bot
+
+Der Bot läuft in der Webseite mit (Discord schickt Klicks und Befehle an
+`/api/discord/interactions`) — es muss also kein eigener Bot-Prozess rund um die Uhr laufen.
+
+- `/verify-panel` (nur mit „Server verwalten“) postet das Panel mit **Verifizieren**-Button
+  in den Verifizierungs-Kanal.
+- **Verifizieren** öffnet in der Kategorie einen privaten Kanal `verify-<name>`, den nur das
+  Mitglied, das Team und der Bot sehen. Pro Mitglied höchstens einer.
+- Im Kanal: **Freischalten** (vergibt die Verifiziert-Rolle) und **Ablehnen** — beides nur
+  fürs Team (Mod-Rolle, „Rollen verwalten“ oder Admin) — sowie **Kanal schließen** (Mitglied
+  oder Team).
+
+Voreingestellt (in `src/lib/vela/discord-bot.ts`, per Umgebungsvariable änderbar):
+
+| Was                  | ID                    | Variable zum Überschreiben   |
+| -------------------- | --------------------- | ---------------------------- |
+| Server               | `1553802179431899266` | `DISCORD_GUILD_ID`           |
+| Kanal für das Panel  | `1553814568852136097` | `DISCORD_VERIFY_CHANNEL_ID`  |
+| Kategorie für Kanäle | `1553815320202973281` | `DISCORD_VERIFY_CATEGORY_ID` |
+
+Einrichtung:
+
+1. Umgebungsvariablen aus dem Abschnitt oben setzen, dazu `DISCORD_PUBLIC_KEY`
+   (Developer Portal → General Information → Public Key) und optional `DISCORD_MOD_ROLE_ID`
+   (Rolle, die freischalten darf und im Kanal angepingt wird). `DISCORD_BOT_TOKEN` ist hier
+   Pflicht.
+2. Deployen.
+3. Developer Portal → General Information → **Interactions Endpoint URL**:
+   `https://DEINE-DOMAIN/api/discord/interactions` eintragen und speichern. Discord prüft die
+   Adresse; dabei registriert die Seite automatisch den Befehl `/verify-panel`.
+4. Den Bot mit den Rechten **Kanäle verwalten**, **Rollen verwalten**, **Nachrichten senden**
+   und **Links einbetten** einladen (OAuth2 → URL Generator, Scopes `bot` und
+   `applications.commands`). Die Bot-Rolle muss in der Rollenliste **über** der
+   Verifiziert-Rolle stehen.
+5. In Discord `/verify-panel` ausführen.
+
+Achtung: Mit gesetzter Interactions Endpoint URL bekommt ein anderswo laufendes Bot-Programm
+mit demselben Token keine Befehle und Button-Klicks mehr.
 
 ## Vor dem Livegang
 

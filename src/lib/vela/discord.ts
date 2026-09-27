@@ -6,12 +6,13 @@
  * reads their roles in the guild. With DISCORD_BOT_TOKEN set, the role is
  * re-checked in the background so a removed role also locks the content again.
  *
- * Env: DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_GUILD_ID,
+ * Env: DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_GUILD_ID (has a default),
  *      DISCORD_VERIFIED_ROLE_ID, optional DISCORD_BOT_TOKEN,
  *      DISCORD_REDIRECT_URI, DISCORD_INVITE_URL.
  */
 import { randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
+import { DISCORD_DEFAULTS } from "./discord-bot";
 
 /** Short-lived cookie that ties the OAuth callback to the browser that started it. */
 export const STATE_COOKIE = "vela_discord_state";
@@ -39,7 +40,7 @@ export type DiscordConfig = {
 export function discordConfig(): DiscordConfig | null {
   const clientId = env("DISCORD_CLIENT_ID");
   const clientSecret = env("DISCORD_CLIENT_SECRET");
-  const guildId = env("DISCORD_GUILD_ID");
+  const guildId = env("DISCORD_GUILD_ID") ?? DISCORD_DEFAULTS.guildId;
   const roleId = env("DISCORD_VERIFIED_ROLE_ID");
   if (!clientId || !clientSecret || !guildId || !roleId) return null;
   return { clientId, clientSecret, guildId, roleId };
