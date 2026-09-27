@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>VELA</title>
+  <style>
+    @font-face {
+      font-family: "Bodoni Moda";
+      src: url("./fonts/BodoniModa-Regular.ttf") format("truetype");
+      font-weight: 400 900;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "Playfair Display";
+      src: url("./fonts/PlayfairDisplay-Regular.ttf") format("truetype");
+      font-weight: 400 900;
+      font-style: normal;
+      font-display: block;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 1200px;
+      height: 630px;
+      overflow: hidden;
+      background: #0c0b0a;
+    }
+    .stage {
+      position: relative;
+      width: 1200px;
+      height: 630px;
+      background:
+        radial-gradient(ellipse 60% 80% at 52% 46%, #181310 0%, #0c0b0a 74%),
+        #0c0b0a;
+    }
+    .glow {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 16% 40% at 64% 40%, rgba(196, 92, 74, 0.28), transparent 70%),
+        radial-gradient(ellipse 38% 58% at 50% 48%, rgba(212, 196, 176, 0.06), transparent 70%);
+      pointer-events: none;
+    }
+    .frame {
+      position: absolute;
+      left: 456px;
+      top: 72px;
+      width: 288px;
+      height: 486px;
+      box-sizing: border-box;
+      padding: 12px;
+      background:
+        linear-gradient(180deg, #ddd0be 0%, #d4c4b0 42%, #c3ae98 100%);
+      box-shadow:
+        0 0 0 1px rgba(243, 239, 232, 0.16),
+        0 30px 72px rgba(0, 0, 0, 0.58);
+    }
+    .frame::before {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border: 1px solid rgba(12, 11, 10, 0.32);
+      pointer-events: none;
+    }
+    .mat {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #100e0c;
+      overflow: hidden;
+    }
+    .portrait {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 64% 50% at 82% 38%, rgba(196, 92, 74, 0.46), transparent 60%),
+        linear-gradient(180deg, #1b1513 0%, #0c0b0a 100%);
+    }
+    .silhouette {
+      position: absolute;
+      left: -4%;
+      top: 4%;
+      width: 114%;
+      height: 106%;
+      filter: drop-shadow(9px 0 9px rgba(196, 92, 74, 0.5));
+    }
+    .lockup {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: center;
+      z-index: 5;
+    }
+    .wordmark {
+      margin: 0;
+      color: #f3efe8;
+      font-family: "Bodoni Moda", "Playfair Display", "Times New Roman", serif;
+      font-weight: 560;
+      font-size: 150px;
+      letter-spacing: 0.4em;
+      line-height: 0.88;
+      text-indent: 0.4em;
+      font-optical-sizing: none;
+      font-variation-settings: "opsz" 96, "wght" 560;
+      text-shadow:
+        0 1px 0 rgba(12, 11, 10, 0.4),
+        0 16px 36px rgba(12, 11, 10, 0.62);
+    }
+    .rule {
+      width: 160px;
+      height: 1px;
+      margin: 22px auto 16px;
+      background: #c45c4a;
+    }
+    .tag {
+      margin: 0;
+      color: #d4c4b0;
+      font-family: "Playfair Display", "Bodoni Moda", "Times New Roman", serif;
+      font-weight: 500;
+      font-size: 15px;
+      letter-spacing: 0.64em;
+      text-indent: 0.64em;
+      text-transform: uppercase;
+      text-shadow: 0 8px 24px rgba(12, 11, 10, 0.75);
+    }
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 78% 84% at 50% 48%, transparent 44%, rgba(12, 11, 10, 0.58) 100%);
+      pointer-events: none;
+      z-index: 6;
+    }
+    .grain {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      pointer-events: none;
+      opacity: 0.13;
+      mix-blend-mode: overlay;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="glow"></div>
+    <div class="frame">
+      <div class="mat">
+        <div class="portrait"></div>
+        <svg class="silhouette" viewBox="0 0 280 460" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+          <!-- Hair mass / bun at the back -->
+          <ellipse cx="78" cy="118" rx="38" ry="44" fill="#120e0c"/>
+          <!-- Head, profile facing right, neck, shoulders -->
+          <path fill="#14110f" d="
+            M96 46
+            C128 30 168 38 186 68
+            C196 82 198 96 190 108
+            C188 114 186 118 188 124
+            C198 132 208 142 206 154
+            C204 164 194 170 184 172
+            C186 178 188 184 184 190
+            C178 200 168 206 160 214
+            C156 232 154 252 162 274
+            C176 304 214 332 242 372
+            C260 400 268 432 266 460
+            L18 460
+            C10 408 22 356 52 318
+            C70 294 80 270 76 244
+            C72 222 60 206 52 184
+            C42 154 40 122 58 94
+            C70 72 82 54 96 46
+            Z"/>
+          <!-- Softer hair fall over nape -->
+          <path fill="#120e0c" d="
+            M64 150
+            C48 168 44 198 58 220
+            C50 190 52 166 64 150
+            Z"/>
+        </svg>
+      </div>
+    </div>
+    <div class="lockup">
+      <p class="wordmark">VELA</p>
+      <div class="rule"></div>
+      <p class="tag">Night Gallery</p>
+    </div>
+    <div class="vignette"></div>
+    <canvas class="grain" id="grain" width="1200" height="630"></canvas>
+  </div>
+  <script>
+    const c = document.getElementById("grain");
+    const ctx = c.getContext("2d");
+    const img = ctx.createImageData(1200, 630);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() * 255) | 0;
+      d[i] = d[i + 1] = d[i + 2] = n;
+      d[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  </script>
+</body>
+</html>

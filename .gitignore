@@ -1,0 +1,14 @@
+node_modules/
+.vercel/
+.output/
+dist/
+.tanstack/
+.nitro/
+.grok/preview.log
+.grok/preview.pid
+.grok/status
+.grok/og-pending
+*.log
+.env
+.env.*
+screenshots/
