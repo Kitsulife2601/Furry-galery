@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getSql } from "@/lib/db";
-import { VIDEO_MAX_BYTES, VIDEO_TYPES } from "@/lib/vela/video";
+import { VIDEO_MAX_BYTES, VIDEO_TYPES, blobToken } from "@/lib/vela/video";
 
 /**
  * Hands out short-lived upload tokens so the browser can send videos straight to
@@ -11,8 +11,17 @@ import { VIDEO_MAX_BYTES, VIDEO_TYPES } from "@/lib/vela/video";
 export const Route = createFileRoute("/api/upload")({
   server: {
     handlers: {
+      // Quick check in the browser: /api/upload shows whether video storage is set up.
+      GET: () =>
+        Response.json({
+          videoStorage: blobToken() ? "eingerichtet" : "fehlt",
+          hint: blobToken()
+            ? undefined
+            : "Vercel → Storage → Blob-Speicher mit diesem Projekt verbinden (alle Umgebungen), dann Redeploy.",
+        }),
       POST: async ({ request }) => {
-        if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+        const token = blobToken();
+        if (!token) {
           return Response.json(
             { error: "Video-Speicher ist noch nicht eingerichtet." },
             { status: 503 },
@@ -23,6 +32,7 @@ export const Route = createFileRoute("/api/upload")({
           const result = await handleUpload({
             body,
             request,
+            token,
             onBeforeGenerateToken: async (pathname) => {
               const { getSessionUser } = await import("@/lib/auth/verify.server");
               const user = await getSessionUser();

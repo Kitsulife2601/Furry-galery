@@ -2,6 +2,7 @@
 import { getSql } from "@/lib/db";
 import { notifySystem } from "./notifications";
 import { REPORT_REASONS } from "./types";
+import { blobToken } from "./video";
 
 function siteUrl(): string {
   const explicit = process.env.SITE_URL?.trim();
@@ -141,10 +142,11 @@ export async function setManualFsk18ByHandle(
 
 /** Remove a post's video from Vercel Blob; a failure only leaves an orphaned file. */
 export async function deleteVideoFile(url: string | null | undefined): Promise<void> {
-  if (!url || !process.env.BLOB_READ_WRITE_TOKEN?.trim()) return;
+  const token = blobToken();
+  if (!url || !token) return;
   try {
     const { del } = await import("@vercel/blob");
-    await del(url);
+    await del(url, { token });
   } catch (err) {
     console.error("[video] delete failed", err);
   }

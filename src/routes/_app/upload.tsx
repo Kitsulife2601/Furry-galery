@@ -50,7 +50,9 @@ function Upload() {
         return;
       }
       if (videosOn.data === false) {
-        toast.error("Video-Upload ist noch nicht eingerichtet.");
+        toast.error(
+          "Video-Upload ist noch nicht eingerichtet: in Vercel den Blob-Speicher mit dem Projekt verbinden und neu deployen.",
+        );
         return;
       }
       try {
@@ -112,7 +114,12 @@ function Upload() {
       toast.success("Veröffentlicht.");
       await navigate({ to: "/" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload fehlgeschlagen.");
+      const message = err instanceof Error ? err.message : "";
+      toast.error(
+        /client token|blob|fetch/i.test(message)
+          ? `Video-Upload fehlgeschlagen: ${message}`
+          : message || "Upload fehlgeschlagen.",
+      );
       setBusy(false);
       setProgress(null);
     }
