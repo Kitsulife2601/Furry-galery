@@ -16,6 +16,8 @@ export type Profile = {
   age: number;
   relationshipStatus: RelationshipStatus;
   avatarUrl: string | null;
+  /** Own banner image (URL), shown instead of the colour background. */
+  bannerUrl: string | null;
   backgroundId: string;
   createdAt: string;
   postCount: number;

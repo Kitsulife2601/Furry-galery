@@ -23,6 +23,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDiscordCallbackRouteImport } from './routes/api/discord/callback'
 import { Route as ApiDiscordInteractionsRouteImport } from './routes/api/discord/interactions'
 import { Route as ApiDiscordStartRouteImport } from './routes/api/discord/start'
+import { Route as ApiMediaKindIdRouteImport } from './routes/api/media/$kind/$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -93,6 +94,11 @@ const ApiDiscordStartRoute = ApiDiscordStartRouteImport.update({
   path: '/api/discord/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaKindIdRoute = ApiMediaKindIdRouteImport.update({
+  id: '/api/media/$kind/$id',
+  path: '/api/media/$kind/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/api/discord/callback': typeof ApiDiscordCallbackRoute
   '/api/discord/interactions': typeof ApiDiscordInteractionsRoute
   '/api/discord/start': typeof ApiDiscordStartRoute
+  '/api/media/$kind/$id': typeof ApiMediaKindIdRoute
 }
 export interface FileRoutesByTo {
   '/datenschutz': typeof DatenschutzRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/api/discord/callback': typeof ApiDiscordCallbackRoute
   '/api/discord/interactions': typeof ApiDiscordInteractionsRoute
   '/api/discord/start': typeof ApiDiscordStartRoute
+  '/api/media/$kind/$id': typeof ApiMediaKindIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/api/discord/callback': typeof ApiDiscordCallbackRoute
   '/api/discord/interactions': typeof ApiDiscordInteractionsRoute
   '/api/discord/start': typeof ApiDiscordStartRoute
+  '/api/media/$kind/$id': typeof ApiMediaKindIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/api/discord/callback'
     | '/api/discord/interactions'
     | '/api/discord/start'
+    | '/api/media/$kind/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/datenschutz'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/api/discord/callback'
     | '/api/discord/interactions'
     | '/api/discord/start'
+    | '/api/media/$kind/$id'
   id:
     | '__root__'
     | '/_app'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/api/discord/callback'
     | '/api/discord/interactions'
     | '/api/discord/start'
+    | '/api/media/$kind/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -199,6 +211,7 @@ export interface RootRouteChildren {
   ApiDiscordCallbackRoute: typeof ApiDiscordCallbackRoute
   ApiDiscordInteractionsRoute: typeof ApiDiscordInteractionsRoute
   ApiDiscordStartRoute: typeof ApiDiscordStartRoute
+  ApiMediaKindIdRoute: typeof ApiMediaKindIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -301,6 +314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDiscordStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/media/$kind/$id': {
+      id: '/api/media/$kind/$id'
+      path: '/api/media/$kind/$id'
+      fullPath: '/api/media/$kind/$id'
+      preLoaderRoute: typeof ApiMediaKindIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -333,6 +353,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDiscordCallbackRoute: ApiDiscordCallbackRoute,
   ApiDiscordInteractionsRoute: ApiDiscordInteractionsRoute,
   ApiDiscordStartRoute: ApiDiscordStartRoute,
+  ApiMediaKindIdRoute: ApiMediaKindIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -14,7 +14,7 @@ export function GalleryGrid({ posts, emptyLabel }: { posts: PostCard[]; emptyLab
 
   return (
     <>
-      <ul className="grid grid-cols-3 gap-px bg-border">
+      <ul className="grid grid-cols-3 gap-0.5">
         {posts.map((post) => (
           <li key={post.id} className="bg-bg">
             <button
