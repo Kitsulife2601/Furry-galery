@@ -172,6 +172,7 @@ export async function deleteProfileNow(userId: string): Promise<string | null> {
   `;
   await Promise.all(videos.map((v) => deleteVideoFile(v.video_url)));
   await sql`delete from likes where user_id = ${userId}`;
+  await sql`delete from post_feedback where user_id = ${userId}`;
   await sql`delete from comments where user_id = ${userId}`;
   await sql`delete from follows where follower_id = ${userId} or following_id = ${userId}`;
   await sql`delete from post_views where user_id = ${userId}`;

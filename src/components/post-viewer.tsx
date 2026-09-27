@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Download, Flag, Heart, MoreHorizontal, Trash2, X } from "lucide-react";
+import { Flag, Heart, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -11,6 +11,7 @@ import { relationshipLabel, type PostCard } from "@/lib/vela/types";
 import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { Comments } from "@/components/comments";
+import { PostMenu } from "@/components/post-menu";
 import { cn } from "@/lib/utils";
 
 export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => void }) {
@@ -19,7 +20,6 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
   const queryClient = useQueryClient();
   const [reporting, setReporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const isOwn = Boolean(userId) && userId === post.userId;
 
   function requireProfile(action: string): boolean {
@@ -36,26 +36,6 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
       patchPostInCaches(queryClient, { ...post, liked: result.liked, likeCount: result.likeCount });
     } catch (err) {
       toast.error(memberErrorMessage(err, "Like fehlgeschlagen."));
-    }
-  }
-
-  async function download() {
-    const url = post.videoUrl ?? post.imageUrl;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(String(res.status));
-      const blob = await res.blob();
-      const ext = blob.type.split("/")[1]?.replace("quicktime", "mov").replace("jpeg", "jpg");
-      const href = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = `furry-gallery-${post.author.handle}-${post.id}${ext ? `.${ext}` : ""}`;
-      document.body.append(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
-    } catch {
-      window.open(url, "_blank", "noopener");
     }
   }
 
@@ -101,37 +81,14 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
         >
           {post.locked ? null : (
             <div className="absolute top-2 right-2 z-20 flex gap-1">
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((o) => !o)}
-                  aria-label="Mehr"
-                  aria-expanded={menuOpen}
-                  title="Mehr"
-                  className="grid size-11 place-items-center rounded-full bg-bg/70 text-fg backdrop-blur"
-                >
-                  <MoreHorizontal className="size-5" />
-                </button>
-                {menuOpen ? (
-                  <div
-                    role="menu"
-                    className="absolute top-12 right-0 w-44 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-xl"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        void download();
-                      }}
-                      className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm hover:bg-bg-subtle"
-                    >
-                      <Download className="size-4" />
-                      Herunterladen
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              <PostMenu
+                post={post}
+                onHidden={onClose}
+                onReport={() => {
+                  if (requireProfile("melden")) setReporting(true);
+                }}
+                className="grid size-11 place-items-center rounded-full bg-bg/70 text-fg backdrop-blur"
+              />
               {isOwn ? (
                 <button
                   type="button"
