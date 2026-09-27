@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Flag, Heart, MessageCircle } from "lucide-react";
+import { Heart, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -13,6 +13,7 @@ import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { FittedImage } from "@/components/fitted-image";
 import { FeedVideo } from "@/components/post-video";
 import { PostViewer } from "@/components/post-viewer";
+import { PostMenu } from "@/components/post-menu";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
@@ -23,7 +24,6 @@ export function FeedCard({ post }: { post: PostCard }) {
   const { profile, userId } = useAppSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const isOwn = Boolean(userId) && userId === post.userId;
   const slideRef = useRef<HTMLElement>(null);
 
   // Count a view once the slide has been mostly on screen for 1.5 s; the
@@ -158,18 +158,14 @@ export function FeedCard({ post }: { post: PostCard }) {
             <MessageCircle className="size-7" strokeWidth={1.7} />
             <span className="text-xs tabular-nums">{post.commentCount}</span>
           </button>
-          {isOwn ? null : (
-            <button
-              type="button"
-              onClick={() => {
-                if (requireProfile("melden")) setReporting(true);
-              }}
-              className="grid min-h-11 min-w-11 place-items-center"
-              aria-label="Bild melden"
-            >
-              <Flag className="size-5 opacity-80" strokeWidth={1.7} />
-            </button>
-          )}
+          <PostMenu
+            post={post}
+            direction="up"
+            onReport={() => {
+              if (requireProfile("melden")) setReporting(true);
+            }}
+            className="grid min-h-11 min-w-11 place-items-center"
+          />
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-20 z-10 px-5 pr-20 pb-2 text-on-media md:bottom-8">

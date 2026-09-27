@@ -369,18 +369,34 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       my_interests as (
         select coalesce((select interests from profiles where user_id = ${viewerId}), '{}') as tags
       ),
+      -- Everything the viewer did, per post: likes, comments, views and the
+      -- "Interessiert" / "Nicht interessiert" choices from the ⋯ menu.
       signals as (
-        select p.user_id as author, 3.0 as w
-        from likes l join posts p on p.id = l.post_id where l.user_id = ${viewerId}
+        select l.post_id, 3.0 as w from likes l where l.user_id = ${viewerId}
         union all
-        select p.user_id, 4.0
-        from comments c join posts p on p.id = c.post_id where c.user_id = ${viewerId}
+        select c.post_id, 4.0 from comments c where c.user_id = ${viewerId}
         union all
-        select p.user_id, 1.0
-        from post_views v join posts p on p.id = v.post_id where v.user_id = ${viewerId}
+        select v.post_id, 1.0 from post_views v where v.user_id = ${viewerId}
+        union all
+        select f.post_id, case when f.value > 0 then 6.0 else -8.0 end
+        from post_feedback f where f.user_id = ${viewerId}
       ),
       author_affinity as (
-        select author, sum(w) as score from signals group by author
+        select p.user_id as author, sum(s.w) as score
+        from signals s join posts p on p.id = s.post_id
+        group by p.user_id
+      ),
+      -- Learned interests: which categories the viewer engages with (plus the
+      -- ones picked in the welcome popup / settings as a head start).
+      tag_affinity as (
+        select tag, sum(w) as score from (
+          select t.tag, s.w
+          from signals s join posts p on p.id = s.post_id
+          cross join lateral unnest(p.tags) as t(tag)
+          union all
+          select unnest(tags), 5.0 from my_interests
+        ) x
+        group by tag
       )
       select
         p.id,
@@ -403,13 +419,15 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null
+        and not exists(select 1 from post_feedback f
+                       where f.user_id = ${viewerId} and f.post_id = p.id and f.value < 0)
       order by (
           2.0 * ln(1 + coalesce((select ls.score from liked_by_similar ls where ls.post_id = p.id), 0))
-        + 1.0 * ln(1 + coalesce((select aa.score from author_affinity aa where aa.author = p.user_id), 0))
+        + 1.0 * coalesce(sign((select aa.score from author_affinity aa where aa.author = p.user_id)) * ln(1 + abs((select aa.score from author_affinity aa where aa.author = p.user_id))), 0)
+        + 1.2 * coalesce(sign((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags))) * ln(1 + abs((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags)))), 0)
         + case when exists(select 1 from follows f
                            where f.follower_id = ${viewerId} and f.following_id = p.user_id)
                then 2.0 else 0 end
-        + case when p.tags && (select tags from my_interests) then 2.5 else 0 end
         + 0.8 * ln(1 + (select count(*) from likes l where l.post_id = p.id))
         + 3.0 / (1 + extract(epoch from (now() - p.created_at)) / 86400.0)
         - case when exists(select 1 from post_views v
@@ -434,6 +452,29 @@ export const recordView = createServerFn({ method: "POST" })
       select ${context.userId}, id from posts where id = ${data.postId}
       on conflict (user_id, post_id) do update set seen_at = now()
     `;
+    return { ok: true };
+  });
+
+/** "Interessiert" / "Nicht interessiert" from the ⋯ menu (0 = undo). */
+export const setPostInterest = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      postId: z.number().int().positive(),
+      value: z.union([z.literal(-1), z.literal(0), z.literal(1)]),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    if (data.value === 0) {
+      await sql`delete from post_feedback where user_id = ${context.userId} and post_id = ${data.postId}`;
+    } else {
+      await sql`
+        insert into post_feedback (user_id, post_id, value)
+        select ${context.userId}, id, ${data.value} from posts where id = ${data.postId}
+        on conflict (user_id, post_id) do update set value = excluded.value, created_at = now()
+      `;
+    }
     return { ok: true };
   });
 
