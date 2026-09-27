@@ -39,6 +39,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS, type SocialProviderId } from "./providers";
+import { DISCORD_DEFAULTS } from "../vela/discord-bot";
 import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
@@ -91,7 +92,7 @@ export const authConfigured = !authDisabled && Boolean(grokClientId && grokClien
 //   <site>/api/auth/callback/google   and   <site>/api/auth/callback/discord
 const googleClientId = env("GOOGLE_CLIENT_ID");
 const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
-const discordClientId = env("DISCORD_CLIENT_ID");
+const discordClientId = env("DISCORD_CLIENT_ID") ?? DISCORD_DEFAULTS.applicationId;
 const discordClientSecret = env("DISCORD_CLIENT_SECRET");
 const socialProviders = {
   ...(googleClientId && googleClientSecret
