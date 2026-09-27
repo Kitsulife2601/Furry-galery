@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  DISCORD_DEFAULTS,
   botConfig,
   handleInteraction,
   makeDiscordApi,
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/api/discord/interactions")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const publicKey = process.env.DISCORD_PUBLIC_KEY?.trim();
+        const publicKey = process.env.DISCORD_PUBLIC_KEY?.trim() || DISCORD_DEFAULTS.publicKey;
         const cfg = botConfig();
         if (!publicKey || !cfg) {
           return new Response("Discord bot is not configured", { status: 503 });

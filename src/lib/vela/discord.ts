@@ -38,11 +38,11 @@ export type DiscordConfig = {
 };
 
 export function discordConfig(): DiscordConfig | null {
-  const clientId = env("DISCORD_CLIENT_ID");
+  const clientId = env("DISCORD_CLIENT_ID") ?? DISCORD_DEFAULTS.applicationId;
   const clientSecret = env("DISCORD_CLIENT_SECRET");
   const guildId = env("DISCORD_GUILD_ID") ?? DISCORD_DEFAULTS.guildId;
-  const roleId = env("DISCORD_VERIFIED_ROLE_ID");
-  if (!clientId || !clientSecret || !guildId || !roleId) return null;
+  const roleId = env("DISCORD_VERIFIED_ROLE_ID") ?? DISCORD_DEFAULTS.verifiedRoleId;
+  if (!clientSecret) return null;
   return { clientId, clientSecret, guildId, roleId };
 }
 

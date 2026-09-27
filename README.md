@@ -102,10 +102,10 @@ Die Webseite prüft nur, ob jemand diese Rolle auf eurem Server hat.
 
 | Variable                   | Inhalt                                                               |
 | -------------------------- | -------------------------------------------------------------------- |
-| `DISCORD_CLIENT_ID`        | Client ID der Anwendung                                              |
+| `DISCORD_CLIENT_ID`        | optional: Application ID (ist voreingestellt)                        |
 | `DISCORD_CLIENT_SECRET`    | Client Secret                                                        |
 | `DISCORD_GUILD_ID`         | optional: Server-ID (ist voreingestellt)                             |
-| `DISCORD_VERIFIED_ROLE_ID` | ID der Rolle, die der Bot nach der Prüfung vergibt                   |
+| `DISCORD_VERIFIED_ROLE_ID` | optional: Verifiziert-Rolle (ist voreingestellt)                     |
 | `DISCORD_BOT_TOKEN`        | optional: Bot-Token für die Nachprüfung                              |
 | `DISCORD_INVITE_URL`       | optional: Einladungslink, wird in den Einstellungen gezeigt          |
 | `DISCORD_REDIRECT_URI`     | optional: nur nötig, wenn die Domain automatisch falsch erkannt wird |
@@ -135,11 +135,13 @@ Voreingestellt (in `src/lib/vela/discord-bot.ts`, per Umgebungsvariable änderba
 | Server               | `1553802179431899266` | `DISCORD_GUILD_ID`           |
 | Kanal für das Panel  | `1553814568852136097` | `DISCORD_VERIFY_CHANNEL_ID`  |
 | Kategorie für Kanäle | `1553815320202973281` | `DISCORD_VERIFY_CATEGORY_ID` |
+| Verifiziert-Rolle    | `1553830873365872680` | `DISCORD_VERIFIED_ROLE_ID`   |
+| Application ID       | `1553811273165307995` | `DISCORD_CLIENT_ID`          |
+| Public Key           | `5e09597b…405b889b05` | `DISCORD_PUBLIC_KEY`         |
 
 Einrichtung:
 
-1. Umgebungsvariablen aus dem Abschnitt oben setzen, dazu `DISCORD_PUBLIC_KEY`
-   (Developer Portal → General Information → Public Key) und optional `DISCORD_MOD_ROLE_ID`
+1. Umgebungsvariablen aus dem Abschnitt oben setzen, dazu optional `DISCORD_MOD_ROLE_ID`
    (Rolle, die freischalten darf und im Kanal angepingt wird). `DISCORD_BOT_TOKEN` ist hier
    Pflicht.
 2. Deployen.

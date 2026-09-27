@@ -23,8 +23,14 @@ export type BotConfig = {
   modRoleId: string | null;
 };
 
-/** IDs of the community server (not secrets). Env vars override them. */
+/**
+ * Public IDs of the community server and its Discord app (not secrets — the
+ * client secret and bot token always come from env). Env vars override them.
+ */
 export const DISCORD_DEFAULTS = {
+  applicationId: "1553811273165307995",
+  publicKey: "5e09597be5aacaefe3a55f3b74d2f7695851d8667dd61bf9945a67405b889b05",
+  verifiedRoleId: "1553830873365872680",
   guildId: "1553802179431899266",
   verifyChannelId: "1553814568852136097",
   categoryId: "1553815320202973281",
@@ -36,10 +42,10 @@ function env(key: string): string | undefined {
 }
 
 export function botConfig(): BotConfig | null {
-  const applicationId = env("DISCORD_CLIENT_ID");
+  const applicationId = env("DISCORD_CLIENT_ID") ?? DISCORD_DEFAULTS.applicationId;
   const botToken = env("DISCORD_BOT_TOKEN");
-  const verifiedRoleId = env("DISCORD_VERIFIED_ROLE_ID");
-  if (!applicationId || !botToken || !verifiedRoleId) return null;
+  const verifiedRoleId = env("DISCORD_VERIFIED_ROLE_ID") ?? DISCORD_DEFAULTS.verifiedRoleId;
+  if (!botToken) return null;
   return {
     applicationId,
     botToken,
