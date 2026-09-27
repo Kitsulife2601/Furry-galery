@@ -28,6 +28,10 @@ export type Profile = {
   /** Banned by the team: the profile shows a notice instead of its posts. */
   banned: boolean;
   banReason: string | null;
+  /** Picked interests (categories) — only filled in on your own profile. */
+  interests: string[];
+  /** Own profile that hasn't seen the interests popup yet. */
+  needsInterests: boolean;
   /** End of a temporary ban (null = permanent or not banned). */
   bannedUntil: string | null;
   /** Scheduled deletion — only shown to the member and the team. */

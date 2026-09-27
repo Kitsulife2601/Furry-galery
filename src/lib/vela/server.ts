@@ -51,6 +51,8 @@ type ProfileRow = {
   ban_reason: string | null;
   banned_until: string | null;
   delete_at: string | null;
+  interests: string[] | null;
+  interests_asked: boolean;
   created_at: string;
 };
 
@@ -79,7 +81,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -127,6 +129,8 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     isAdmin: viewerId === row.user_id && (await isAdminUser(row.user_id)),
     banned: Boolean(row.banned),
     banReason: row.banned ? row.ban_reason : null,
+    interests: viewerId === row.user_id ? (row.interests ?? []) : [],
+    needsInterests: viewerId === row.user_id && !row.interests_asked,
     bannedUntil: row.banned && row.banned_until ? asTime(row.banned_until) : null,
     deleteAt:
       row.delete_at && (viewerId === row.user_id || (await isAdminUser(viewerId)))
@@ -362,6 +366,9 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         from likes l join similar_members sm on sm.user_id = l.user_id
         group by l.post_id
       ),
+      my_interests as (
+        select coalesce((select interests from profiles where user_id = ${viewerId}), '{}') as tags
+      ),
       signals as (
         select p.user_id as author, 3.0 as w
         from likes l join posts p on p.id = l.post_id where l.user_id = ${viewerId}
@@ -402,6 +409,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         + case when exists(select 1 from follows f
                            where f.follower_id = ${viewerId} and f.following_id = p.user_id)
                then 2.0 else 0 end
+        + case when p.tags && (select tags from my_interests) then 2.5 else 0 end
         + 0.8 * ln(1 + (select count(*) from likes l where l.post_id = p.id))
         + 3.0 / (1 + extract(epoch from (now() - p.created_at)) / 86400.0)
         - case when exists(select 1 from post_views v
@@ -480,7 +488,7 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
       from profiles
       where banned_at is null
       order by created_at asc
@@ -542,7 +550,7 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
       from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
@@ -776,7 +784,7 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
       from profiles
       where banned_at is null
         and (handle like ${contains} or lower(display_name) like ${contains})
@@ -1365,6 +1373,20 @@ export const setFsk18Approval = createServerFn({ method: "POST" })
     );
     if (!result) throw new Error("Profil nicht gefunden.");
     return result;
+  });
+
+/** Save the interests from the sign-up popup (or settings); an empty list = skipped. */
+export const saveInterests = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ tags: z.array(z.enum(POST_TAG_IDS)).max(POST_TAG_IDS.length) }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    await sql`
+      update profiles
+      set interests = ${[...new Set(data.tags)]}, interests_asked_at = now()
+      where user_id = ${context.userId}
+    `;
+    return { ok: true };
   });
 
 /** Whether video uploads are set up (Vercel Blob store connected). */
