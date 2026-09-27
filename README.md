@@ -188,6 +188,14 @@ Jede Meldung auf der Webseite postet der Bot in `#meldungen` in der Kategorie �
 Uploader, Melder*in, Uhrzeit, Begründung und Details — mit Buttons **Bild löschen**,
 **Verwerfen** und **Uploader sperren**. Der Bot braucht dafür „Kanäle verwalten“.
 
+## Videos hochladen
+
+Videos (MP4, WebM, MOV, bis 50 MB) liegen im Vercel-Blob-Speicher, Bilder weiter in der Datenbank.
+Einmalig einrichten: Vercel → Projekt → **Storage** → **Create** → **Blob** → mit dem Projekt
+verbinden (setzt `BLOB_READ_WRITE_TOKEN`) → neu deployen. Ohne Token können nur Bilder hochgeladen
+werden. Das Standbild (Poster) wird im Browser erzeugt; für FSK-18-Videos bekommen nicht
+verifizierte Besucher nur die unkenntliche 16-px-Vorschau, nie die Video-Adresse.
+
 ## Bot „online“ anzeigen (optional)
 
 Die Befehle funktionieren ohne. Für den grünen Online-Status muss ein kleines Programm

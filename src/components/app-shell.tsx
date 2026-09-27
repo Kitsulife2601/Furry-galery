@@ -1,11 +1,11 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { PawPrint, Settings } from "lucide-react";
+import { useRouterState } from "@tanstack/react-router";
+import { PawPrint } from "lucide-react";
 import type { Profile } from "@/lib/vela/types";
 import { BottomNav, SideNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
 import { SiteFooter } from "@/components/legal-page";
-import { ModerationDialog } from "@/components/admin-panel";
+import { PawDialog } from "@/components/admin-panel";
 
 export function AppShell({
   profile,
@@ -16,8 +16,8 @@ export function AppShell({
   children: ReactNode;
   fullBleed?: boolean;
 }) {
-  const [moderating, setModerating] = useState(false);
-  const closeModeration = useCallback(() => setModerating(false), []);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hideMobilePad = pathname === "/";
 
@@ -26,32 +26,20 @@ export function AppShell({
       <div className="mx-auto flex min-h-dvh max-w-6xl">
         <SideNav hasProfile={Boolean(profile)} />
         <div className="relative min-w-0 flex-1">
-          {profile && !fullBleed ? (
+          {profile ? (
             <header className="absolute top-0 right-0 z-30 flex gap-1 p-2 md:p-4">
-              {profile.isAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => setModerating(true)}
-                  aria-label="Moderation"
-                  title="Moderation"
-                  className={cn(
-                    "grid size-11 place-items-center rounded-lg",
-                    moderating ? "text-accent" : "text-fg-muted hover:text-fg",
-                  )}
-                >
-                  <PawPrint className="size-5" />
-                </button>
-              ) : null}
-              <Link
-                to="/settings"
-                aria-label="Einstellungen"
+              <button
+                type="button"
+                onClick={() => setMenuOpen(true)}
+                aria-label={profile.isAdmin ? "Einstellungen & Moderation" : "Einstellungen"}
+                title={profile.isAdmin ? "Einstellungen & Moderation" : "Einstellungen"}
                 className={cn(
-                  "hidden size-11 place-items-center rounded-lg md:grid",
-                  pathname === "/settings" ? "text-fg" : "text-fg-muted",
+                  "grid size-11 place-items-center rounded-lg",
+                  menuOpen ? "text-accent" : "text-fg-muted hover:text-fg",
                 )}
               >
-                <Settings className="size-5" />
-              </Link>
+                <PawPrint className="size-5" />
+              </button>
             </header>
           ) : null}
           <div
@@ -66,7 +54,7 @@ export function AppShell({
         </div>
       </div>
       <BottomNav />
-      {moderating ? <ModerationDialog onClose={closeModeration} /> : null}
+      {menuOpen && profile ? <PawDialog isAdmin={profile.isAdmin} onClose={closeMenu} /> : null}
     </div>
   );
 }

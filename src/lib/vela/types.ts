@@ -49,6 +49,8 @@ export type PostCard = {
   createdAt: string;
   /** Marked FSK18 by the uploader. */
   nsfw: boolean;
+  /** Video posts: the video file (imageUrl is then its poster frame). Null when locked. */
+  videoUrl: string | null;
   /** FSK18 and the viewer is not verified: `imageUrl` is only a tiny blurred preview. */
   locked: boolean;
   likeCount: number;

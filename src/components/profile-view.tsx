@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Settings } from "lucide-react";
+import { Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -66,14 +66,7 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
               </div>
             )}
           </div>
-          {profile.isOwn ? (
-            <Button asChild variant="secondary" size="sm">
-              <Link to="/settings">
-                <Settings className="size-4" />
-                Einstellungen
-              </Link>
-            </Button>
-          ) : profile.banned ? null : (
+          {profile.isOwn || profile.banned ? null : (
             <Button
               size="sm"
               variant={following ? "secondary" : "primary"}

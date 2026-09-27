@@ -22,6 +22,7 @@ import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppUpdatesRouteImport } from './routes/_app/updates'
 import { Route as AppUploadRouteImport } from './routes/_app/upload'
+import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as AppUHandleRouteImport } from './routes/_app/u.$handle'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDiscordCallbackRouteImport } from './routes/api/discord/callback'
@@ -93,6 +94,11 @@ const AppUploadRoute = AppUploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppUHandleRoute = AppUHandleRouteImport.update({
   id: '/u/$handle',
   path: '/u/$handle',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
+  '/api/upload': typeof ApiUploadRoute
   '/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/discord/callback': typeof ApiDiscordCallbackRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
+  '/api/upload': typeof ApiUploadRoute
   '/': typeof AppIndexRoute
   '/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/updates': typeof AppUpdatesRoute
   '/_app/upload': typeof AppUploadRoute
+  '/api/upload': typeof ApiUploadRoute
   '/_app/': typeof AppIndexRoute
   '/_app/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/updates'
     | '/upload'
+    | '/api/upload'
     | '/u/$handle'
     | '/api/auth/$'
     | '/api/discord/callback'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/updates'
     | '/upload'
+    | '/api/upload'
     | '/'
     | '/u/$handle'
     | '/api/auth/$'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/updates'
     | '/_app/upload'
+    | '/api/upload'
     | '/_app/'
     | '/_app/u/$handle'
     | '/api/auth/$'
@@ -255,6 +267,7 @@ export interface RootRouteChildren {
   DatenschutzRoute: typeof DatenschutzRoute
   ImpressumRoute: typeof ImpressumRoute
   LoginRoute: typeof LoginRoute
+  ApiUploadRoute: typeof ApiUploadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDiscordCallbackRoute: typeof ApiDiscordCallbackRoute
   ApiDiscordInteractionsRoute: typeof ApiDiscordInteractionsRoute
@@ -355,6 +368,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUploadRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/u/$handle': {
       id: '/_app/u/$handle'
       path: '/u/$handle'
@@ -433,6 +453,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatenschutzRoute: DatenschutzRoute,
   ImpressumRoute: ImpressumRoute,
   LoginRoute: LoginRoute,
+  ApiUploadRoute: ApiUploadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDiscordCallbackRoute: ApiDiscordCallbackRoute,
   ApiDiscordInteractionsRoute: ApiDiscordInteractionsRoute,

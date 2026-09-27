@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Flag, Heart, Trash2, X } from "lucide-react";
+import { Download, Flag, Heart, MoreHorizontal, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -19,6 +19,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
   const queryClient = useQueryClient();
   const [reporting, setReporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const isOwn = Boolean(userId) && userId === post.userId;
 
   function requireProfile(action: string): boolean {
@@ -38,8 +39,33 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
     }
   }
 
+  async function download() {
+    const url = post.videoUrl ?? post.imageUrl;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const ext = blob.type.split("/")[1]?.replace("quicktime", "mov").replace("jpeg", "jpg");
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `furry-gallery-${post.author.handle}-${post.id}${ext ? `.${ext}` : ""}`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
+    } catch {
+      window.open(url, "_blank", "noopener");
+    }
+  }
+
   async function remove() {
-    if (!window.confirm("Dieses Bild endgültig löschen?")) return;
+    if (
+      !window.confirm(
+        post.videoUrl ? "Dieses Video endgültig löschen?" : "Dieses Bild endgültig löschen?",
+      )
+    )
+      return;
     setDeleting(true);
     try {
       await deletePost({ data: { id: post.id } });
@@ -73,6 +99,53 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
           className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-bg-elevated"
           onClick={(e) => e.stopPropagation()}
         >
+          {post.locked ? null : (
+            <div className="absolute top-2 right-2 z-20 flex gap-1">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((o) => !o)}
+                  aria-label="Mehr"
+                  aria-expanded={menuOpen}
+                  title="Mehr"
+                  className="grid size-11 place-items-center rounded-full bg-bg/70 text-fg backdrop-blur"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+                {menuOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute top-12 right-0 w-44 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-xl"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void download();
+                      }}
+                      className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm hover:bg-bg-subtle"
+                    >
+                      <Download className="size-4" />
+                      Herunterladen
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              {isOwn ? (
+                <button
+                  type="button"
+                  onClick={() => void remove()}
+                  disabled={deleting}
+                  className="grid size-11 place-items-center rounded-full bg-bg/70 text-fg backdrop-blur hover:text-heart disabled:opacity-40"
+                  aria-label={post.videoUrl ? "Video löschen" : "Bild löschen"}
+                  title="Löschen"
+                >
+                  <Trash2 className="size-5" />
+                </button>
+              ) : null}
+            </div>
+          )}
           {post.locked ? (
             <div className="relative aspect-3/4 max-h-[60dvh] w-full">
               <PostImage post={post} className="h-full w-full" />
@@ -80,11 +153,23 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
             </div>
           ) : (
             <div className="relative">
-              <img
-                src={post.imageUrl}
-                alt={post.caption || ""}
-                className="max-h-[60dvh] w-full bg-bg object-contain"
-              />
+              {post.videoUrl ? (
+                <video
+                  src={post.videoUrl}
+                  poster={post.imageUrl}
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  className="max-h-[60dvh] w-full bg-bg object-contain"
+                />
+              ) : (
+                <img
+                  src={post.imageUrl}
+                  alt={post.caption || ""}
+                  className="max-h-[60dvh] w-full bg-bg object-contain"
+                />
+              )}
               {post.nsfw ? <Fsk18Badge locked={false} /> : null}
             </div>
           )}
@@ -104,17 +189,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
               {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
             </div>
             <div className="flex shrink-0 items-start gap-1">
-              {isOwn ? (
-                <button
-                  type="button"
-                  onClick={() => void remove()}
-                  disabled={deleting}
-                  className="grid size-11 place-items-center rounded-lg text-fg-muted hover:text-heart disabled:opacity-40"
-                  aria-label="Bild löschen"
-                >
-                  <Trash2 className="size-5" />
-                </button>
-              ) : (
+              {isOwn ? null : (
                 <button
                   type="button"
                   onClick={() => {
