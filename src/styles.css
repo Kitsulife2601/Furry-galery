@@ -203,3 +203,226 @@ input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Avatar decorations & profile effects (src/components/avatar-decoration.tsx) */
+.deco-ring {
+  -webkit-mask: radial-gradient(circle, transparent 64%, #000 65.5%, #000 71%, transparent 72.5%);
+  mask: radial-gradient(circle, transparent 64%, #000 65.5%, #000 71%, transparent 72.5%);
+  animation: deco-spin 6s linear infinite;
+}
+.deco-ring-neon {
+  background: conic-gradient(#00e5ff, #7c4dff, #ff2bd6, #00e5ff);
+}
+.deco-ring-regenbogen {
+  background: conic-gradient(#ff5252, #ffb74d, #fff176, #69f0ae, #40c4ff, #b388ff, #ff5252);
+  animation-duration: 9s;
+}
+.deco-spin-slow {
+  animation: deco-spin 40s linear infinite;
+}
+.deco-flicker {
+  animation: deco-flicker 0.9s ease-in-out infinite alternate;
+}
+.deco-twinkle {
+  animation: deco-twinkle 2.4s ease-in-out infinite;
+}
+.deco-petal {
+  animation: deco-petal 4.5s linear infinite;
+}
+.deco-rise {
+  animation: deco-rise 4s ease-in infinite;
+}
+.deco-pulse {
+  animation: deco-pulse 2.8s ease-in-out infinite;
+}
+.deco-ear {
+  animation: deco-ear 4s ease-in-out infinite;
+}
+.deco-flap {
+  animation: deco-flap 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes deco-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes deco-flicker {
+  from {
+    transform: scaleY(0.75) scaleX(1.05);
+    opacity: 0.85;
+  }
+  to {
+    transform: scaleY(1.15) scaleX(0.92);
+    opacity: 1;
+  }
+}
+@keyframes deco-twinkle {
+  0%,
+  100% {
+    transform: scale(0.55);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+@keyframes deco-petal {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-14px, 120px) rotate(300deg);
+    opacity: 0;
+  }
+}
+@keyframes deco-rise {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+}
+@keyframes deco-pulse {
+  0%,
+  100% {
+    transform: scale(0.97);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+@keyframes deco-ear {
+  0%,
+  80%,
+  100% {
+    transform: rotate(0);
+  }
+  86% {
+    transform: rotate(-8deg);
+  }
+  92% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes deco-flap {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0.35);
+  }
+}
+
+.fx-particle {
+  top: -12%;
+  animation: fx-fall 9s linear infinite;
+}
+.fx-sakura {
+  background: #ffb7d0;
+  border-radius: 80% 0 80% 0;
+  opacity: 0.9;
+}
+.fx-schnee {
+  background: #fff;
+  border-radius: 999px;
+  filter: blur(0.5px);
+  opacity: 0.85;
+}
+.fx-sterne {
+  color: #fff3b0;
+  font-size: 12px;
+  line-height: 1;
+  text-shadow: 0 0 6px #ffe082;
+  animation-name: fx-twinkle-fall;
+}
+.fx-glut {
+  top: auto;
+  bottom: -8%;
+  background: #ff8a00;
+  border-radius: 999px;
+  box-shadow: 0 0 8px 2px #ff5722;
+  animation-name: fx-rise;
+}
+.fx-herzen {
+  top: auto;
+  bottom: -8%;
+  color: #ff6b9a;
+  font-size: 14px;
+  line-height: 1;
+  animation-name: fx-rise;
+}
+.fx-blasen {
+  top: auto;
+  bottom: -8%;
+  border: 1px solid #cfe6ff;
+  border-radius: 999px;
+  animation-name: fx-rise;
+}
+
+@keyframes fx-fall {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-30px, 420px) rotate(360deg);
+    opacity: 0;
+  }
+}
+@keyframes fx-twinkle-fall {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(160px) scale(1.1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(380px) scale(0.6);
+    opacity: 0;
+  }
+}
+@keyframes fx-rise {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(18px, -380px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deco-anim {
+    animation: none !important;
+  }
+  .fx-particle {
+    display: none;
+  }
+}

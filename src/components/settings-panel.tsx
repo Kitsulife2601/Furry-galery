@@ -9,6 +9,7 @@ import { BackgroundPicker } from "@/components/background-picker";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Fsk18Settings } from "@/components/fsk18-settings";
 import { InterestsSettings } from "@/components/interests";
+import { LookSettings } from "@/components/look-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -225,6 +226,8 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
           {busy ? "Speichert…" : "Änderungen speichern"}
         </Button>
       </form>
+
+      <LookSettings profile={profile} />
 
       <InterestsSettings key={profile.interests.join()} initial={profile.interests} />
 

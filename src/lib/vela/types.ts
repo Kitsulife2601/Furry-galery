@@ -1,3 +1,4 @@
+import type { AvatarDecoration, ProfileEffect } from "./decorations";
 export const RELATIONSHIP_STATUSES = [
   { id: "single", label: "Single" },
   { id: "taken", label: "Vergeben" },
@@ -28,6 +29,9 @@ export type Profile = {
   /** Banned by the team: the profile shows a notice instead of its posts. */
   banned: boolean;
   banReason: string | null;
+  /** Avatar decoration (ring/frame) and profile effect. */
+  decoration: AvatarDecoration | null;
+  effect: ProfileEffect | null;
   /** Picked interests (categories) — only filled in on your own profile. */
   interests: string[];
   /** Own profile that hasn't seen the interests popup yet. */
@@ -71,6 +75,7 @@ export type PostCard = {
     avatarUrl: string | null;
     relationshipStatus: RelationshipStatus;
     age: number;
+    decoration: AvatarDecoration | null;
   };
 };
 
