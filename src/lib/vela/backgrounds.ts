@@ -5,6 +5,14 @@ export const BACKGROUNDS = [
   { id: "studio", label: "Studio", hint: "Neutrales Grau" },
   { id: "fog", label: "Nebel", hint: "Waldgrün" },
   { id: "paper", label: "Papier", hint: "Helles Elfenbein" },
+  { id: "aurora", label: "Polarlicht", hint: "Grün schimmernd" },
+  { id: "sunset", label: "Sonnenuntergang", hint: "Lila bis Orange" },
+  { id: "starry", label: "Sternennacht", hint: "Blau mit Sternen" },
+  { id: "paws", label: "Pfotenmuster", hint: "Braun mit Pfoten" },
+  { id: "forest", label: "Waldlichtung", hint: "Grün mit Licht" },
+  { id: "neon", label: "Neon", hint: "Pink und Cyan" },
+  { id: "ocean", label: "Ozean", hint: "Hell bis tief" },
+  { id: "sakura", label: "Kirschblüte", hint: "Zartes Rosa" },
 ] as const;
 
 export type BackgroundId = (typeof BACKGROUNDS)[number]["id"];

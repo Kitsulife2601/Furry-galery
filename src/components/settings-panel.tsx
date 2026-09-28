@@ -176,8 +176,8 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
           ) : null}
         </div>
         <p className="text-xs text-fg-subtle">
-          Bild oder GIF bis {formatMb(MEDIA_LIMITS.banner)}. Ohne Banner wird die Farbe unten
-          genutzt.
+          Bild oder GIF bis {formatMb(MEDIA_LIMITS.banner)}. Ohne Banner wird der Hintergrund
+          unten genutzt.
         </p>
       </section>
 
@@ -219,7 +219,7 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
           </select>
         </div>
         <div className="space-y-2">
-          <Label>Hintergrundfarbe</Label>
+          <Label>Hintergrund</Label>
           <BackgroundPicker value={backgroundId} onChange={setBackgroundId} />
         </div>
         <Button type="submit" className="w-full" disabled={busy}>

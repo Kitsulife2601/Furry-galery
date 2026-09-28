@@ -77,7 +77,9 @@
 
 .vela-shell {
   min-height: 100dvh;
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  background-image: var(--shell-glow, none);
+  background-attachment: fixed;
   color: var(--color-fg);
 }
 
@@ -162,23 +164,168 @@
   scroll-snap-stop: always;
 }
 
-.bg-swatch[data-bg="midnight"] {
-  background: #141210;
+/* Background art: --bg-art paints swatches and the profile header, --shell-glow tints the whole app. */
+.bg-swatch {
+  background: var(--bg-art, var(--color-bg-subtle));
 }
-.bg-swatch[data-bg="ember"] {
-  background: #2a1812;
+
+[data-bg="midnight"] {
+  --bg-art: radial-gradient(ellipse at 75% 0%, rgba(212, 196, 176, 0.22), transparent 60%),
+    linear-gradient(170deg, #221e1a, #0c0b0a);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(212, 196, 176, 0.08), transparent 60%);
 }
-.bg-swatch[data-bg="harbor"] {
-  background: #163033;
+[data-bg="ember"] {
+  --bg-art: radial-gradient(ellipse at 20% 110%, rgba(230, 110, 60, 0.55), transparent 60%),
+    linear-gradient(165deg, #3a1f16, #140e0c);
+  --shell-glow: radial-gradient(ellipse at 50% 110%, rgba(230, 110, 60, 0.12), transparent 60%);
 }
-.bg-swatch[data-bg="studio"] {
-  background: #2a2a2a;
+[data-bg="harbor"] {
+  --bg-art: radial-gradient(ellipse at 80% 20%, rgba(110, 200, 200, 0.35), transparent 55%),
+    linear-gradient(170deg, #1b3a3e, #0b1112);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(110, 200, 200, 0.1), transparent 60%);
 }
-.bg-swatch[data-bg="fog"] {
-  background: #24362c;
+[data-bg="studio"] {
+  --bg-art: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
+    linear-gradient(180deg, #333, #151515);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(255, 255, 255, 0.06), transparent 60%);
 }
-.bg-swatch[data-bg="paper"] {
-  background: #d5cdc0;
+[data-bg="fog"] {
+  --bg-art: radial-gradient(ellipse at 30% 10%, rgba(200, 230, 210, 0.3), transparent 60%),
+    linear-gradient(175deg, #2c4535, #0d120f);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(160, 210, 175, 0.08), transparent 60%);
+}
+[data-bg="paper"] {
+  --bg-art: radial-gradient(ellipse at 20% 0%, rgba(255, 255, 255, 0.7), transparent 60%),
+    linear-gradient(170deg, #efe8dc, #cfc4b2);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(255, 255, 255, 0.6), transparent 60%);
+}
+[data-bg="aurora"] {
+  --bg-art: linear-gradient(160deg, #0b1a2e 0%, #12394a 45%, #2c7a6b 75%, #7fd1b0 100%);
+  --shell-glow: radial-gradient(ellipse at 70% -10%, rgba(127, 209, 176, 0.16), transparent 55%),
+    radial-gradient(ellipse at 10% 0%, rgba(40, 90, 140, 0.18), transparent 50%);
+}
+[data-bg="sunset"] {
+  --bg-art: linear-gradient(170deg, #2a1240 0%, #8a2d5c 45%, #e0694a 75%, #f6b56b 100%);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(224, 105, 74, 0.16), transparent 55%),
+    radial-gradient(ellipse at 100% 100%, rgba(138, 45, 92, 0.16), transparent 50%);
+}
+[data-bg="starry"] {
+  --stars: radial-gradient(circle at 12% 22%, #fff 1px, transparent 1.6px),
+    radial-gradient(circle at 34% 68%, rgba(255, 255, 255, 0.8) 0.8px, transparent 1.4px),
+    radial-gradient(circle at 58% 14%, #fff 1.1px, transparent 1.7px),
+    radial-gradient(circle at 76% 52%, rgba(255, 255, 255, 0.7) 0.8px, transparent 1.4px),
+    radial-gradient(circle at 90% 28%, #fff 1px, transparent 1.6px),
+    radial-gradient(circle at 46% 88%, rgba(255, 255, 255, 0.6) 0.8px, transparent 1.4px);
+  --bg-art: var(--stars), radial-gradient(ellipse at 70% 110%, rgba(90, 100, 220, 0.4), transparent 60%),
+    linear-gradient(180deg, #05060f, #1b1f4a);
+  --shell-glow: var(--stars), radial-gradient(ellipse at 50% -10%, rgba(90, 100, 220, 0.16), transparent 55%);
+}
+[data-bg="paws"] {
+  --paw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='%23ffffff' fill-opacity='0.1' transform='rotate(-15 28 28)'%3E%3Cellipse cx='28' cy='33' rx='8' ry='7'/%3E%3Ccircle cx='18' cy='23' r='3.5'/%3E%3Ccircle cx='24.5' cy='17' r='3.5'/%3E%3Ccircle cx='31.5' cy='17' r='3.5'/%3E%3Ccircle cx='38' cy='23' r='3.5'/%3E%3C/g%3E%3C/svg%3E");
+  --paw-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Cg fill='%23ffffff' fill-opacity='0.04' transform='rotate(-15 28 28)'%3E%3Cellipse cx='28' cy='33' rx='8' ry='7'/%3E%3Ccircle cx='18' cy='23' r='3.5'/%3E%3Ccircle cx='24.5' cy='17' r='3.5'/%3E%3Ccircle cx='31.5' cy='17' r='3.5'/%3E%3Ccircle cx='38' cy='23' r='3.5'/%3E%3C/g%3E%3C/svg%3E");
+  --bg-art: var(--paw), linear-gradient(160deg, #4a2c1a, #231510);
+  --shell-glow: var(--paw-faint), radial-gradient(ellipse at 50% -10%, rgba(200, 140, 90, 0.12), transparent 55%);
+}
+[data-bg="forest"] {
+  --bg-art: radial-gradient(ellipse at 70% 0%, rgba(240, 220, 140, 0.5), transparent 55%),
+    linear-gradient(175deg, #1d3a24 0%, #12261a 60%, #0a140e 100%);
+  --shell-glow: radial-gradient(ellipse at 70% -10%, rgba(240, 220, 140, 0.12), transparent 55%);
+}
+[data-bg="neon"] {
+  --bg-art: radial-gradient(circle at 15% 85%, rgba(255, 60, 180, 0.7), transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(60, 200, 255, 0.7), transparent 45%), #0d0718;
+  --shell-glow: radial-gradient(circle at 0% 100%, rgba(255, 60, 180, 0.14), transparent 45%),
+    radial-gradient(circle at 100% 0%, rgba(60, 200, 255, 0.14), transparent 45%);
+}
+[data-bg="ocean"] {
+  --bg-art: linear-gradient(180deg, #5ec4d8 0%, #1d7a9e 40%, #0d3b5c 75%, #061a2c 100%);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(94, 196, 216, 0.16), transparent 55%);
+}
+[data-bg="sakura"] {
+  --bg-art: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.5), transparent 40%),
+    linear-gradient(150deg, #f7c6d6 0%, #e98fb0 55%, #b85a86 100%);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(233, 143, 176, 0.16), transparent 55%);
+}
+
+.vela-shell[data-bg="aurora"] {
+  --color-bg: #08121a;
+  --color-bg-elevated: #0e1b25;
+  --color-bg-subtle: #152733;
+  --color-fg: #eaf6f2;
+  --color-fg-muted: #8fb0aa;
+  --color-fg-subtle: #6a8a86;
+  --color-accent: #8fdcc0;
+  --color-accent-fg: #08121a;
+}
+.vela-shell[data-bg="sunset"] {
+  --color-bg: #140a18;
+  --color-bg-elevated: #1e1022;
+  --color-bg-subtle: #2a1630;
+  --color-fg: #fbeee8;
+  --color-fg-muted: #bf9aa6;
+  --color-fg-subtle: #8f7080;
+  --color-accent: #f6b56b;
+  --color-accent-fg: #140a18;
+}
+.vela-shell[data-bg="starry"] {
+  --color-bg: #06071a;
+  --color-bg-elevated: #0d0f28;
+  --color-bg-subtle: #151936;
+  --color-fg: #eef0ff;
+  --color-fg-muted: #9a9fc8;
+  --color-fg-subtle: #7075a0;
+  --color-accent: #b9c0ff;
+  --color-accent-fg: #06071a;
+}
+.vela-shell[data-bg="paws"] {
+  --color-bg: #1a100b;
+  --color-bg-elevated: #241710;
+  --color-bg-subtle: #301f16;
+  --color-fg: #f7ede4;
+  --color-fg-muted: #b89c88;
+  --color-fg-subtle: #8a705e;
+  --color-accent: #e6b98c;
+  --color-accent-fg: #1a100b;
+}
+.vela-shell[data-bg="forest"] {
+  --color-bg: #09120c;
+  --color-bg-elevated: #101c14;
+  --color-bg-subtle: #17281c;
+  --color-fg: #eef5ea;
+  --color-fg-muted: #9bb09a;
+  --color-fg-subtle: #718a72;
+  --color-accent: #e6d68c;
+  --color-accent-fg: #09120c;
+}
+.vela-shell[data-bg="neon"] {
+  --color-bg: #0b0614;
+  --color-bg-elevated: #130b20;
+  --color-bg-subtle: #1c122c;
+  --color-fg: #f4eeff;
+  --color-fg-muted: #a898c4;
+  --color-fg-subtle: #7a6c96;
+  --color-accent: #ff6cc8;
+  --color-accent-fg: #0b0614;
+}
+.vela-shell[data-bg="ocean"] {
+  --color-bg: #06141f;
+  --color-bg-elevated: #0b1e2c;
+  --color-bg-subtle: #122a3b;
+  --color-fg: #eaf6fa;
+  --color-fg-muted: #8eb2c2;
+  --color-fg-subtle: #6a8a9a;
+  --color-accent: #7fd4e6;
+  --color-accent-fg: #06141f;
+}
+.vela-shell[data-bg="sakura"] {
+  --color-bg: #180d13;
+  --color-bg-elevated: #22131b;
+  --color-bg-subtle: #2e1a25;
+  --color-fg: #fceef3;
+  --color-fg-muted: #c49aad;
+  --color-fg-subtle: #947080;
+  --color-accent: #f4a9c4;
+  --color-accent-fg: #180d13;
 }
 
 @media (prefers-reduced-motion: reduce) {

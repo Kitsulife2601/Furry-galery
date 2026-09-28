@@ -54,7 +54,7 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
       <div
         className={cn(
           "bg-swatch w-full overflow-hidden md:rounded-b-2xl",
-          profile.bannerUrl ? "h-40 md:h-48" : "h-20",
+          profile.bannerUrl ? "h-40 md:h-48" : "h-36 md:h-44",
         )}
         data-bg={profile.backgroundId}
       >
