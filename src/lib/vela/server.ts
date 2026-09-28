@@ -18,6 +18,7 @@ import {
 import { BAN_DURATION_IDS, DELETE_DELAY_IDS, addDuration } from "./durations";
 import { notify } from "./notifications";
 import { blobToken, isBlobVideoUrl } from "./video";
+import { extractHashtags, normalizeHashtag } from "./hashtags";
 import type {
   Fsk18Status,
   PostCard,
@@ -32,6 +33,9 @@ import {
   PROFILE_REPORT_REASONS,
   REPORT_REASONS,
   RELATIONSHIP_STATUSES,
+  MAX_POST_TAGS,
+  isAdultTag,
+  tagLabel,
   type ProfileReportReason,
 } from "./types";
 
@@ -399,7 +403,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         select tag, sum(w) as score from (
           select t.tag, s.w
           from signals s join posts p on p.id = s.post_id
-          cross join lateral unnest(p.tags) as t(tag)
+          cross join lateral unnest(p.tags || p.hashtags) as t(tag)
           union all
           select unnest(tags), 5.0 from my_interests
         ) x
@@ -431,7 +435,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       order by (
           2.0 * ln(1 + coalesce((select ls.score from liked_by_similar ls where ls.post_id = p.id), 0))
         + 1.0 * coalesce(sign((select aa.score from author_affinity aa where aa.author = p.user_id)) * ln(1 + abs((select aa.score from author_affinity aa where aa.author = p.user_id))), 0)
-        + 1.2 * coalesce(sign((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags))) * ln(1 + abs((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags)))), 0)
+        + 1.2 * coalesce(sign((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags || p.hashtags))) * ln(1 + abs((select sum(ta.score) from tag_affinity ta where ta.tag = any(p.tags || p.hashtags)))), 0)
         + case when exists(select 1 from follows f
                            where f.follower_id = ${viewerId} and f.following_id = p.user_id)
                then 2.0 else 0 end
@@ -486,9 +490,17 @@ export const setPostInterest = createServerFn({ method: "POST" })
   });
 
 export const listExplore = createServerFn({ method: "GET" })
-  .validator(z.object({ tag: z.enum(POST_TAG_IDS).nullable().optional() }).optional())
+  .validator(
+    z
+      .object({
+        tag: z.enum(POST_TAG_IDS).nullable().optional(),
+        hashtag: z.string().max(40).nullable().optional(),
+      })
+      .optional(),
+  )
   .handler(async ({ data }): Promise<PostCard[]> => {
     const tag = data?.tag ?? null;
+    const hashtag = data?.hashtag ? normalizeHashtag(data.hashtag) : null;
     const viewerId = (await optionalViewerId()) ?? "";
     const canSeeNsfw = await isFsk18Verified(viewerId || null);
     const sql = await getSql();
@@ -514,6 +526,7 @@ export const listExplore = createServerFn({ method: "GET" })
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null and (${tag}::text is null or ${tag}::text = any(p.tags))
+        and (${hashtag}::text is null or ${hashtag}::text = any(p.hashtags))
       order by (select count(*) from likes l where l.post_id = p.id) desc, p.created_at desc
       limit 80
     `;
@@ -613,7 +626,7 @@ export const createPost = createServerFn({ method: "POST" })
       imageUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.post)),
       caption: z.string().trim().max(180),
       nsfw: z.boolean().optional().default(false),
-      tags: z.array(z.enum(POST_TAG_IDS)).max(3).optional().default([]),
+      tags: z.array(z.enum(POST_TAG_IDS)).max(MAX_POST_TAGS).optional().default([]),
       // Tiny thumbnail (~16px). The size cap keeps it unrecognisable by construction.
       previewUrl: z.string().max(MAX_PREVIEW_CHARS).optional(),
       // Video posts: the file is already in Vercel Blob; imageUrl is its poster frame.
@@ -631,6 +644,11 @@ export const createPost = createServerFn({ method: "POST" })
       throw new Error("Ungültige Video-Adresse.");
     }
     const nsfw = data.nsfw ?? false;
+    const adultTag = (data.tags ?? []).find(isAdultTag);
+    if (adultTag && !nsfw) {
+      throw new Error(`Die Kategorie „${tagLabel(adultTag)}“ gibt es nur mit FSK 18.`);
+    }
+    const hashtags = extractHashtags(data.caption);
     if (!nsfw) {
       const { assertFsk18Marked } = await import("./nsfw-server");
       if (data.videoUrl && !data.videoFrames?.length) {
@@ -646,9 +664,9 @@ export const createPost = createServerFn({ method: "POST" })
     const previewUrl = nsfw ? data.previewUrl : null;
     const sql = await getSql();
     const inserted = await sql<{ id: number }>`
-      insert into posts (user_id, image_url, caption, nsfw, preview_url, tags, video_url)
+      insert into posts (user_id, image_url, caption, nsfw, preview_url, tags, video_url, hashtags)
       values (${context.userId}, ${data.imageUrl}, ${data.caption}, ${nsfw}, ${previewUrl},
-              ${[...new Set(data.tags ?? [])]}, ${data.videoUrl ?? null})
+              ${[...new Set(data.tags ?? [])]}, ${data.videoUrl ?? null}, ${hashtags})
       returning id
     `;
     const id = inserted[0]?.id;

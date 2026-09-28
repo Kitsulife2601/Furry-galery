@@ -12,6 +12,7 @@ import { ReportDialog } from "@/components/report-dialog";
 import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { Comments } from "@/components/comments";
 import { PostMenu } from "@/components/post-menu";
+import { Caption } from "@/components/caption";
 import { cn } from "@/lib/utils";
 
 export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => void }) {
@@ -143,7 +144,9 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
               <p className="text-xs text-fg-muted">
                 {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
               </p>
-              {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
+              {post.caption ? (
+                <Caption text={post.caption} className="mt-2" onNavigate={onClose} />
+              ) : null}
             </div>
             <div className="flex shrink-0 items-start gap-1">
               {isOwn ? null : (
