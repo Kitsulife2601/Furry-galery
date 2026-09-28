@@ -15,6 +15,7 @@ import { FeedVideo } from "@/components/post-video";
 import { PostViewer } from "@/components/post-viewer";
 import { PostMenu } from "@/components/post-menu";
 import { Caption } from "@/components/caption";
+import { DecoratedAvatar } from "@/components/avatar-decoration";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
@@ -125,16 +126,17 @@ export function FeedCard({ post }: { post: PostCard }) {
           <Link
             to="/u/$handle"
             params={{ handle: post.author.handle }}
-            className="size-12 overflow-hidden rounded-full border border-on-media/40"
+            className="size-12"
             aria-label={`${post.author.displayName} öffnen`}
           >
-            {post.author.avatarUrl ? (
-              <img src={post.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="grid h-full w-full place-items-center bg-bg-subtle text-sm">
-                {post.author.displayName.charAt(0)}
-              </span>
-            )}
+            <DecoratedAvatar
+              src={post.author.avatarUrl}
+              name={post.author.displayName}
+              decoration={post.author.decoration}
+              className="size-12"
+              imgClassName="border border-on-media/40"
+              letterClassName="text-sm"
+            />
           </Link>
           <button
             type="button"

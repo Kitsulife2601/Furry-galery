@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { cn } from "@/lib/utils";
 import { ProfileMenu } from "@/components/profile-menu";
+import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decoration";
 import { formatDay } from "@/lib/vela/durations";
 
 export function ProfileView({ profile, posts }: { profile: Profile; posts: PostCard[] }) {
@@ -45,7 +46,10 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
   }
 
   return (
-    <div className="mx-auto max-w-lg pb-8">
+    <div className="relative mx-auto max-w-lg pb-8">
+      {profile.effect ? (
+        <ProfileEffectLayer effect={profile.effect} className="inset-x-0 top-0 z-20 h-96" />
+      ) : null}
       <div
         className={cn(
           "bg-swatch w-full overflow-hidden md:rounded-b-2xl",
@@ -59,15 +63,16 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
       </div>
       <div className="px-5">
         <div className="relative z-10 -mt-14 flex items-end justify-between">
-          <div className="size-28 overflow-hidden rounded-full border-4 border-bg bg-bg-subtle shadow-xl ring-2 ring-accent/70">
-            {profile.avatarUrl ? (
-              <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="grid h-full w-full place-items-center font-display text-2xl">
-                {profile.displayName.charAt(0)}
-              </div>
+          <DecoratedAvatar
+            src={profile.avatarUrl}
+            name={profile.displayName}
+            decoration={profile.decoration}
+            className="size-28"
+            imgClassName={cn(
+              "border-4 border-bg shadow-xl",
+              profile.decoration ? null : "ring-2 ring-accent/70",
             )}
-          </div>
+          />
           <div className="flex items-center gap-2">
             {profile.isOwn || profile.banned ? null : (
               <Button

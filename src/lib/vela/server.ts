@@ -19,6 +19,7 @@ import { BAN_DURATION_IDS, DELETE_DELAY_IDS, addDuration } from "./durations";
 import { notify } from "./notifications";
 import { blobToken, isBlobVideoUrl } from "./video";
 import { extractHashtags, normalizeHashtag } from "./hashtags";
+import { asDecoration, asProfileEffect } from "./decorations";
 import type {
   Fsk18Status,
   PostCard,
@@ -64,6 +65,8 @@ type ProfileRow = {
   delete_at: string | null;
   interests: string[] | null;
   interests_asked: boolean;
+  avatar_decoration: string | null;
+  profile_effect: string | null;
   created_at: string;
 };
 
@@ -92,7 +95,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -140,6 +143,8 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     isAdmin: viewerId === row.user_id && (await isAdminUser(row.user_id)),
     banned: Boolean(row.banned),
     banReason: row.banned ? row.ban_reason : null,
+    decoration: asDecoration(row.avatar_decoration),
+    effect: asProfileEffect(row.profile_effect),
     interests: viewerId === row.user_id ? (row.interests ?? []) : [],
     needsInterests: viewerId === row.user_id && !row.interests_asked,
     bannedUntil: row.banned && row.banned_until ? asTime(row.banned_until) : null,
@@ -181,6 +186,7 @@ type FeedRow = {
   avatar_url: string | null;
   relationship_status: string;
   birthdate: string;
+  avatar_decoration: string | null;
 };
 
 async function optionalViewerId(): Promise<string | null> {
@@ -222,6 +228,7 @@ function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[
           ? row.relationship_status
           : "single",
         age: ageFromBirthdate(asIsoDate(row.birthdate)),
+        decoration: asDecoration(row.avatar_decoration),
       },
     };
   });
@@ -307,6 +314,32 @@ export const updateProfile = createServerFn({ method: "POST" })
     const row = await loadProfileRow(context.userId);
     if (!row) throw new Error("Profil nicht gefunden.");
     return toPublicProfile(row, context.userId);
+  });
+
+/** Avatar decoration and profile effect (null = none). */
+export const updateLook = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      decoration: z.string().max(40).nullable(),
+      effect: z.string().max(40).nullable(),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdult(context.userId);
+    if (data.decoration !== null && !asDecoration(data.decoration)) {
+      throw new Error("Unbekannter Rahmen.");
+    }
+    if (data.effect !== null && !asProfileEffect(data.effect)) {
+      throw new Error("Unbekannter Effekt.");
+    }
+    const sql = await getSql();
+    await sql`
+      update profiles
+      set avatar_decoration = ${data.decoration}, profile_effect = ${data.effect}
+      where user_id = ${context.userId}
+    `;
+    return { ok: true };
   });
 
 export const updateAvatar = createServerFn({ method: "POST" })
@@ -426,7 +459,8 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         pr.handle,
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
-        pr.birthdate::text as birthdate
+        pr.birthdate::text as birthdate,
+        pr.avatar_decoration
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null
@@ -522,7 +556,8 @@ export const listExplore = createServerFn({ method: "GET" })
         pr.handle,
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
-        pr.birthdate::text as birthdate
+        pr.birthdate::text as birthdate,
+        pr.avatar_decoration
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null and (${tag}::text is null or ${tag}::text = any(p.tags))
@@ -549,7 +584,7 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
       from profiles
       where banned_at is null
       order by created_at asc
@@ -591,7 +626,8 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         pr.handle,
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
-        pr.birthdate::text as birthdate
+        pr.birthdate::text as birthdate,
+        pr.avatar_decoration
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.handle = ${data.handle} and pr.banned_at is null
@@ -611,7 +647,7 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
       from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
@@ -689,7 +725,8 @@ export const createPost = createServerFn({ method: "POST" })
         pr.handle,
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
-        pr.birthdate::text as birthdate
+        pr.birthdate::text as birthdate,
+        pr.avatar_decoration
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where p.id = ${id}
@@ -957,7 +994,7 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
       from profiles
       where banned_at is null
         and (handle like ${contains} or lower(display_name) like ${contains})
