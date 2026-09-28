@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { compressImageFile } from "@/lib/vela/compress-image";
 import { MEDIA_LIMITS } from "@/lib/vela/media-limits";
-import { POST_TAGS, type PostTag } from "@/lib/vela/types";
+import { MAX_POST_TAGS, POST_TAGS, isAdultTag, type PostTag } from "@/lib/vela/types";
 import { cn } from "@/lib/utils";
 import { FittedImage } from "@/components/fitted-image";
 import { createPost, videoUploadEnabled } from "@/lib/vela/server";
@@ -214,33 +214,17 @@ function Upload() {
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           maxLength={180}
-          placeholder="Ein Satz reicht."
+          placeholder="Ein Satz reicht. #hashtags helfen dem Feed."
         />
       </div>
 
       <div className="mt-5 space-y-2">
-        <Label>Kategorien (bis zu 3)</Label>
-        <ul className="flex flex-wrap gap-2">
-          {POST_TAGS.map((t) => {
-            const on = tags.includes(t.id);
-            return (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  aria-pressed={on}
-                  disabled={!on && tags.length >= 3}
-                  onClick={() => setTags(on ? tags.filter((x) => x !== t.id) : [...tags, t.id])}
-                  className={cn(
-                    "h-9 rounded-full border px-3 text-sm disabled:opacity-40",
-                    on ? "border-accent bg-accent text-accent-fg" : "border-border",
-                  )}
-                >
-                  {t.label}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <Label>Kategorien (bis zu {MAX_POST_TAGS})</Label>
+        <TagChips
+          tags={POST_TAGS.filter((t) => !isAdultTag(t.id))}
+          value={tags}
+          onChange={setTags}
+        />
       </div>
 
       <div
@@ -254,7 +238,11 @@ function Upload() {
             type="checkbox"
             className="mt-1 size-4 accent-(--color-accent)"
             checked={nsfw}
-            onChange={(e) => setNsfw(e.target.checked)}
+            onChange={(e) => {
+              setNsfw(e.target.checked);
+              // FSK-18 categories only exist on FSK-18 posts.
+              if (!e.target.checked) setTags((cur) => cur.filter((t) => !isAdultTag(t)));
+            }}
           />
           <span>
             <span className="block text-sm font-medium">FSK 18</span>
@@ -264,6 +252,16 @@ function Upload() {
             </span>
           </span>
         </label>
+        {nsfw ? (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-medium text-fg-muted">FSK-18-Kategorien</p>
+            <TagChips
+              tags={POST_TAGS.filter((t) => isAdultTag(t.id))}
+              value={tags}
+              onChange={setTags}
+            />
+          </div>
+        ) : null}
         {check === "fsk18" ? (
           <p
             role="status"
@@ -300,5 +298,39 @@ function Upload() {
             : "Veröffentlichen"}
       </Button>
     </div>
+  );
+}
+
+function TagChips({
+  tags,
+  value,
+  onChange,
+}: {
+  tags: readonly { id: PostTag; label: string }[];
+  value: PostTag[];
+  onChange: (next: PostTag[]) => void;
+}) {
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {tags.map((t) => {
+        const on = value.includes(t.id);
+        return (
+          <li key={t.id}>
+            <button
+              type="button"
+              aria-pressed={on}
+              disabled={!on && value.length >= MAX_POST_TAGS}
+              onClick={() => onChange(on ? value.filter((x) => x !== t.id) : [...value, t.id])}
+              className={cn(
+                "h-9 rounded-full border px-3 text-sm disabled:opacity-40",
+                on ? "border-accent bg-accent text-accent-fg" : "border-border",
+              )}
+            >
+              {t.label}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

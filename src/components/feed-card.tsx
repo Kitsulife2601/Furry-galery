@@ -14,6 +14,7 @@ import { FittedImage } from "@/components/fitted-image";
 import { FeedVideo } from "@/components/post-video";
 import { PostViewer } from "@/components/post-viewer";
 import { PostMenu } from "@/components/post-menu";
+import { Caption } from "@/components/caption";
 import { cn } from "@/lib/utils";
 
 export function FeedCard({ post }: { post: PostCard }) {
@@ -179,7 +180,7 @@ export function FeedCard({ post }: { post: PostCard }) {
           <p className="mt-0.5 text-xs text-on-media/70">
             {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}
           </p>
-          {post.caption ? <p className="mt-2 text-sm leading-snug">{post.caption}</p> : null}
+          {post.caption ? <Caption text={post.caption} className="mt-2" /> : null}
         </div>
       </div>
       {reporting ? <ReportDialog postId={post.id} onClose={() => setReporting(false)} /> : null}

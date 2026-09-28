@@ -5,16 +5,29 @@ import { listCreators, listExplore } from "@/lib/vela/server";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { PeopleSearch } from "@/components/people-search";
 import { Skeleton } from "@/components/ui/skeleton";
-import { POST_TAGS, type PostTag } from "@/lib/vela/types";
+import { visibleTags, type PostTag } from "@/lib/vela/types";
+import { normalizeHashtag } from "@/lib/vela/hashtags";
+import { useAppSession } from "@/lib/vela/app-session";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_app/explore")({ component: Explore });
+export const Route = createFileRoute("/_app/explore")({
+  component: Explore,
+  validateSearch: (search: Record<string, unknown>): { hashtag?: string } => {
+    const hashtag = typeof search.hashtag === "string" ? normalizeHashtag(search.hashtag) : null;
+    return hashtag ? { hashtag } : {};
+  },
+});
 
 function Explore() {
   const [tag, setTag] = useState<PostTag | null>(null);
+  const { hashtag } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { profile } = useAppSession();
+  const tags = visibleTags(Boolean(profile?.fsk18?.verified));
   const query = useQuery({
-    queryKey: ["explore", tag],
-    queryFn: () => listExplore({ data: { tag } }),
+    queryKey: ["explore", tag, hashtag ?? null],
+    queryFn: () => listExplore({ data: { tag, hashtag: hashtag ?? null } }),
   });
   const creators = useQuery({
     queryKey: ["creators"],
@@ -78,7 +91,19 @@ function Explore() {
 
           <nav aria-label="Kategorien" className="overflow-x-auto px-5 pb-4">
             <ul className="flex gap-2">
-              {[{ id: null, label: "Alle" }, ...POST_TAGS].map((t) => (
+              {hashtag ? (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => void navigate({ search: {} })}
+                    className="flex h-9 items-center gap-1 rounded-full border border-accent bg-accent px-3 text-sm whitespace-nowrap text-accent-fg"
+                    aria-label={`#${hashtag} entfernen`}
+                  >
+                    #{hashtag} <X className="size-3.5" />
+                  </button>
+                </li>
+              ) : null}
+              {[{ id: null, label: "Alle" }, ...tags].map((t) => (
                 <li key={t.id ?? "all"}>
                   <button
                     type="button"
@@ -105,9 +130,11 @@ function Explore() {
             <GalleryGrid
               posts={query.data ?? []}
               emptyLabel={
-                tag
-                  ? "In dieser Kategorie gibt es noch keine Bilder."
-                  : "Die Gallery ist noch leer."
+                hashtag
+                  ? `Zu #${hashtag} gibt es noch nichts.`
+                  : tag
+                    ? "In dieser Kategorie gibt es noch keine Bilder."
+                    : "Die Gallery ist noch leer."
               }
             />
           )}

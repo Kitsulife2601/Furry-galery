@@ -83,9 +83,31 @@ export const POST_TAGS = [
   { id: "3d", label: "3D" },
   { id: "pixel", label: "Pixel-Art" },
   { id: "meme", label: "Meme" },
+  // FSK 18 — only for posts marked FSK 18, only shown to verified members.
+  { id: "furry", label: "Furry", adult: true },
+  { id: "yuri", label: "Yuri", adult: true },
+  { id: "yaoi", label: "Yaoi", adult: true },
+  { id: "femboy", label: "Femboy", adult: true },
+  { id: "cboy", label: "C-Boy", adult: true },
 ] as const;
 
 export type PostTag = (typeof POST_TAGS)[number]["id"];
+
+export const ADULT_TAG_IDS: readonly PostTag[] = POST_TAGS.filter((t) => "adult" in t).map(
+  (t) => t.id,
+);
+
+export function isAdultTag(id: string): boolean {
+  return (ADULT_TAG_IDS as readonly string[]).includes(id);
+}
+
+/** Categories someone may see/pick: FSK-18 ones only when verified. */
+export function visibleTags(canSeeAdult: boolean) {
+  return POST_TAGS.filter((t) => canSeeAdult || !("adult" in t));
+}
+
+/** Max categories per post. */
+export const MAX_POST_TAGS = 4;
 
 export function tagLabel(id: string): string {
   return POST_TAGS.find((t) => t.id === id)?.label ?? id;

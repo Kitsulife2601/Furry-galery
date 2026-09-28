@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { saveInterests } from "@/lib/vela/server";
-import { POST_TAGS, type PostTag } from "@/lib/vela/types";
+import { POST_TAGS, visibleTags, type PostTag } from "@/lib/vela/types";
+import { useAppSession } from "@/lib/vela/app-session";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +18,20 @@ const EMOJI: Record<PostTag, string> = {
   "3d": "🧊",
   pixel: "👾",
   meme: "😂",
+  furry: "🐾",
+  yuri: "🌷",
+  yaoi: "💙",
+  femboy: "🎀",
+  cboy: "🔥",
 };
 
 function InterestGrid({ value, onToggle }: { value: PostTag[]; onToggle: (id: PostTag) => void }) {
+  // FSK-18 categories only for members verified through Discord.
+  const { profile } = useAppSession();
+  const tags = visibleTags(Boolean(profile?.fsk18?.verified));
   return (
     <ul className="grid grid-cols-2 gap-2">
-      {POST_TAGS.map((t) => {
+      {tags.map((t) => {
         const on = value.includes(t.id);
         return (
           <li key={t.id}>
