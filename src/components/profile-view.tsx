@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { cn } from "@/lib/utils";
 import { ProfileMenu } from "@/components/profile-menu";
+import { StyledName } from "@/components/styled-name";
 import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decoration";
 import { formatDay } from "@/lib/vela/durations";
 
@@ -89,7 +90,9 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
             )}
           </div>
         </div>
-        <h1 className="mt-4 font-display text-2xl">{profile.displayName}</h1>
+        <h1 className="mt-4 font-display text-2xl">
+          <StyledName text={profile.displayName} nameStyle={profile.nameStyle} />
+        </h1>
         <p className="text-sm text-fg-muted">@{profile.handle}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge>{profile.age} Jahre</Badge>

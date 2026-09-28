@@ -13,6 +13,7 @@ import { Fsk18Badge, Fsk18Notice, PostImage } from "@/components/fsk18";
 import { Comments } from "@/components/comments";
 import { PostMenu } from "@/components/post-menu";
 import { Caption } from "@/components/caption";
+import { StyledName } from "@/components/styled-name";
 import { cn } from "@/lib/utils";
 
 export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => void }) {
@@ -139,7 +140,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
                 className="font-medium"
                 onClick={onClose}
               >
-                @{post.author.handle}
+                <StyledName text={`@${post.author.handle}`} nameStyle={post.author.nameStyle} />
               </Link>
               <p className="text-xs text-fg-muted">
                 {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}

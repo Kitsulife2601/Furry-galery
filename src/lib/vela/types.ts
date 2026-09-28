@@ -1,3 +1,4 @@
+import type { NameStyle } from "./rewards";
 import type { AvatarDecoration, ProfileEffect } from "./decorations";
 export const RELATIONSHIP_STATUSES = [
   { id: "single", label: "Single" },
@@ -32,6 +33,10 @@ export type Profile = {
   /** Avatar decoration (ring/frame) and profile effect. */
   decoration: AvatarDecoration | null;
   effect: ProfileEffect | null;
+  /** Animated display name (a reward). */
+  nameStyle: NameStyle | null;
+  /** Days you've been active — only filled in on your own profile. */
+  activeDays: number | null;
   /** Picked interests (categories) — only filled in on your own profile. */
   interests: string[];
   /** Own profile that hasn't seen the interests popup yet. */
@@ -76,6 +81,7 @@ export type PostCard = {
     relationshipStatus: RelationshipStatus;
     age: number;
     decoration: AvatarDecoration | null;
+    nameStyle: NameStyle | null;
   };
 };
 
