@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { compressImageFile } from "@/lib/vela/compress-image";
 import { MEDIA_LIMITS, formatMb } from "@/lib/vela/media-limits";
 import { getMyProfile, updateAvatar, updateBanner, updateProfile } from "@/lib/vela/server";
@@ -26,6 +27,7 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
   const [backgroundId, setBackgroundId] = useState("midnight");
   const [busy, setBusy] = useState(false);
   const [bannerBusy, setBannerBusy] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -73,19 +75,25 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  async function onAvatar(file: File | undefined) {
-    if (!file) return;
+  async function onAvatar(file: File | undefined | null) {
+    if (file === undefined) return;
+    if (file === null && !window.confirm("Profilbild entfernen?")) return;
+    setAvatarBusy(true);
     try {
-      const dataUrl = await compressImageFile(file, {
-        maxEdge: 512,
-        quality: 0.78,
-        keepGifUpTo: MEDIA_LIMITS.avatar,
-      });
+      const dataUrl = file
+        ? await compressImageFile(file, {
+            maxEdge: 512,
+            quality: 0.78,
+            keepGifUpTo: MEDIA_LIMITS.avatar,
+          })
+        : null;
       await updateAvatar({ data: { dataUrl } });
       await invalidateOwnProfile();
-      toast.success("Portrait aktualisiert.");
+      toast.success(file ? "Portrait aktualisiert." : "Profilbild entfernt.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Portrait fehlgeschlagen.");
+    } finally {
+      setAvatarBusy(false);
     }
   }
 
@@ -143,6 +151,17 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
           <p className="mt-1 text-xs text-fg-subtle">
             {profile.age} Jahre · Portrait tippen zum Ändern (auch GIF)
           </p>
+          {profile.avatarUrl ? (
+            <button
+              type="button"
+              disabled={avatarBusy}
+              onClick={() => void onAvatar(null)}
+              className="mt-2 inline-flex min-h-9 items-center gap-1.5 text-xs text-fg-muted hover:text-heart"
+            >
+              <Trash2 className="size-3.5" />
+              {avatarBusy ? "Entfernt…" : "Profilbild entfernen"}
+            </button>
+          ) : null}
         </div>
       </section>
 

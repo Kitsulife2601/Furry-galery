@@ -419,12 +419,15 @@ export const updateLook = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Set (data URL) or remove (null) the profile picture. */
 export const updateAvatar = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ dataUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.avatar)) }))
+  .validator(
+    z.object({ dataUrl: z.string().min(20).max(dataUrlChars(MEDIA_LIMITS.avatar)).nullable() }),
+  )
   .handler(async ({ context, data }): Promise<Profile> => {
     await requireAdult(context.userId);
-    if (!isImageDataUrl(data.dataUrl)) {
+    if (data.dataUrl !== null && !isImageDataUrl(data.dataUrl)) {
       throw new Error("Nur Bilder (JPG, PNG, GIF, WebP) sind erlaubt.");
     }
     const sql = await getSql();
@@ -1461,6 +1464,22 @@ export const markNotificationsRead = createServerFn({ method: "POST" })
       update notifications set read_at = now()
       where user_id = ${context.userId} and read_at is null
     `;
+    return { ok: true };
+  });
+
+/** Delete one of your notifications (id) or all of them (no id). */
+export const deleteNotifications = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.number().int().positive().optional() }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    if (data.id === undefined) {
+      await sql`delete from notifications where user_id = ${context.userId}`;
+    } else {
+      await sql`
+        delete from notifications where id = ${data.id} and user_id = ${context.userId}
+      `;
+    }
     return { ok: true };
   });
 

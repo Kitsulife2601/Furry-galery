@@ -1,8 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Heart, MessageCircle, ShieldAlert, UserPlus } from "lucide-react";
-import { listNotifications, markNotificationsRead, type NotificationItem } from "@/lib/vela/server";
+import { Heart, MessageCircle, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  deleteNotifications,
+  listNotifications,
+  markNotificationsRead,
+  type NotificationItem,
+} from "@/lib/vela/server";
+import { memberErrorMessage } from "@/lib/vela/errors";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -50,10 +57,45 @@ function Notifications() {
     );
   }, [hasUnread, queryClient]);
 
+  const [busy, setBusy] = useState(false);
+  async function remove(id?: number) {
+    if (id === undefined && !window.confirm("Alle Mitteilungen löschen?")) return;
+    setBusy(true);
+    // Drop them from the list right away; the server call follows.
+    queryClient.setQueryData<NotificationItem[]>(["notifications"], (list) =>
+      id === undefined ? [] : (list ?? []).filter((n) => n.id !== id),
+    );
+    try {
+      await deleteNotifications({ data: id === undefined ? {} : { id } });
+    } catch (err) {
+      toast.error(memberErrorMessage(err, "Löschen fehlgeschlagen."));
+    } finally {
+      setBusy(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+        queryClient.invalidateQueries({ queryKey: ["notif-count"] }),
+      ]);
+    }
+  }
+  const hasAny = (query.data ?? []).length > 0;
+
   return (
     <div className="mx-auto max-w-xl px-5 py-8 pb-24">
       <p className="text-xs tracking-[0.22em] text-fg-subtle uppercase">Für dich</p>
-      <h1 className="mt-1 font-display text-3xl">Mitteilungen</h1>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <h1 className="font-display text-3xl">Mitteilungen</h1>
+        {hasAny ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void remove()}
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm text-fg-muted hover:text-heart"
+          >
+            <Trash2 className="size-4" />
+            Alle löschen
+          </button>
+        ) : null}
+      </div>
 
       {query.isPending ? (
         <Skeleton className="mt-6 h-40 w-full" />
@@ -123,6 +165,15 @@ function Notifications() {
                 {!n.read ? (
                   <span className="mt-2 size-2 shrink-0 rounded-full bg-heart" aria-label="Neu" />
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => void remove(n.id)}
+                  aria-label="Mitteilung löschen"
+                  title="Löschen"
+                  className="-my-1 -mr-2 grid size-11 shrink-0 place-items-center rounded-lg text-fg-subtle hover:text-fg"
+                >
+                  <X className="size-4" />
+                </button>
               </li>
             );
           })}
