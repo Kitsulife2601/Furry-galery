@@ -1,5 +1,6 @@
 /** The ⋯ menu on someone else's profile: report it; for the team also ban, delete and fix the age. */
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ban, CalendarDays, Flag, MoreHorizontal, PawPrint, Trash2, X } from "lucide-react";
@@ -311,16 +312,19 @@ function ModalShell({
   onClose: () => void;
   children: ReactNode;
 }) {
-  return (
+  // Portal: the profile header is its own stacking context (z-10), which would
+  // otherwise put this popup under the bottom navigation on phones.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-bg/80 p-4 sm:items-center"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-bg/80 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-border bg-bg-elevated p-5 text-fg"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-border bg-bg-elevated p-5 text-fg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -336,7 +340,8 @@ function ModalShell({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

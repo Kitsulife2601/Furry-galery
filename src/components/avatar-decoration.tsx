@@ -1074,11 +1074,13 @@ function MoonNight({ className }: { className?: string }) {
           d="M0 90 L0 74 C16 66 30 64 44 66 C60 58 78 60 96 70 L120 76 L120 90 Z"
           fill="#1a1630"
         />
+        {/* Sitting wolf facing left, muzzle raised to the moon. */}
         <path
-          fill="#211c3a"
-          d="M52 66 C50 56 52 48 58 42 C60 34 62 24 66 16 L68 6 L72 14 C74 12 77 12 80 14 L78 18 C82 22 80 28 76 30 C74 36 76 42 80 48 C84 52 86 58 84 66 Z M56 66 C54 70 50 72 46 70 C50 68 52 66 52 64 Z"
+          fill="#221c3c"
+          d="M54 68 L56 52 C54 46 52 42 50 38 L53 37 L49 33 L53 32 C52 28 52 24 50 20 L39 9 L41 6 L46 9 L42 5 L44 4 L51 11 L54 3 L57 10 L60 2 L62 12 C66 20 70 28 74 36 C80 44 84 54 84 62 C90 62 98 58 105 48 C104 58 97 66 86 68 Z"
         />
-        <path d="M66 16 L68 6 L70 12 Z" fill="#2b2548" />
+        <path d="M60 2 L61.5 10 L58.5 9 Z M54 3 L55.5 9.5 L53 9 Z" fill="#3a3160" />
+        <circle cx={49} cy={13} r={0.9} fill="#cfc6f0" />
       </svg>
     </div>
   );

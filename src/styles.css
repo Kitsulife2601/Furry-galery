@@ -781,7 +781,7 @@ input[type="search"]::-webkit-search-cancel-button {
     linear-gradient(90deg, #1c1830, #3a3360 70%, #6d63a8);
 }
 .plate-mondwolf::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Ccircle cx='24' cy='12' r='9' fill='%23f4f1ff'/%3E%3Cpath d='M10 30 C9 24 10 20 13 17 C14 13 15 8 17 5 L18 1 L20 5 C21 4 23 4 24 5 L23 7 C25 9 24 12 22 13 C21 16 22 19 24 22 C26 24 27 27 26 30 Z' fill='%23231d3d'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%2734%200%2076%2070%27%3E%3Ccircle%20cx%3D%2782%27%20cy%3D%2724%27%20r%3D%2718%27%20fill%3D%27%23f4f1ff%27%2F%3E%3Cpath%20fill%3D%27%23231d3d%27%20d%3D%27M54%2068%20L56%2052%20C54%2046%2052%2042%2050%2038%20L53%2037%20L49%2033%20L53%2032%20C52%2028%2052%2024%2050%2020%20L39%209%20L41%206%20L46%209%20L42%205%20L44%204%20L51%2011%20L54%203%20L57%2010%20L60%202%20L62%2012%20C66%2020%2070%2028%2074%2036%20C80%2044%2084%2054%2084%2062%20C90%2062%2098%2058%20105%2048%20C104%2058%2097%2066%2086%2068%20Z%27%2F%3E%3C%2Fsvg%3E");
 }
 .plate-rosenblueten {
   background: linear-gradient(90deg, #3b2e5c, #7a66b8 60%, #c9bdf2);
