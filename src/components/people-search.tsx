@@ -1,27 +1,63 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import { searchProfiles } from "@/lib/vela/server";
 import { relationshipLabel } from "@/lib/vela/types";
 import { Input } from "@/components/ui/input";
+import { normalizeHashtag } from "@/lib/vela/hashtags";
 
-/** Search field; `onActiveChange` tells the page when results replace its content. */
-export function PeopleSearch({ onActiveChange }: { onActiveChange: (active: boolean) => void }) {
-  const [input, setInput] = useState("");
-  const [term, setTerm] = useState("");
+/**
+ * Search field for people — or, starting with "#", for posts with that hashtag
+ * or category (e.g. #yaoi). `onActiveChange` tells the page when people results
+ * replace its content; `onHashtag` hands it the hashtag to filter the gallery by.
+ */
+export function PeopleSearch({
+  onActiveChange,
+  hashtag = null,
+  onHashtag,
+}: {
+  onActiveChange: (active: boolean) => void;
+  hashtag?: string | null;
+  onHashtag?: (tag: string | null) => void;
+}) {
+  const [input, setInput] = useState(hashtag ? `#${hashtag}` : "");
+  const [term, setTerm] = useState(input.trim());
+
+  // Latest hashtag from the page, read when the typed term changes.
+  const hashtagRef = useRef(hashtag);
+  hashtagRef.current = hashtag;
+
+  // A hashtag link (e.g. from a caption) changes the filter from outside.
+  useEffect(() => {
+    if (!hashtag) return;
+    const next = `#${hashtag}`;
+    setInput((cur) => (normalizeHashtag(cur) === hashtag ? cur : next));
+    setTerm((cur) => (normalizeHashtag(cur) === hashtag ? cur : next));
+  }, [hashtag]);
 
   useEffect(() => {
     const id = window.setTimeout(() => setTerm(input.trim()), 250);
     return () => window.clearTimeout(id);
   }, [input]);
 
-  useEffect(() => onActiveChange(term.length > 0), [term, onActiveChange]);
+  const isHashtag = term.startsWith("#");
+  const people = isHashtag ? "" : term;
+
+  useEffect(() => onActiveChange(people.length > 0), [people, onActiveChange]);
+  useEffect(() => {
+    if (!onHashtag) return;
+    const hashtagMode = term.startsWith("#");
+    const next = hashtagMode ? normalizeHashtag(term) : null;
+    // "#a" is too short to search: keep the current filter until it is valid.
+    if (hashtagMode && !next && term !== "#") return;
+    if (next !== hashtagRef.current) onHashtag(next);
+  }, [term, onHashtag]);
 
   const results = useQuery({
-    queryKey: ["search", term],
-    queryFn: () => searchProfiles({ data: { q: term } }),
-    enabled: term.length > 0,
+    queryKey: ["search", people],
+    queryFn: () => searchProfiles({ data: { q: people } }),
+    enabled: people.length > 0,
     placeholderData: keepPreviousData,
   });
 
@@ -33,8 +69,8 @@ export function PeopleSearch({ onActiveChange }: { onActiveChange: (active: bool
           type="search"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Leute suchen — Name oder @handle"
-          aria-label="Leute suchen"
+          placeholder="Leute suchen oder #yaoi, #fursuit …"
+          aria-label="Leute oder #Hashtags suchen"
           maxLength={40}
           className="pr-11 pl-9"
         />
@@ -50,13 +86,13 @@ export function PeopleSearch({ onActiveChange }: { onActiveChange: (active: bool
         ) : null}
       </div>
 
-      {term ? (
+      {people ? (
         <ul className="mt-4 divide-y divide-border" aria-live="polite">
           {results.isPending ? (
             <li className="py-6 text-center text-sm text-fg-muted">Sucht…</li>
           ) : (results.data ?? []).length === 0 ? (
             <li className="py-6 text-center text-sm text-fg-muted">
-              Niemand gefunden für „{term}“.
+              Niemand gefunden für „{people}“.
             </li>
           ) : (
             (results.data ?? []).map((person) => (
