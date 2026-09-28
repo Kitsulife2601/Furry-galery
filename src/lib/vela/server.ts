@@ -526,7 +526,7 @@ export const listExplore = createServerFn({ method: "GET" })
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null and (${tag}::text is null or ${tag}::text = any(p.tags))
-        and (${hashtag}::text is null or ${hashtag}::text = any(p.hashtags))
+        and (${hashtag}::text is null or ${hashtag}::text = any(p.hashtags || p.tags))
       order by (select count(*) from likes l where l.post_id = p.id) desc, p.created_at desc
       limit 80
     `;
