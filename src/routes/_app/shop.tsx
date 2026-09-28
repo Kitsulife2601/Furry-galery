@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
+import { bgStyle } from "@/lib/vela/bg-style";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Clock, Package, ShoppingBag } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clock, Package, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { buyShopBundle, buyShopItem, equipShopItem, getMyProfile } from "@/lib/vela/server";
 import { BACKGROUNDS } from "@/lib/vela/backgrounds";
@@ -9,9 +10,9 @@ import { AVATAR_DECORATIONS, NAME_PLATES, PROFILE_EFFECTS } from "@/lib/vela/dec
 import { NAME_STYLES, unlockDay } from "@/lib/vela/rewards";
 import {
   BUNDLES,
+  ALL_COLLECTIONS,
   BUNDLE_DISCOUNT,
   CLASSIC_COLLECTION,
-  COLLECTIONS,
   bundleCollection,
   collectionOf,
   DAILY_PAW_CAP,
@@ -28,6 +29,7 @@ import type { Profile } from "@/lib/vela/types";
 import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decoration";
 import { StyledName } from "@/components/styled-name";
 import { NamePlate } from "@/components/name-plate";
+import { GENERATED, genItem, isGeneratedId, type GenKind } from "@/lib/vela/catalog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +46,7 @@ const LABELS: Record<ShopKind, readonly { id: string; label: string }[]> = {
 };
 
 function itemLabel(kind: ShopKind, id: string): string {
+  if (isGeneratedId(id) && kind !== "name") return genItem(kind as GenKind, id)?.label ?? id;
   return LABELS[kind].find((x) => x.id === id)?.label ?? id;
 }
 
@@ -59,29 +62,27 @@ function forSale(kind: ShopKind, list: readonly { id: string; label: string }[])
     .sort((a, b) => Number(isNew(b)) - Number(isNew(a)));
 }
 
-const SECTIONS: { title: string; hint: string; items: Item[] }[] = [
-  {
-    title: "Hintergründe",
-    hint: "Färben dein Profil und die ganze App ein.",
-    items: forSale("background", BACKGROUNDS),
-  },
-  {
-    title: "Avatar-Rahmen",
-    hint: "Animierte Rahmen um dein Profilbild.",
-    items: forSale("decoration", AVATAR_DECORATIONS),
-  },
-  {
-    title: "Namensschilder",
-    hint: "Ein verzierter Streifen hinter deinem Namen, im Profil und im Feed.",
-    items: forSale("plate", NAME_PLATES),
-  },
-  { title: "Namen", hint: "Dein Name mit Animation.", items: forSale("name", NAME_STYLES) },
-  {
-    title: "Profil-Effekte",
-    hint: "Fliegen über deinen Profilkopf.",
-    items: forSale("effect", PROFILE_EFFECTS),
-  },
+/** Filter chips by kind, in shop order. */
+const TYPES: { id: ShopKind | "alle"; label: string }[] = [
+  { id: "alle", label: "Alles" },
+  { id: "decoration", label: "Rahmen" },
+  { id: "effect", label: "Effekte" },
+  { id: "plate", label: "Namensschilder" },
+  { id: "background", label: "Hintergründe" },
+  { id: "name", label: "Namen" },
 ];
+
+/** Every item for sale: hand-made ones (new first), then the generated catalogue. */
+const ALL_ITEMS: Item[] = [
+  ...forSale("decoration", AVATAR_DECORATIONS),
+  ...forSale("effect", PROFILE_EFFECTS),
+  ...forSale("plate", NAME_PLATES),
+  ...forSale("background", BACKGROUNDS),
+  ...forSale("name", NAME_STYLES),
+  ...GENERATED.map((g) => ({ kind: g.kind, id: g.id, label: g.label, price: g.price })),
+];
+
+const PAGE_SIZE = 16;
 
 function inUse(profile: Profile, item: Item): boolean {
   if (item.kind === "background") return profile.backgroundId === item.id;
@@ -97,8 +98,20 @@ function Shop() {
   const paws = usePaws();
   const [busy, setBusy] = useState<string | null>(null);
   const [collection, setCollection] = useState("alle");
-  const inCollection = (kind: ShopKind, id: string) =>
-    collection === "alle" || collectionOf(kind, id) === collection;
+  const [type, setType] = useState<ShopKind | "alle">("alle");
+  const [page, setPage] = useState(0);
+  const items = ALL_ITEMS.filter(
+    (it) =>
+      (type === "alle" || it.kind === type) &&
+      (collection === "alle" || collectionOf(it.kind, it.id) === collection),
+  );
+  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const current = Math.min(page, pages - 1);
+  const pageItems = items.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  function goTo(p: number) {
+    setPage(p);
+    document.getElementById("shop-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   const bundles = BUNDLES.filter(
     (b) => collection === "alle" || bundleCollection(b.id) === collection,
   );
@@ -229,14 +242,17 @@ function Shop() {
       >
         {[
           { id: "alle", label: "Alle" },
-          ...COLLECTIONS.map((c) => ({ id: c.id, label: c.label })),
+          ...ALL_COLLECTIONS,
           { id: CLASSIC_COLLECTION, label: "Klassiker" },
         ].map((c) => (
           <button
             key={c.id}
             type="button"
             aria-pressed={collection === c.id}
-            onClick={() => setCollection(c.id)}
+            onClick={() => {
+              setCollection(c.id);
+              setPage(0);
+            }}
             className={cn(
               "h-9 shrink-0 rounded-full border px-4 text-sm",
               collection === c.id
@@ -249,7 +265,7 @@ function Shop() {
         ))}
       </nav>
 
-      {bundles.length ? (
+      {bundles.length > 0 && current === 0 && type === "alle" ? (
         <section className="mt-6">
           <h2 className="flex items-center gap-2 font-display text-xl">
             <Package className="size-5 text-accent" /> Pakete
@@ -277,6 +293,7 @@ function Shop() {
                       bg ? "bg-swatch" : "bg-bg-subtle",
                     )}
                     data-bg={bg?.id}
+                    style={bgStyle(bg?.id)}
                   >
                     {effect ? (
                       <ProfileEffectLayer
@@ -341,88 +358,165 @@ function Shop() {
         </section>
       ) : null}
 
-      {SECTIONS.map((section) => ({
-        ...section,
-        items: section.items.filter((it) => inCollection(it.kind, it.id)),
-      }))
-        .filter((section) => section.items.length > 0)
-        .map((section) => (
-          <section key={section.title} className="mt-10">
-            <h2 className="font-display text-xl">{section.title}</h2>
-            <p className="text-xs text-fg-subtle">{section.hint}</p>
-            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {section.items.map((item) => {
-                const key = `${item.kind}:${item.id}`;
-                const usable = canUseItem(item.kind, item.id, access);
-                const active = inUse(profile, item);
-                const day =
-                  item.kind === "background" || item.kind === "plate" || isNew(item)
-                    ? null
-                    : unlockDay(item.kind, item.id);
-                return (
-                  <li
-                    key={key}
-                    className={cn(
-                      "flex flex-col overflow-hidden rounded-xl border bg-bg-elevated/60",
-                      active ? "border-accent" : "border-border",
-                    )}
-                  >
-                    <Preview item={item} profile={profile} />
-                    <div className="flex flex-1 flex-col gap-2 p-3">
-                      <p className="flex items-center gap-1.5 text-sm font-medium">
-                        {item.label}
-                        {isNew(item) ? (
-                          <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
-                            Neu
-                          </span>
-                        ) : null}
-                      </p>
-                      {day !== null && !usable ? (
-                        <p className="text-[11px] text-fg-subtle">Gratis ab Tag {day}</p>
+      <section id="shop-grid" className="mt-10 scroll-mt-16">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-pressed={type === t.id}
+              onClick={() => {
+                setType(t.id);
+                setPage(0);
+              }}
+              className={cn(
+                "h-8 shrink-0 rounded-lg px-3 text-xs",
+                type === t.id ? "bg-bg-subtle text-fg" : "text-fg-muted hover:text-fg",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-fg-subtle">
+          {items.length} Artikel · Seite {current + 1} von {pages}
+        </p>
+        {pageItems.length === 0 ? (
+          <p className="mt-6 text-sm text-fg-muted">Hier gibt es (noch) nichts.</p>
+        ) : (
+          <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {pageItems.map((item) => {
+              const key = `${item.kind}:${item.id}`;
+              const usable = canUseItem(item.kind, item.id, access);
+              const active = inUse(profile, item);
+              const day =
+                item.kind === "background" ||
+                item.kind === "plate" ||
+                isNew(item) ||
+                isGeneratedId(item.id)
+                  ? null
+                  : unlockDay(item.kind, item.id);
+              return (
+                <li
+                  key={key}
+                  className={cn(
+                    "flex flex-col overflow-hidden rounded-xl border bg-bg-elevated/60",
+                    active ? "border-accent" : "border-border",
+                  )}
+                >
+                  <Preview item={item} profile={profile} />
+                  <div className="flex flex-1 flex-col gap-2 p-3">
+                    <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                      {item.label}
+                      {isNew(item) ? (
+                        <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
+                          Neu
+                        </span>
                       ) : null}
-                      <div className="mt-auto">
-                        {active ? (
-                          <span className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent/15 text-xs text-accent">
-                            <Check className="size-3.5" /> Aktiv
-                          </span>
-                        ) : usable ? (
-                          <button
-                            type="button"
-                            disabled={busy !== null}
-                            onClick={() => void equip(item)}
-                            className="h-9 w-full rounded-lg border border-border text-xs hover:bg-bg-subtle"
-                          >
-                            {busy === key ? "…" : "Benutzen"}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busy !== null}
-                            onClick={() => void buy(item)}
-                            className={cn(
-                              "flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium tabular-nums",
-                              balance >= item.price
-                                ? "bg-accent text-accent-fg"
-                                : "border border-border text-fg-muted",
-                            )}
-                          >
-                            {busy === key ? (
-                              "…"
-                            ) : (
-                              <>
-                                <ShoppingBag className="size-3.5" /> 🐾 {item.price}
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
+                    </p>
+                    {day !== null && !usable ? (
+                      <p className="text-[11px] text-fg-subtle">Gratis ab Tag {day}</p>
+                    ) : null}
+                    <div className="mt-auto">
+                      {active ? (
+                        <span className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent/15 text-xs text-accent">
+                          <Check className="size-3.5" /> Aktiv
+                        </span>
+                      ) : usable ? (
+                        <button
+                          type="button"
+                          disabled={busy !== null}
+                          onClick={() => void equip(item)}
+                          className="h-9 w-full rounded-lg border border-border text-xs hover:bg-bg-subtle"
+                        >
+                          {busy === key ? "…" : "Benutzen"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy !== null}
+                          onClick={() => void buy(item)}
+                          className={cn(
+                            "flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium tabular-nums",
+                            balance >= item.price
+                              ? "bg-accent text-accent-fg"
+                              : "border border-border text-fg-muted",
+                          )}
+                        >
+                          {busy === key ? (
+                            "…"
+                          ) : (
+                            <>
+                              <ShoppingBag className="size-3.5" /> 🐾 {item.price}
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {pages > 1 ? (
+          <nav aria-label="Seiten" className="mt-6 flex items-center justify-center gap-1">
+            <button
+              type="button"
+              aria-label="Vorherige Seite"
+              disabled={current === 0}
+              onClick={() => goTo(current - 1)}
+              className="grid size-10 place-items-center rounded-lg border border-border disabled:opacity-30"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <div className="flex max-w-full gap-1 overflow-x-auto px-1">
+              {Array.from({ length: pages }, (_, p) => p)
+                .filter((p) => p === 0 || p === pages - 1 || Math.abs(p - current) <= 2)
+                .flatMap((p, i, arr) => {
+                  const gap = i > 0 && p - arr[i - 1]! > 1;
+                  const btn = (
+                    <button
+                      key={p}
+                      type="button"
+                      aria-current={p === current ? "page" : undefined}
+                      onClick={() => goTo(p)}
+                      className={cn(
+                        "grid h-10 min-w-10 place-items-center rounded-lg px-2 text-sm tabular-nums",
+                        p === current
+                          ? "bg-accent text-accent-fg"
+                          : "text-fg-muted hover:bg-bg-subtle",
+                      )}
+                    >
+                      {p + 1}
+                    </button>
+                  );
+                  return gap
+                    ? [
+                        <span
+                          key={`gap${p}`}
+                          className="grid h-10 place-items-center px-1 text-fg-subtle"
+                        >
+                          …
+                        </span>,
+                        btn,
+                      ]
+                    : [btn];
+                })}
+            </div>
+            <button
+              type="button"
+              aria-label="Nächste Seite"
+              disabled={current >= pages - 1}
+              onClick={() => goTo(current + 1)}
+              className="grid size-10 place-items-center rounded-lg border border-border disabled:opacity-30"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </nav>
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -430,7 +524,7 @@ function Shop() {
 function Preview({ item, profile }: { item: Item; profile: Profile }) {
   let content: ReactNode;
   if (item.kind === "background") {
-    return <div className="bg-swatch h-24" data-bg={item.id} />;
+    return <div className="bg-swatch h-24" data-bg={item.id} style={bgStyle(item.id)} />;
   }
   if (item.kind === "decoration") {
     content = (

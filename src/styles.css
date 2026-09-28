@@ -981,3 +981,13 @@ input[type="search"]::-webkit-search-cancel-button {
     animation: none;
   }
 }
+
+/* Generated shop items (src/lib/vela/catalog.ts) */
+.plate-gen::after {
+  background-image: var(--plate-motif);
+}
+.fx-gen-rise {
+  top: auto;
+  bottom: -8%;
+  animation-name: fx-rise;
+}

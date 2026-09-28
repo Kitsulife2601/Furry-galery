@@ -1,4 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
+import { bgStyle } from "@/lib/vela/bg-style";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { PawPrint, ShoppingBag } from "lucide-react";
 import type { Profile } from "@/lib/vela/types";
@@ -27,7 +28,7 @@ export function AppShell({
   const paws = usePaws();
 
   return (
-    <div className="vela-shell" data-bg={profile?.backgroundId ?? "midnight"}>
+    <div className="vela-shell" data-bg={profile?.backgroundId ?? "midnight"} style={bgStyle(profile?.backgroundId ?? "midnight", true)}>
       <div className="mx-auto flex min-h-dvh max-w-6xl">
         <SideNav hasProfile={Boolean(profile)} />
         <div className="relative min-w-0 flex-1">

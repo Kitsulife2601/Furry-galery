@@ -2,6 +2,7 @@
  * Avatar decorations (animated rings/frames), profile effects and name plates.
  * The first ones unlock with active days (rewards.ts); the rest are shop-only.
  */
+import { genItem } from "./catalog";
 export const AVATAR_DECORATIONS = [
   { id: "flammen", label: "Flammen" },
   { id: "neon", label: "Neon" },
@@ -28,7 +29,8 @@ export const AVATAR_DECORATIONS = [
   { id: "sternbild", label: "Sternbilder" },
   { id: "nova", label: "Nova" },
 ] as const;
-export type AvatarDecoration = (typeof AVATAR_DECORATIONS)[number]["id"];
+/** Hand-drawn ids, or generated ones ("g-ring-glut", see catalog.ts). */
+export type AvatarDecoration = (typeof AVATAR_DECORATIONS)[number]["id"] | `g-${string}`;
 
 export const PROFILE_EFFECTS = [
   { id: "sakura", label: "Kirschblüten" },
@@ -45,7 +47,7 @@ export const PROFILE_EFFECTS = [
   { id: "planetenringe", label: "Planetenringe" },
   { id: "kosmossturm", label: "Kosmischer Sturm" },
 ] as const;
-export type ProfileEffect = (typeof PROFILE_EFFECTS)[number]["id"];
+export type ProfileEffect = (typeof PROFILE_EFFECTS)[number]["id"] | `g-${string}`;
 
 /** Name plates: a decorated strip behind the name (profile and feed). Shop-only. */
 export const NAME_PLATES = [
@@ -57,16 +59,19 @@ export const NAME_PLATES = [
   { id: "tagtraum", label: "Regenbogen-Tagtraum" },
   { id: "kosmos", label: "Kosmischer Zwielichtfluss" },
 ] as const;
-export type NamePlate = (typeof NAME_PLATES)[number]["id"];
+export type NamePlate = (typeof NAME_PLATES)[number]["id"] | `g-${string}`;
 
 export function asNamePlate(value: unknown): NamePlate | null {
+  if (typeof value === "string" && genItem("plate", value)) return value as NamePlate;
   return NAME_PLATES.some((d) => d.id === value) ? (value as NamePlate) : null;
 }
 
 export function asDecoration(value: unknown): AvatarDecoration | null {
+  if (typeof value === "string" && genItem("decoration", value)) return value as AvatarDecoration;
   return AVATAR_DECORATIONS.some((d) => d.id === value) ? (value as AvatarDecoration) : null;
 }
 
 export function asProfileEffect(value: unknown): ProfileEffect | null {
+  if (typeof value === "string" && genItem("effect", value)) return value as ProfileEffect;
   return PROFILE_EFFECTS.some((d) => d.id === value) ? (value as ProfileEffect) : null;
 }

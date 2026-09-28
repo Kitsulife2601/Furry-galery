@@ -4,6 +4,7 @@
  * their active-day unlock. Shared by server and client.
  */
 import { isUnlocked, unlockDay, type RewardKind } from "./rewards";
+import { GEN_COLLECTIONS, genItem, isGeneratedId, type GenKind } from "./catalog";
 
 export type ShopKind = "background" | "plate" | RewardKind;
 
@@ -60,6 +61,7 @@ export const SHOP_ONLY: Record<string, number> = {
 
 /** Price in Pfoten, or null when the item is free / not for sale. */
 export function shopPrice(kind: ShopKind, id: string): number | null {
+  if (isGeneratedId(id)) return kind === "name" ? null : (genItem(kind as GenKind, id)?.price ?? null);
   if (kind === "background") return PREMIUM_BACKGROUNDS[id] ?? null;
   const only = SHOP_ONLY[ownedKey(kind, id)];
   if (only !== undefined) return only;
@@ -232,7 +234,16 @@ export const COLLECTIONS: { id: string; label: string; items: string[] }[] = [
 
 export const CLASSIC_COLLECTION = "klassiker";
 
+/** Every category for the shop's filter bar (hand-made collections, then generated ones). */
+export const ALL_COLLECTIONS: { id: string; label: string }[] = [
+  ...COLLECTIONS.map((c) => ({ id: c.id, label: c.label })),
+  ...GEN_COLLECTIONS,
+];
+
 export function collectionOf(kind: ShopKind, id: string): string {
+  if (isGeneratedId(id) && kind !== "name") {
+    return genItem(kind as GenKind, id)?.palette.collection ?? CLASSIC_COLLECTION;
+  }
   const key = ownedKey(kind, id);
   return COLLECTIONS.find((c) => c.items.includes(key))?.id ?? CLASSIC_COLLECTION;
 }
@@ -274,6 +285,7 @@ export function canUseItem(
   who: { activeDays: number; team: boolean; owned: readonly string[] },
 ): boolean {
   if (who.team || who.owned.includes(ownedKey(kind, id))) return true;
+  if (isGeneratedId(id)) return false;
   if (kind === "background") return !(id in PREMIUM_BACKGROUNDS);
   if (kind === "plate") return false;
   return isUnlocked(kind, id, who.activeDays, false);

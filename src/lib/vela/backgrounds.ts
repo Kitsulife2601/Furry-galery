@@ -1,3 +1,5 @@
+import { genItem } from "./catalog";
+
 export const BACKGROUNDS = [
   { id: "midnight", label: "Mitternacht", hint: "Warmes Schwarz" },
   { id: "ember", label: "Glut", hint: "Dunkles Rost" },
@@ -19,8 +21,8 @@ export const BACKGROUNDS = [
   { id: "twilight", label: "Kosmisches Zwielicht", hint: "Rosa Sternennebel" },
 ] as const;
 
-export type BackgroundId = (typeof BACKGROUNDS)[number]["id"];
+export type BackgroundId = (typeof BACKGROUNDS)[number]["id"] | `g-${string}`;
 
 export function isBackgroundId(value: string): value is BackgroundId {
-  return BACKGROUNDS.some((b) => b.id === value);
+  return BACKGROUNDS.some((b) => b.id === value) || genItem("background", value) !== null;
 }

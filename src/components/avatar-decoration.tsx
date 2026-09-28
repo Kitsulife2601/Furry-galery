@@ -6,6 +6,8 @@
 import { useId, type ReactNode } from "react";
 import type { AvatarDecoration, ProfileEffect } from "@/lib/vela/decorations";
 import { cn } from "@/lib/utils";
+import { isGeneratedId } from "@/lib/vela/catalog";
+import { GenDecorationLayer, GenEffectLayer } from "@/components/generated-art";
 
 /** Avatar with its decoration. The decoration overflows the avatar box by 18 %. */
 export function DecoratedAvatar({
@@ -49,6 +51,7 @@ export function DecoratedAvatar({
 }
 
 export function DecorationLayer({ id }: { id: AvatarDecoration }) {
+  if (isGeneratedId(id)) return <GenDecorationLayer id={id} />;
   if (id === "neon" || id === "regenbogen") {
     return (
       <span aria-hidden="true" className="pointer-events-none absolute -inset-[9%]">
@@ -988,6 +991,7 @@ export function ProfileEffectLayer({
   effect: ProfileEffect;
   className?: string;
 }) {
+  if (isGeneratedId(effect)) return <GenEffectLayer id={effect} className={className} />;
   if (effect === "mondnacht") return <MoonNight className={className} />;
   if (effect === "polarlicht") return <AuroraSky className={className} />;
   if (effect === "sternwirbel" || effect === "planetenringe" || effect === "kosmossturm") {

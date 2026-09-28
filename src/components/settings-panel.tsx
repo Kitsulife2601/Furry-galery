@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { bgStyle } from "@/lib/vela/bg-style";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Copy, Trash2 } from "lucide-react";
@@ -8,6 +9,7 @@ import { getMyProfile, updateAvatar, updateBanner, updateProfile } from "@/lib/v
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { BackgroundPicker } from "@/components/background-picker";
 import { canUseItem } from "@/lib/vela/shop";
+import { ownedGenerated } from "@/lib/vela/catalog";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Fsk18Settings } from "@/components/fsk18-settings";
 import { InterestsSettings } from "@/components/interests";
@@ -168,7 +170,7 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
 
       <section className="mt-8 space-y-3">
         <p className="text-sm font-medium">Banner</p>
-        <div className="bg-swatch relative h-28 overflow-hidden rounded-xl" data-bg={backgroundId}>
+        <div className="bg-swatch relative h-28 overflow-hidden rounded-xl" data-bg={backgroundId} style={bgStyle(backgroundId)}>
           {profile.bannerUrl ? (
             <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
           ) : null}
@@ -243,6 +245,7 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
           <BackgroundPicker
             value={backgroundId}
             onChange={setBackgroundId}
+            extra={ownedGenerated("background", profile.owned, profile.backgroundId)}
             isLocked={(id) =>
               id !== profile.backgroundId &&
               !canUseItem("background", id, {

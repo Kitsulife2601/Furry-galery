@@ -28,6 +28,7 @@ import {
 } from "@/lib/vela/rewards";
 import type { Profile } from "@/lib/vela/types";
 import { canUseItem, type ShopKind } from "@/lib/vela/shop";
+import { ownedGenerated } from "@/lib/vela/catalog";
 import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decoration";
 import { StyledName } from "@/components/styled-name";
 import { cn } from "@/lib/utils";
@@ -185,7 +186,10 @@ export function LookSettings({ profile }: { profile: Profile }) {
               Kein Rahmen
             </button>
           </li>
-          {AVATAR_DECORATIONS.map((d) => {
+          {[
+            ...AVATAR_DECORATIONS,
+            ...ownedGenerated("decoration", profile.owned, profile.decoration),
+          ].map((d) => {
             const unlocked = open("decoration", d.id, profile.decoration);
             return (
               <li key={d.id}>
@@ -249,7 +253,11 @@ export function LookSettings({ profile }: { profile: Profile }) {
       <div className="space-y-2">
         <p className="text-xs font-medium text-fg-muted">Namensschild</p>
         <ul className="flex flex-wrap gap-2">
-          {[{ id: null, label: "Keins" } as const, ...NAME_PLATES].map((p) => {
+          {[
+            { id: null, label: "Keins" } as const,
+            ...NAME_PLATES,
+            ...ownedGenerated("plate", profile.owned, profile.namePlate),
+          ].map((p) => {
             const unlocked = p.id === null || open("plate", p.id, profile.namePlate);
             if (!unlocked) {
               return (
@@ -290,7 +298,11 @@ export function LookSettings({ profile }: { profile: Profile }) {
       <div className="space-y-2">
         <p className="text-xs font-medium text-fg-muted">Profil-Effekt</p>
         <ul className="flex flex-wrap gap-2">
-          {[{ id: null, label: "Keiner" } as const, ...PROFILE_EFFECTS].map((e) => {
+          {[
+            { id: null, label: "Keiner" } as const,
+            ...PROFILE_EFFECTS,
+            ...ownedGenerated("effect", profile.owned, profile.effect),
+          ].map((e) => {
             const unlocked = e.id === null || open("effect", e.id, profile.effect);
             return (
               <li key={e.id ?? "none"}>

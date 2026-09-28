@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { bgStyle } from "@/lib/vela/bg-style";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ban } from "lucide-react";
@@ -57,7 +58,7 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
           "bg-swatch w-full overflow-hidden md:rounded-b-2xl",
           profile.bannerUrl ? "h-40 md:h-48" : "h-36 md:h-44",
         )}
-        data-bg={profile.backgroundId}
+        data-bg={profile.backgroundId} style={bgStyle(profile.backgroundId)}
       >
         {profile.bannerUrl ? (
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
