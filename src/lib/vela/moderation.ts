@@ -233,3 +233,20 @@ export async function sweepModeration(): Promise<void> {
     console.error("[moderation] sweep failed", err);
   }
 }
+
+/**
+ * The team approved this Discord member: unlock FSK 18 on the website at once
+ * for the profile linked to that Discord account (no waiting for a re-check).
+ */
+export async function markDiscordVerified(discordUserId: string): Promise<void> {
+  const sql = await getSql();
+  const rows = await sql<{ user_id: string }>`
+    update profiles
+    set fsk18_verified_at = coalesce(fsk18_verified_at, now()), fsk18_checked_at = now()
+    where discord_id = ${discordUserId}
+    returning user_id
+  `;
+  for (const row of rows) {
+    await notifySystem(row.user_id, "FSK 18 ist freigeschaltet — du siehst jetzt alle Bilder.");
+  }
+}

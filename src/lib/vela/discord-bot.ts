@@ -227,10 +227,11 @@ export function teamRoleIds(cfg: BotConfig): string[] {
   return [...new Set([...(cfg.modRoleId ? [cfg.modRoleId] : []), ...cfg.adminRoleIds])];
 }
 
-function channelName(username: string, userId: string): string {
+export function channelName(username: string, userId: string): string {
+  // Normalize first: fancy letters like "𝕿𝖊𝖚𝖋𝖊𝖑" only become "Teufel" through NFKD.
   const slug = username
-    .toLowerCase()
     .normalize("NFKD")
+    .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 20);
@@ -308,6 +309,59 @@ function ticketMessage(cfg: BotConfig, userId: string) {
   };
 }
 
+function decisionEmbed(opts: {
+  approved: boolean;
+  targetId: string;
+  moderatorId: string;
+  siteUrl: string;
+}) {
+  return opts.approved
+    ? {
+        color: 0x3ba55c,
+        title: "✅ Verifiziert",
+        description:
+          `<@${opts.targetId}> ist jetzt verifiziert (von <@${opts.moderatorId}>).\n\n` +
+          "**Auf der Webseite:** Einstellungen → FSK 18 → Discord verbinden " +
+          "(oder „Erneut prüfen“, falls schon verbunden). Danach sind alle Bilder sichtbar.",
+        footer: { text: "Furry Gallery · Verifizierung" },
+        timestamp: new Date().toISOString(),
+      }
+    : {
+        color: 0xc45c4a,
+        title: "✖️ Verifizierung abgelehnt",
+        description: `Die Verifizierung von <@${opts.targetId}> wurde abgelehnt (von <@${opts.moderatorId}>).`,
+        footer: { text: "Furry Gallery · Verifizierung" },
+        timestamp: new Date().toISOString(),
+      };
+}
+
+export function roleErrorEmbed(message: string) {
+  const forbidden = /\b403\b|Missing Permissions|50013/.test(message);
+  return {
+    color: 0xc45c4a,
+    title: "⚠️ Freischalten fehlgeschlagen",
+    description: forbidden
+      ? "Der Bot darf die Verifiziert-Rolle nicht vergeben.\n\n" +
+        "**So behebst du es:** Servereinstellungen → Rollen → die Rolle des Bots **über** die " +
+        "Verifiziert-Rolle ziehen und bei der Bot-Rolle „Rollen verwalten“ einschalten. " +
+        "Dann nochmal auf „Freischalten“ drücken."
+      : `Discord hat die Rolle nicht vergeben:\n\`\`\`${message.slice(0, 300)}\`\`\``,
+  };
+}
+
+function verifiedDmEmbed(siteUrl: string) {
+  return {
+    color: 0x3ba55c,
+    author: { name: "System · Furry Gallery", icon_url: `${siteUrl}/icon.png` },
+    title: "✅ Du bist verifiziert",
+    description:
+      "Das Team hat dich als volljährig bestätigt. Auf der Webseite siehst du jetzt alle " +
+      `FSK-18-Bilder, sobald dein Discord verbunden ist: ${siteUrl}/settings#fsk18`,
+    footer: { text: "Furry Gallery · System" },
+    timestamp: new Date().toISOString(),
+  };
+}
+
 /** Same message with only the close button left, after a decision. */
 function decidedComponents() {
   return [{ type: 1, components: [button("Kanal schließen", "verify:close", 2, "🔒")] }];
@@ -322,9 +376,11 @@ export async function handleInteraction(
     web?: WebFsk18;
     reports?: ReportActions;
     feedback?: { done: (id: number) => Promise<void> };
+    /** After the team approved someone: unlock the website right away. */
+    onVerified?: (discordUserId: string) => Promise<void>;
   },
 ): Promise<InteractionReply> {
-  const { cfg, api, siteUrl, web, reports, feedback } = ctx;
+  const { cfg, api, siteUrl, web, reports, feedback, onVerified } = ctx;
 
   if (interaction.type === InteractionType.Ping) return { type: Reply.Pong };
 
@@ -461,19 +517,42 @@ export async function handleInteraction(
   if (action === "approve" || action === "deny") {
     if (!isModerator(cfg, member)) return ephemeral("Nur das Team kann das entscheiden.");
     if (!targetId) return ephemeral("Unbekanntes Mitglied.");
-    let note: string;
-    if (action === "approve") {
-      await api("PUT", `/guilds/${cfg.guildId}/members/${targetId}/roles/${cfg.verifiedRoleId}`);
-      note =
-        `✅ <@${targetId}> ist jetzt verifiziert (von <@${member.user.id}>).\n` +
-        `Verbinde jetzt auf der Webseite dein Discord, um FSK 18 freizuschalten: ` +
-        `${siteUrl}/settings#fsk18`;
-    } else {
-      note = `✖️ Die Verifizierung von <@${targetId}> wurde abgelehnt (von <@${member.user.id}>).`;
+    const approved = action === "approve";
+    if (approved) {
+      try {
+        await api("PUT", `/guilds/${cfg.guildId}/members/${targetId}/roles/${cfg.verifiedRoleId}`);
+      } catch (err) {
+        // Say so in the channel — a silent failure looks like "the bot did nothing".
+        const message = err instanceof Error ? err.message : String(err);
+        await api("POST", `/channels/${interaction.channel_id}/messages`, {
+          embeds: [roleErrorEmbed(message)],
+        }).catch(() => undefined);
+        return ephemeral("Freischalten fehlgeschlagen — Details stehen im Kanal.");
+      }
+      await onVerified?.(targetId).catch((err) => console.error("[discord-bot] web unlock", err));
+      await sendSystemDm(api, targetId, verifiedDmEmbed(siteUrl)).catch(() => false);
     }
     await api("POST", `/channels/${interaction.channel_id}/messages`, {
-      content: note,
+      content: `<@${targetId}>`,
       allowed_mentions: { users: [targetId] },
+      embeds: [decisionEmbed({ approved, targetId, moderatorId: member.user.id, siteUrl })],
+      ...(approved
+        ? {
+            components: [
+              {
+                type: 1,
+                components: [
+                  {
+                    type: 2,
+                    style: 5,
+                    label: "FSK 18 auf der Webseite",
+                    url: `${siteUrl}/settings#fsk18`,
+                  },
+                ],
+              },
+            ],
+          }
+        : {}),
     });
     return { type: Reply.Update, data: { components: decidedComponents() } };
   }

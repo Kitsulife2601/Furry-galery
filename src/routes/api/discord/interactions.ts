@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   deletePostById,
   dismissReportsFor,
+  markDiscordVerified,
   markFeedbackDone,
   setBannedByHandle,
   setManualFsk18ByHandle,
@@ -116,6 +117,7 @@ export const Route = createFileRoute("/api/discord/interactions")({
           web: setWebFsk18,
           reports: reportActions,
           feedback: { done: (id) => markFeedbackDone(id) },
+          onVerified: markDiscordVerified,
         })
           .catch((err) => {
             console.error("[discord-bot]", err);
