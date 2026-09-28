@@ -12,6 +12,7 @@ import {
   reportMessage,
   deliverReply,
   diagnoseBot,
+  channelName,
   handleInteraction,
   verifyDiscordSignature,
   type BotConfig,
@@ -165,6 +166,43 @@ describe("handleInteraction", () => {
     assert.equal(mod.calls[0].method, "PUT");
     assert.equal(mod.calls[0].path, "/guilds/g1/members/u1/roles/role-18");
     assert.equal(reply.type, 7);
+  });
+
+  it("unlocks the website and says so when approving", async () => {
+    const mod = fakeApi();
+    const unlocked: string[] = [];
+    await handleInteraction(
+      click("verify:approve:u1", member("m1", { permissions: String(1n << 28n) })),
+      { cfg, api: mod.api, siteUrl, onVerified: async (id) => void unlocked.push(id) },
+    );
+    assert.deepEqual(unlocked, ["u1"]);
+    const post = mod.calls.find((c) => c.method === "POST" && c.path === "/channels/ch-x/messages");
+    const embeds = (post?.body as { embeds: { title: string }[] }).embeds;
+    assert.match(embeds[0]!.title, /Verifiziert/);
+  });
+
+  it("reports a failed role assignment in the channel instead of failing silently", async () => {
+    const calls: { method: string; path: string; body?: unknown }[] = [];
+    const api = async (method: string, path: string, body?: unknown) => {
+      calls.push({ method, path, body });
+      if (method === "PUT") throw new Error("Discord PUT → 403 Missing Permissions (50013)");
+      return null as never;
+    };
+    const unlocked: string[] = [];
+    const reply = await handleInteraction(
+      click("verify:approve:u1", member("m1", { permissions: String(1n << 28n) })),
+      { cfg, api, siteUrl, onVerified: async (id) => void unlocked.push(id) },
+    );
+    assert.equal(unlocked.length, 0);
+    assert.match(String(reply.data?.content), /fehlgeschlagen/);
+    const warn = calls.find((c) => c.method === "POST" && c.path === "/channels/ch-x/messages");
+    const embed = (warn?.body as { embeds: { description: string }[] }).embeds[0]!;
+    assert.match(embed.description, /über/);
+  });
+
+  it("reads fancy Unicode names for the channel name", () => {
+    assert.equal(channelName("🔥✡†𝕿𝖊𝖚𝖋𝖊𝖑†✡🔥", "123456789"), "verify-teufel");
+    assert.equal(channelName("🔥🔥", "123456789"), "verify-456789");
   });
 
   it("closes only verification channels, for their owner or the team", async () => {
