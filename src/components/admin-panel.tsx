@@ -5,7 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import {
+  addTeamMember,
   adminDeletePost,
+  listTeamMembers,
+  removeTeamMember,
+  type TeamMember,
   dismissReports,
   listBanned,
   listFeedback,
@@ -37,6 +41,7 @@ export function AdminSections() {
       <FeedbackList />
       <PublishUpdate />
       <Bans />
+      <TeamMembers />
     </>
   );
 }
@@ -123,6 +128,120 @@ export function PawDialog({ isAdmin, onClose }: { isAdmin: boolean; onClose: () 
         </div>
       </div>
     </div>
+  );
+}
+
+const TEAM_KIND_LABEL: Record<TeamMember["kind"], string> = {
+  discord: "Discord-ID",
+  user: "Nutzer-ID",
+  handle: "Name",
+};
+
+/** Team list: add members by Discord user id, website user id or @name. */
+function TeamMembers() {
+  const queryClient = useQueryClient();
+  const team = useQuery({ queryKey: ["admin-team"], queryFn: () => listTeamMembers() });
+  const [ref, setRef] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    if (!ref.trim()) return;
+    setBusy(true);
+    try {
+      const added = await addTeamMember({ data: { ref } });
+      toast.success(`Ins Team aufgenommen (${TEAM_KIND_LABEL[added.kind]} ${added.value}).`);
+      setRef("");
+      await queryClient.invalidateQueries({ queryKey: ["admin-team"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Das hat nicht geklappt.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(m: TeamMember) {
+    const who = m.match ? `@${m.match.handle}` : m.value;
+    if (!window.confirm(`${who} aus dem Team entfernen?`)) return;
+    try {
+      await removeTeamMember({ data: { kind: m.kind, value: m.value } });
+      toast.success(`${who} ist nicht mehr im Team.`);
+      await queryClient.invalidateQueries({ queryKey: ["admin-team"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Das hat nicht geklappt.");
+    }
+  }
+
+  const members = team.data?.members ?? [];
+  return (
+    <section className="mt-12">
+      <h2 className="font-display text-xl">Team</h2>
+      <p className="mt-1 text-sm text-fg-muted">
+        Per Discord-Nutzer-ID, Nutzer-ID der Webseite oder @Name hinzufügen. Beim Anmelden wird
+        automatisch abgeglichen, zu welchem Profil die ID gehört. Discord-Rollen (Owner, Fluff
+        Admin) zählen weiterhin.
+      </p>
+      <form onSubmit={(e) => void add(e)} className="mt-4 flex gap-2">
+        <Input
+          value={ref}
+          onChange={(e) => setRef(e.target.value)}
+          placeholder="z. B. 123456789012345678 oder @name"
+          aria-label="Discord-ID, Nutzer-ID oder @Name"
+          className="flex-1"
+        />
+        <Button type="submit" disabled={busy || !ref.trim()}>
+          {busy ? "…" : "Hinzufügen"}
+        </Button>
+      </form>
+      {team.data?.owners.length ? (
+        <p className="mt-3 text-xs text-fg-subtle">
+          Immer im Team: {team.data.owners.map((h) => `@${h}`).join(", ")}
+        </p>
+      ) : null}
+      {team.isPending ? (
+        <Skeleton className="mt-4 h-16 w-full" />
+      ) : members.length === 0 ? (
+        <p className="mt-4 text-sm text-fg-muted">Noch niemand hinzugefügt.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-border">
+          {members.map((m) => (
+            <li key={`${m.kind}:${m.value}`} className="flex items-center gap-3 py-3 text-sm">
+              <span className="size-9 shrink-0 overflow-hidden rounded-full bg-bg-subtle">
+                {m.match?.avatarUrl ? (
+                  <img src={m.match.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="grid h-full w-full place-items-center text-xs">
+                    {(m.match?.displayName ?? "?").charAt(0)}
+                  </span>
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate">
+                  {m.match ? (
+                    <Link
+                      to="/u/$handle"
+                      params={{ handle: m.match.handle }}
+                      className="hover:underline"
+                    >
+                      {m.match.displayName} <span className="text-fg-muted">@{m.match.handle}</span>
+                    </Link>
+                  ) : (
+                    <span className="text-fg-muted">Noch kein Profil gefunden</span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-fg-subtle">
+                  {TEAM_KIND_LABEL[m.kind]} {m.value}
+                  {m.addedBy ? ` · von @${m.addedBy}` : ""}
+                </p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => void remove(m)}>
+                Entfernen
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

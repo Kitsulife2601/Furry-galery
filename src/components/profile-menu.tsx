@@ -1,10 +1,12 @@
-/** The ⋯ menu on someone else's profile: report it; for the team also ban and delete. */
+/** The ⋯ menu on someone else's profile: report it; for the team also ban, delete and fix the age. */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Flag, MoreHorizontal, PawPrint, Trash2, X } from "lucide-react";
+import { Ban, CalendarDays, Flag, MoreHorizontal, PawPrint, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { deleteProfile, reportProfile, setBanned } from "@/lib/vela/server";
+import { adminSetBirthdate, deleteProfile, reportProfile, setBanned } from "@/lib/vela/server";
+import { ageFromBirthdate } from "@/lib/vela/age";
+import { Input } from "@/components/ui/input";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
 import {
@@ -34,7 +36,7 @@ export function ProfileMenu({ profile, isAdmin }: { profile: Profile; isAdmin: b
   const navigate = useNavigate();
   const session = useAppSession();
   const [open, setOpen] = useState(false);
-  const [dialog, setDialog] = useState<"report" | "ban" | "delete" | null>(null);
+  const [dialog, setDialog] = useState<"report" | "ban" | "delete" | "age" | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -141,6 +143,14 @@ export function ProfileMenu({ profile, isAdmin }: { profile: Profile; isAdmin: b
                   <Ban className="size-4" /> Sperren
                 </button>
               )}
+              <button
+                type="button"
+                role="menuitem"
+                className={item}
+                onClick={() => pick(() => setDialog("age"))}
+              >
+                <CalendarDays className="size-4" /> Alter ändern
+              </button>
               {profile.deleteAt ? (
                 <button
                   type="button"
@@ -190,6 +200,24 @@ export function ProfileMenu({ profile, isAdmin }: { profile: Profile; isAdmin: b
                   data: { handle: profile.handle, banned: true, reason, duration },
                 }),
               `@${profile.handle} gesperrt (${label}).`,
+            );
+            if (ok) setDialog(null);
+          }}
+        />
+      ) : null}
+      {dialog === "age" ? (
+        <AgeDialog
+          handle={profile.handle}
+          currentAge={profile.age}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onConfirm={async (birthdate) => {
+            const age = ageFromBirthdate(birthdate);
+            const ok = await run(
+              () => adminSetBirthdate({ data: { handle: profile.handle, birthdate } }),
+              age < 18
+                ? `@${profile.handle} ist jetzt ${age}: gesperrt für FSK 18 und die Seite.`
+                : `Alter von @${profile.handle} auf ${age} geändert.`,
             );
             if (ok) setDialog(null);
           }}
@@ -380,6 +408,61 @@ function BanDialog({
         onClick={() => onConfirm(reason.trim(), duration)}
       >
         {busy ? "Sperrt…" : "Sperren"}
+      </Button>
+    </ModalShell>
+  );
+}
+
+function AgeDialog({
+  handle,
+  currentAge,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  handle: string;
+  currentAge: number;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (birthdate: string) => void;
+}) {
+  const [birthdate, setBirthdate] = useState("");
+  const age = birthdate ? ageFromBirthdate(birthdate) : null;
+  const valid = age !== null && age >= 0 && age <= 120;
+  return (
+    <ModalShell title={`Alter von @${handle} ändern`} onClose={onClose}>
+      <p className="mt-1 text-sm text-fg-muted">
+        Angegeben: {currentAge} Jahre. Für falsche Altersangaben das echte Geburtsdatum eintragen.
+      </p>
+      <div className="mt-4 space-y-2">
+        <Label htmlFor="team-birthdate">Geburtsdatum</Label>
+        <Input
+          id="team-birthdate"
+          type="date"
+          value={birthdate}
+          max={new Date().toISOString().slice(0, 10)}
+          onChange={(e) => setBirthdate(e.target.value)}
+        />
+      </div>
+      {valid ? (
+        <p
+          className={cn(
+            "mt-3 rounded-lg border px-3 py-2 text-sm",
+            age < 18 ? "border-heart/50 text-heart" : "border-border text-fg-muted",
+          )}
+        >
+          {age < 18
+            ? `${age} Jahre: FSK-18-Freischaltung wird entfernt, das Profil ist nicht mehr nutzbar (Seite ab 18).`
+            : `Neues Alter: ${age} Jahre.`}
+        </p>
+      ) : null}
+      <Button
+        className="mt-5 w-full"
+        variant={valid && age < 18 ? "danger" : "primary"}
+        disabled={busy || !valid}
+        onClick={() => onConfirm(birthdate)}
+      >
+        {busy ? "Speichert…" : "Alter speichern"}
       </Button>
     </ModalShell>
   );

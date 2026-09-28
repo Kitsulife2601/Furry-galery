@@ -2,7 +2,9 @@
  * Who may moderate on the website:
  *  - profiles whose handle is in ADMIN_HANDLES (comma-separated, default: kitsulife), or
  *  - members holding a team role on the Discord server (Owner, Fluff Admin — see
- *    DISCORD_DEFAULTS.adminRoleIds), via their linked Discord account or Discord sign-in.
+ *    DISCORD_DEFAULTS.adminRoleIds), via their linked Discord account or Discord sign-in, or
+ *  - members added in the moderation panel (team_members) by Discord user id, website
+ *    user id or handle — matched against the profile on every check.
  */
 import { getSql } from "@/lib/db";
 
@@ -52,5 +54,12 @@ export async function isAdminUser(userId: string | null | undefined): Promise<bo
   const row = rows[0];
   if (!row) return false;
   if (adminHandles().includes(row.handle)) return true;
+  const listed = await sql<{ n: number }>`
+    select count(*)::int as n from team_members
+    where (ref_kind = 'user' and ref_value = ${userId})
+       or (ref_kind = 'handle' and ref_value = ${row.handle})
+       or (ref_kind = 'discord' and ref_value = ${row.discord_id ?? ""})
+  `;
+  if ((listed[0]?.n ?? 0) > 0) return true;
   return row.discord_id ? hasDiscordAdminRole(row.discord_id) : false;
 }

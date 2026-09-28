@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Copy, Trash2 } from "lucide-react";
 import { compressImageFile } from "@/lib/vela/compress-image";
 import { MEDIA_LIMITS, formatMb } from "@/lib/vela/media-limits";
 import { getMyProfile, updateAvatar, updateBanner, updateProfile } from "@/lib/vela/server";
@@ -263,6 +263,29 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
       <InterestsSettings key={profile.interests.join()} initial={profile.interests} />
 
       <Fsk18Settings profile={profile} />
+
+      <section className="mt-10 space-y-2">
+        <p className="text-sm font-medium">Deine Nutzer-ID</p>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-bg-elevated px-3 py-2.5 text-xs text-fg-muted">
+            {profile.userId}
+          </code>
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Nutzer-ID kopieren"
+            onClick={() =>
+              void navigator.clipboard
+                .writeText(profile.userId)
+                .then(() => toast.success("Nutzer-ID kopiert."))
+                .catch(() => toast.error("Kopieren ging nicht."))
+            }
+          >
+            <Copy className="size-4" />
+          </Button>
+        </div>
+        <p className="text-xs text-fg-subtle">Braucht das Team z. B., um dich ins Team aufzunehmen.</p>
+      </section>
 
       <div className="mt-10">
         <SignOutButton />

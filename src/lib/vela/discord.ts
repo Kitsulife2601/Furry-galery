@@ -11,6 +11,7 @@
  *      DISCORD_REDIRECT_URI, DISCORD_INVITE_URL.
  */
 import { randomBytes } from "node:crypto";
+import { isAdultBirthdate } from "./age";
 import { getSql } from "@/lib/db";
 import { DISCORD_DEFAULTS } from "./discord-bot";
 
@@ -143,6 +144,7 @@ async function fetchMemberAsBot(
 }
 
 type Fsk18Row = {
+  birthdate: string | null;
   manual: boolean;
   discord_id: string | null;
   fsk18_verified_at: string | null;
@@ -158,12 +160,14 @@ export async function isFsk18Verified(userId: string | null): Promise<boolean> {
   if (!userId) return false;
   const sql = await getSql();
   const rows = await sql<Fsk18Row>`
-    select fsk18_manual_at is not null as manual,
+    select birthdate::text as birthdate, fsk18_manual_at is not null as manual,
            discord_id, fsk18_verified_at::text as fsk18_verified_at,
            fsk18_checked_at::text as fsk18_checked_at
     from profiles where user_id = ${userId}
   `;
   const row = rows[0];
+  // Under 18 by birthdate (e.g. corrected by the team): never, whatever else is set.
+  if (!row?.birthdate || !isAdultBirthdate(row.birthdate.slice(0, 10))) return false;
   // Unlocked by hand by the team (/web-freischalten) — no Discord link needed.
   if (row?.manual) return true;
   const cfg = discordConfig();

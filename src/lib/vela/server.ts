@@ -6,7 +6,7 @@ import { ageFromBirthdate, isAdultBirthdate } from "./age";
 import { isBackgroundId } from "./backgrounds";
 import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
 import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
-import { isAdminUser } from "./admin";
+import { adminHandles, isAdminUser } from "./admin";
 import {
   deletePostById,
   deleteProfileNow,
@@ -1858,5 +1858,163 @@ export const equipShopItem = createServerFn({ method: "POST" })
     } else {
       await sql`update profiles set name_style = ${data.id} where user_id = ${context.userId}`;
     }
+    return { ok: true };
+  });
+
+/**
+ * Team: correct a member's birthdate (fake age). Under 18 afterwards means no
+ * FSK18 at all — the manual and Discord unlocks are cleared — and, since the
+ * site is 18+, the member can no longer use their profile.
+ */
+export const adminSetBirthdate = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      handle: z.string().trim().toLowerCase(),
+      birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ age: number }> => {
+    await requireAdmin(context.userId);
+    const age = ageFromBirthdate(data.birthdate);
+    if (age < 0 || age > 120 || new Date(data.birthdate) > new Date()) {
+      throw new Error("Ungültiges Geburtsdatum.");
+    }
+    const handle = data.handle.replace(/^@/, "");
+    const sql = await getSql();
+    const minor = age < 18;
+    const rows = await sql<{ user_id: string }>`
+      update profiles
+      set birthdate = ${data.birthdate},
+          fsk18_manual_at = case when ${minor} then null else fsk18_manual_at end,
+          fsk18_verified_at = case when ${minor} then null else fsk18_verified_at end
+      where handle = ${handle}
+      returning user_id
+    `;
+    const userId = rows[0]?.user_id;
+    if (!userId) throw new Error("Profil nicht gefunden.");
+    await notify({
+      userId,
+      kind: "system",
+      body: minor
+        ? `Das Team hat dein Alter auf ${age} Jahre korrigiert. Die Furry Gallery ist erst ab 18, FSK-18-Inhalte sind für dich gesperrt.`
+        : `Das Team hat dein Alter auf ${age} Jahre korrigiert.`,
+    });
+    return { age };
+  });
+
+// ---------------------------------------------------------------------------
+// Team members (moderation panel)
+// ---------------------------------------------------------------------------
+
+export type TeamMemberKind = "discord" | "user" | "handle";
+
+export type TeamMember = {
+  kind: TeamMemberKind;
+  value: string;
+  addedBy: string | null;
+  createdAt: string;
+  /** The profile this entry matches right now (null: nobody yet). */
+  match: { displayName: string; handle: string; avatarUrl: string | null } | null;
+};
+
+/** Team from ADMIN_HANDLES — always team, can't be removed in the panel. */
+export const listTeamMembers = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ owners: string[]; members: TeamMember[] }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{
+      ref_kind: TeamMemberKind;
+      ref_value: string;
+      added_by: string | null;
+      created_at: string;
+      display_name: string | null;
+      handle: string | null;
+      avatar: string | null;
+    }>`
+      select t.ref_kind, t.ref_value, t.added_by, t.created_at::text as created_at,
+             p.display_name, p.handle,
+             case when p.avatar_url is null then null
+                  else '/api/media/avatar/' || p.user_id || '?v=' || p.avatar_version end as avatar
+      from team_members t
+      left join lateral (
+        select * from profiles p
+        where (t.ref_kind = 'user' and p.user_id = t.ref_value)
+           or (t.ref_kind = 'handle' and p.handle = t.ref_value)
+           or (t.ref_kind = 'discord' and coalesce(p.discord_id,
+                 (select a."accountId" from "account" a
+                  where a."userId" = p.user_id and a."providerId" = 'discord' limit 1)) = t.ref_value)
+        limit 1
+      ) p on true
+      order by t.created_at
+    `;
+    return {
+      owners: adminHandles(),
+      members: rows.map((r) => ({
+        kind: r.ref_kind,
+        value: r.ref_value,
+        addedBy: r.added_by,
+        createdAt: asTime(r.created_at),
+        match: r.handle
+          ? { displayName: r.display_name ?? r.handle, handle: r.handle, avatarUrl: r.avatar }
+          : null,
+      })),
+    };
+  });
+
+/**
+ * Add a team member. Accepts a Discord user id (17–20 digits, also works before
+ * the person has a profile), a website user id, or a @handle.
+ */
+export const addTeamMember = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ ref: z.string().trim().min(2).max(80) }))
+  .handler(async ({ context, data }): Promise<{ kind: TeamMemberKind; value: string }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const raw = data.ref.replace(/^<@!?|>$/g, "");
+    let kind: TeamMemberKind;
+    let value: string;
+    if (/^\d{15,21}$/.test(raw)) {
+      kind = "discord";
+      value = raw;
+    } else {
+      const handle = raw.replace(/^@/, "").toLowerCase();
+      const byId = raw.startsWith("@")
+        ? []
+        : await sql<{ user_id: string }>`select user_id from profiles where user_id = ${raw}`;
+      if (byId[0]) {
+        kind = "user";
+        value = byId[0].user_id;
+      } else {
+        const byHandle = await sql<{ handle: string }>`
+          select handle from profiles where handle = ${handle}
+        `;
+        if (!byHandle[0]) {
+          throw new Error("Keine passende Nutzer-ID, Discord-ID oder @Name gefunden.");
+        }
+        kind = "handle";
+        value = byHandle[0].handle;
+      }
+    }
+    const me = await loadProfileRow(context.userId);
+    await sql`
+      insert into team_members (ref_kind, ref_value, added_by)
+      values (${kind}, ${value}, ${me?.handle ?? null})
+      on conflict do nothing
+    `;
+    return { kind, value };
+  });
+
+export const removeTeamMember = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ kind: z.enum(["discord", "user", "handle"]), value: z.string().max(80) }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    await sql`
+      delete from team_members where ref_kind = ${data.kind} and ref_value = ${data.value}
+    `;
     return { ok: true };
   });
