@@ -48,7 +48,8 @@ export function PeopleSearch({
   useEffect(() => {
     if (!onHashtag) return;
     const hashtagMode = term.startsWith("#");
-    const next = hashtagMode ? normalizeHashtag(term) : null;
+    // "#yaoi" and plain "yaoi" both filter the posts; "@name" only looks for people.
+    const next = term.startsWith("@") ? null : normalizeHashtag(term);
     // "#a" is too short to search: keep the current filter until it is valid.
     if (hashtagMode && !next && term !== "#") return;
     if (next !== hashtagRef.current) onHashtag(next);
@@ -69,8 +70,8 @@ export function PeopleSearch({
           type="search"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Leute suchen oder #yaoi, #fursuit …"
-          aria-label="Leute oder #Hashtags suchen"
+          placeholder="Leute, yaoi, fursuit … suchen"
+          aria-label="Leute oder Beiträge suchen"
           maxLength={40}
           className="pr-11 pl-9"
         />
@@ -92,7 +93,9 @@ export function PeopleSearch({
             <li className="py-6 text-center text-sm text-fg-muted">Sucht…</li>
           ) : (results.data ?? []).length === 0 ? (
             <li className="py-6 text-center text-sm text-fg-muted">
-              Niemand gefunden für „{people}“.
+              {onHashtag && normalizeHashtag(people)
+                ? "Keine Profile dazu."
+                : `Niemand gefunden für „${people}“.`}
             </li>
           ) : (
             (results.data ?? []).map((person) => (

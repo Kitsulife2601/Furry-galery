@@ -90,27 +90,26 @@ function Explore() {
                   ))}
             </ul>
           </section>
-
-          {hashtag ? (
-            <p className="px-5 pb-4 text-sm text-fg-muted">
-              Beiträge mit <span className="font-medium text-fg">#{hashtag}</span>
-            </p>
-          ) : null}
-          {query.isPending ? (
-            <div className="grid grid-cols-3 gap-px">
-              {Array.from({ length: 9 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-3/4 rounded-none" />
-              ))}
-            </div>
-          ) : (
-            <GalleryGrid
-              posts={query.data ?? []}
-              emptyLabel={
-                hashtag ? `Zu #${hashtag} gibt es noch nichts.` : "Die Gallery ist noch leer."
-              }
-            />
-          )}
         </>
+      )}
+      {hashtag && !(searching && !query.isPending && (query.data ?? []).length === 0) ? (
+        <p className="px-5 pb-4 text-sm text-fg-muted">
+          Beiträge mit <span className="font-medium text-fg">#{hashtag}</span>
+        </p>
+      ) : null}
+      {searching && !hashtag ? null : query.isPending ? (
+        <div className="grid grid-cols-3 gap-px">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-3/4 rounded-none" />
+          ))}
+        </div>
+      ) : searching && (query.data ?? []).length === 0 ? null : (
+        <GalleryGrid
+          posts={query.data ?? []}
+          emptyLabel={
+            hashtag ? `Zu #${hashtag} gibt es noch nichts.` : "Die Gallery ist noch leer."
+          }
+        />
       )}
     </div>
   );
