@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Compass, House, Plus, UserRound } from "lucide-react";
+import { Bell, Compass, House, Plus, ShoppingBag, UserRound } from "lucide-react";
 import { useAppSession } from "@/lib/vela/app-session";
 import { unreadNotificationCount } from "@/lib/vela/server";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,9 @@ const ITEMS = [
   { to: "/notifications", label: "Mitteilungen", icon: Bell },
   { to: "/profile", label: "Profil", icon: UserRound },
 ] as const;
+
+/** The side nav (desktop) also links the shop; on phones it sits top right. */
+const SIDE_ITEMS = [...ITEMS, { to: "/shop", label: "Shop", icon: ShoppingBag }] as const;
 
 /** Unread notifications for the signed-in member (polled once a minute). */
 function useUnreadCount(): number {
@@ -85,7 +88,7 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
           Furry Gallery
         </Link>
         <nav className="mt-10 flex flex-col gap-1">
-          {ITEMS.map((item) => {
+          {SIDE_ITEMS.map((item) => {
             const active =
               item.to === "/"
                 ? pathname === "/"

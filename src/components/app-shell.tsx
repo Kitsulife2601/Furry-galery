@@ -1,12 +1,13 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { useRouterState } from "@tanstack/react-router";
-import { PawPrint } from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { PawPrint, ShoppingBag } from "lucide-react";
 import type { Profile } from "@/lib/vela/types";
 import { BottomNav, SideNav } from "@/components/bottom-nav";
 import { cn } from "@/lib/utils";
 import { SiteFooter } from "@/components/legal-page";
 import { PawDialog } from "@/components/admin-panel";
 import { InterestsDialog } from "@/components/interests";
+import { usePawTicker, usePaws } from "@/lib/vela/use-paws";
 
 export function AppShell({
   profile,
@@ -22,6 +23,8 @@ export function AppShell({
   const [interestsDone, setInterestsDone] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hideMobilePad = pathname === "/";
+  usePawTicker(Boolean(profile) && !profile?.banned);
+  const paws = usePaws();
 
   return (
     <div className="vela-shell" data-bg={profile?.backgroundId ?? "midnight"}>
@@ -29,7 +32,19 @@ export function AppShell({
         <SideNav hasProfile={Boolean(profile)} />
         <div className="relative min-w-0 flex-1">
           {profile ? (
-            <header className="absolute top-0 right-0 z-30 flex gap-1 p-2 md:p-4">
+            <header className="absolute top-0 right-0 z-30 flex items-center gap-1 p-2 md:p-4">
+              <Link
+                to="/shop"
+                aria-label={`Shop, ${paws.data?.paws ?? 0} Pfoten`}
+                title="Shop"
+                className={cn(
+                  "flex h-9 items-center gap-1.5 rounded-full border border-border bg-bg/70 px-3 text-sm tabular-nums backdrop-blur-md",
+                  pathname === "/shop" ? "text-accent" : "text-fg hover:border-border-strong",
+                )}
+              >
+                <ShoppingBag className="size-4" />
+                🐾 {paws.data?.paws ?? profile.paws ?? 0}
+              </Link>
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}

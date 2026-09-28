@@ -37,6 +37,10 @@ export type Profile = {
   nameStyle: NameStyle | null;
   /** Days you've been active — only filled in on your own profile. */
   activeDays: number | null;
+  /** Pfoten balance (shop currency) — only filled in on your own profile. */
+  paws: number | null;
+  /** Bought shop items as "kind:id" — only filled in on your own profile. */
+  owned: string[];
   /** Picked interests (categories) — only filled in on your own profile. */
   interests: string[];
   /** Own profile that hasn't seen the interests popup yet. */

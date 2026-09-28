@@ -4,6 +4,7 @@
  */
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Gift, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { updateLook } from "@/lib/vela/server";
@@ -16,7 +17,6 @@ import {
 import {
   NAME_STYLES,
   REWARD_TIERS,
-  isUnlocked,
   nextTier,
   unlockDay,
   type NameStyle,
@@ -24,6 +24,7 @@ import {
   type RewardKind,
 } from "@/lib/vela/rewards";
 import type { Profile } from "@/lib/vela/types";
+import { canUseItem } from "@/lib/vela/shop";
 import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decoration";
 import { StyledName } from "@/components/styled-name";
 import { cn } from "@/lib/utils";
@@ -63,7 +64,7 @@ export function LookSettings({ profile }: { profile: Profile }) {
   const prevDay = [...REWARD_TIERS].reverse().find((t) => t.day <= days)?.day ?? 0;
   const progress = next ? Math.min(1, (days - prevDay) / (next.day - prevDay)) : 1;
   const open = (kind: RewardKind, id: string, current: string | null) =>
-    id === current || isUnlocked(kind, id, days, team);
+    id === current || canUseItem(kind, id, { activeDays: days, team, owned: profile.owned });
 
   async function save(next: Look) {
     const before = look;
@@ -95,7 +96,10 @@ export function LookSettings({ profile }: { profile: Profile }) {
           Avatar-Rahmen & Effekte
         </p>
         <p className="text-xs text-fg-subtle">
-          Belohnungen fürs Dabeisein — jeder Tag, an dem du hier bist, zählt.
+          Belohnungen fürs Dabeisein — jeder Tag, an dem du hier bist, zählt. Nicht warten?{" "}
+          <Link to="/shop" className="text-accent underline-offset-2 hover:underline">
+            Im Shop gibt es alles früher.
+          </Link>
         </p>
       </div>
 

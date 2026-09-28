@@ -23,11 +23,18 @@ import { AVATAR_DECORATIONS, PROFILE_EFFECTS, asDecoration, asProfileEffect } fr
 import {
   NAME_STYLES,
   asNameStyle,
-  isUnlocked,
   tierOn,
   type RewardItem,
   type RewardKind,
 } from "./rewards";
+import {
+  DAILY_PAW_CAP,
+  PAWS_PER_TICK,
+  TICK_SECONDS,
+  canUseItem,
+  shopPrice,
+  type ShopKind,
+} from "./shop";
 
 function rewardLabel(item: RewardItem): string {
   const list =
@@ -171,6 +178,8 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     effect: asProfileEffect(row.profile_effect),
     nameStyle: asNameStyle(row.name_style),
     activeDays: viewerId === row.user_id ? await countActiveDays(row.user_id) : null,
+    paws: viewerId === row.user_id ? await loadPaws(row.user_id) : null,
+    owned: viewerId === row.user_id ? await loadOwned(row.user_id) : [],
     interests: viewerId === row.user_id ? (row.interests ?? []) : [],
     needsInterests: viewerId === row.user_id && !row.interests_asked,
     bannedUntil: row.banned && row.banned_until ? asTime(row.banned_until) : null,
@@ -327,9 +336,16 @@ export const updateProfile = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ context, data }): Promise<Profile> => {
-    await requireAdult(context.userId);
+    const current = await requireAdult(context.userId);
     if (!isBackgroundId(data.backgroundId)) {
       throw new Error("Unbekannter Hintergrund.");
+    }
+    // A background already in use stays allowed; a new premium one must be bought.
+    if (
+      data.backgroundId !== current.background_id &&
+      !canUseItem("background", data.backgroundId, await shopAccess(context.userId))
+    ) {
+      throw new Error("Diesen Hintergrund gibt es im Shop.");
     }
     const sql = await getSql();
     await sql`
@@ -394,14 +410,13 @@ export const updateLook = createServerFn({ method: "POST" })
     if (nameStyle !== null && !asNameStyle(nameStyle)) {
       throw new Error("Unbekannter Namens-Stil.");
     }
-    const [days, team, current] = await Promise.all([
-      countActiveDays(context.userId),
-      isAdminUser(context.userId),
+    const [access, current] = await Promise.all([
+      shopAccess(context.userId),
       loadProfileRow(context.userId),
     ]);
-    // Anything already chosen stays allowed; new picks must be unlocked.
+    // Anything already chosen stays allowed; new picks must be unlocked or bought.
     const allowed = (kind: RewardKind, id: string | null, now: string | null | undefined) =>
-      id === null || id === now || isUnlocked(kind, id, days, team);
+      id === null || id === now || canUseItem(kind, id, access);
     if (
       !allowed("decoration", data.decoration, current?.avatar_decoration) ||
       !allowed("effect", data.effect, current?.profile_effect) ||
@@ -1703,3 +1718,145 @@ export const saveInterests = createServerFn({ method: "POST" })
 export const videoUploadEnabled = createServerFn({ method: "GET" }).handler(
   async (): Promise<boolean> => Boolean(blobToken()),
 );
+
+// ---------------------------------------------------------------------------
+// Shop: Pfoten for time on the site, bought items
+// ---------------------------------------------------------------------------
+
+async function loadPaws(userId: string): Promise<number> {
+  const sql = await getSql();
+  const rows = await sql<{ paws: number }>`select paws from profiles where user_id = ${userId}`;
+  return Number(rows[0]?.paws ?? 0);
+}
+
+async function loadOwned(userId: string): Promise<string[]> {
+  const sql = await getSql();
+  const rows = await sql<{ kind: string; item_id: string }>`
+    select kind, item_id from shop_purchases where user_id = ${userId}
+  `;
+  return rows.map((r) => `${r.kind}:${r.item_id}`);
+}
+
+async function shopAccess(userId: string) {
+  const [activeDays, team, owned] = await Promise.all([
+    countActiveDays(userId),
+    isAdminUser(userId),
+    loadOwned(userId),
+  ]);
+  return { activeDays, team, owned };
+}
+
+function isShopItem(kind: ShopKind, id: string): boolean {
+  if (kind === "background") return isBackgroundId(id);
+  if (kind === "decoration") return asDecoration(id) !== null;
+  if (kind === "effect") return asProfileEffect(id) !== null;
+  return asNameStyle(id) !== null;
+}
+
+const SHOP_KIND = z.enum(["background", "decoration", "effect", "name"]);
+
+export type PawStatus = { paws: number; today: number; cap: number };
+
+/**
+ * Balance plus today's earnings. With `tick`, the client reports a minute on
+ * the site: +1 Pfote, at most once per ~minute and up to the daily cap — the
+ * server decides, so extra tabs or fast timers earn nothing extra.
+ */
+export const collectPaws = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ tick: z.boolean() }))
+  .handler(async ({ context, data }): Promise<PawStatus> => {
+    const sql = await getSql();
+    if (data.tick) {
+      await sql`
+        update profiles
+        set paws = paws + ${PAWS_PER_TICK},
+            paws_today = case when paws_day = (now() at time zone 'Europe/Berlin')::date
+                              then paws_today + ${PAWS_PER_TICK} else ${PAWS_PER_TICK} end,
+            paws_day = (now() at time zone 'Europe/Berlin')::date,
+            paws_tick_at = now()
+        where user_id = ${context.userId}
+          and banned_at is null
+          and (paws_tick_at is null
+               or paws_tick_at <= now() - make_interval(secs => ${TICK_SECONDS - 10}))
+          and (paws_day is distinct from (now() at time zone 'Europe/Berlin')::date
+               or paws_today < ${DAILY_PAW_CAP})
+      `;
+    }
+    const rows = await sql<{ paws: number; today: number }>`
+      select paws,
+             case when paws_day = (now() at time zone 'Europe/Berlin')::date
+                  then paws_today else 0 end as today
+      from profiles where user_id = ${context.userId}
+    `;
+    return {
+      paws: Number(rows[0]?.paws ?? 0),
+      today: Number(rows[0]?.today ?? 0),
+      cap: DAILY_PAW_CAP,
+    };
+  });
+
+/** Buy an item with Pfoten. Buying something you already own costs nothing. */
+export const buyShopItem = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ kind: SHOP_KIND, id: z.string().max(40) }))
+  .handler(async ({ context, data }): Promise<{ paws: number }> => {
+    await requireAdult(context.userId);
+    const price = shopPrice(data.kind, data.id);
+    if (!isShopItem(data.kind, data.id) || price === null) {
+      throw new Error("Das gibt es nicht im Shop.");
+    }
+    const access = await shopAccess(context.userId);
+    if (canUseItem(data.kind, data.id, access)) {
+      throw new Error("Das hast du schon.");
+    }
+    if ((await loadPaws(context.userId)) < price) {
+      throw new Error("Dafür hast du noch nicht genug Pfoten.");
+    }
+    const sql = await getSql();
+    // One statement = one transaction: record the purchase and take the Pfoten
+    // together. If the balance ran out meanwhile, 1/0 aborts and nothing is kept.
+    const rows = await sql<{ paws: number | null }>`
+      with bought as (
+        insert into shop_purchases (user_id, kind, item_id, price)
+        values (${context.userId}, ${data.kind}, ${data.id}, ${price})
+        on conflict do nothing
+        returning 1
+      ),
+      paid as (
+        update profiles set paws = paws - ${price}
+        where user_id = ${context.userId} and paws >= ${price}
+          and exists (select 1 from bought)
+        returning paws
+      )
+      select (select paws from paid) as paws,
+             case when exists (select 1 from bought)
+                  then 1 / (select count(*)::int from paid) else 1 end as guard
+    `.catch(() => {
+      throw new Error("Dafür hast du noch nicht genug Pfoten.");
+    });
+    return { paws: Number(rows[0]?.paws ?? (await loadPaws(context.userId))) };
+  });
+
+/** Put on a bought/unlocked item straight from the shop. */
+export const equipShopItem = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ kind: SHOP_KIND, id: z.string().max(40) }))
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdult(context.userId);
+    if (!isShopItem(data.kind, data.id)) throw new Error("Unbekannter Artikel.");
+    if (!canUseItem(data.kind, data.id, await shopAccess(context.userId))) {
+      throw new Error("Das musst du erst kaufen.");
+    }
+    const sql = await getSql();
+    if (data.kind === "background") {
+      await sql`update profiles set background_id = ${data.id} where user_id = ${context.userId}`;
+    } else if (data.kind === "decoration") {
+      await sql`update profiles set avatar_decoration = ${data.id} where user_id = ${context.userId}`;
+    } else if (data.kind === "effect") {
+      await sql`update profiles set profile_effect = ${data.id} where user_id = ${context.userId}`;
+    } else {
+      await sql`update profiles set name_style = ${data.id} where user_id = ${context.userId}`;
+    }
+    return { ok: true };
+  });

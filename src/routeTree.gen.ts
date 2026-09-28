@@ -20,6 +20,7 @@ import { Route as AppFeedbackRouteImport } from './routes/_app/feedback'
 import { Route as AppNotificationsRouteImport } from './routes/_app/notifications'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppShopRouteImport } from './routes/_app/shop'
 import { Route as AppUpdatesRouteImport } from './routes/_app/updates'
 import { Route as AppUploadRouteImport } from './routes/_app/upload'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
@@ -84,6 +85,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppShopRoute = AppShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUpdatesRoute = AppUpdatesRouteImport.update({
   id: '/updates',
   path: '/updates',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
+  '/shop': typeof AppShopRoute
   '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
   '/api/upload': typeof ApiUploadRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
+  '/shop': typeof AppShopRoute
   '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
   '/api/upload': typeof ApiUploadRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/shop': typeof AppShopRoute
   '/_app/updates': typeof AppUpdatesRoute
   '/_app/upload': typeof AppUploadRoute
   '/api/upload': typeof ApiUploadRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/settings'
+    | '/shop'
     | '/updates'
     | '/upload'
     | '/api/upload'
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/settings'
+    | '/shop'
     | '/updates'
     | '/upload'
     | '/api/upload'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/_app/notifications'
     | '/_app/profile'
     | '/_app/settings'
+    | '/_app/shop'
     | '/_app/updates'
     | '/_app/upload'
     | '/api/upload'
@@ -354,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/shop': {
+      id: '/_app/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof AppShopRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/updates': {
       id: '/_app/updates'
       path: '/updates'
@@ -427,6 +446,7 @@ interface AppRouteChildren {
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppShopRoute: typeof AppShopRoute
   AppUpdatesRoute: typeof AppUpdatesRoute
   AppUploadRoute: typeof AppUploadRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -440,6 +460,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppNotificationsRoute: AppNotificationsRoute,
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppShopRoute: AppShopRoute,
   AppUpdatesRoute: AppUpdatesRoute,
   AppUploadRoute: AppUploadRoute,
   AppIndexRoute: AppIndexRoute,

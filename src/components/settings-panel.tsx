@@ -7,6 +7,7 @@ import { MEDIA_LIMITS, formatMb } from "@/lib/vela/media-limits";
 import { getMyProfile, updateAvatar, updateBanner, updateProfile } from "@/lib/vela/server";
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { BackgroundPicker } from "@/components/background-picker";
+import { canUseItem } from "@/lib/vela/shop";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Fsk18Settings } from "@/components/fsk18-settings";
 import { InterestsSettings } from "@/components/interests";
@@ -239,7 +240,18 @@ export function SettingsPanel({ embedded = false }: { embedded?: boolean }) {
         </div>
         <div className="space-y-2">
           <Label>Hintergrund</Label>
-          <BackgroundPicker value={backgroundId} onChange={setBackgroundId} />
+          <BackgroundPicker
+            value={backgroundId}
+            onChange={setBackgroundId}
+            isLocked={(id) =>
+              id !== profile.backgroundId &&
+              !canUseItem("background", id, {
+                activeDays: profile.activeDays ?? 0,
+                team: profile.isAdmin,
+                owned: profile.owned,
+              })
+            }
+          />
         </div>
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? "Speichert…" : "Änderungen speichern"}
