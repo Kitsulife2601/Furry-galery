@@ -13,6 +13,10 @@ export const BACKGROUNDS = [
   { id: "neon", label: "Neon", hint: "Pink und Cyan" },
   { id: "ocean", label: "Ozean", hint: "Hell bis tief" },
   { id: "sakura", label: "Kirschblüte", hint: "Zartes Rosa" },
+  { id: "nebula", label: "Kosmischer Sturm", hint: "Blaue Nebelschweife" },
+  { id: "rings", label: "Planetenringe", hint: "Planet mit Ring" },
+  { id: "galaxy", label: "Galaxie", hint: "Blauer Sternwirbel" },
+  { id: "twilight", label: "Kosmisches Zwielicht", hint: "Rosa Sternennebel" },
 ] as const;
 
 export type BackgroundId = (typeof BACKGROUNDS)[number]["id"];

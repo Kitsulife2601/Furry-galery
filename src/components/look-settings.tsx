@@ -10,10 +10,13 @@ import { toast } from "sonner";
 import { updateLook } from "@/lib/vela/server";
 import {
   AVATAR_DECORATIONS,
+  NAME_PLATES,
   PROFILE_EFFECTS,
   type AvatarDecoration,
+  type NamePlate as NamePlateId,
   type ProfileEffect,
 } from "@/lib/vela/decorations";
+import { NamePlate } from "@/components/name-plate";
 import {
   NAME_STYLES,
   REWARD_TIERS,
@@ -24,7 +27,7 @@ import {
   type RewardKind,
 } from "@/lib/vela/rewards";
 import type { Profile } from "@/lib/vela/types";
-import { canUseItem } from "@/lib/vela/shop";
+import { canUseItem, type ShopKind } from "@/lib/vela/shop";
 import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decoration";
 import { StyledName } from "@/components/styled-name";
 import { cn } from "@/lib/utils";
@@ -33,7 +36,11 @@ type Look = {
   decoration: AvatarDecoration | null;
   effect: ProfileEffect | null;
   nameStyle: NameStyle | null;
+  plate: NamePlateId | null;
 };
+
+/** "Tag 7", or "Shop" for items that never unlock by themselves. */
+const unlockText = (day: number) => (Number.isFinite(day) ? `Tag ${day}` : "Shop");
 
 function itemLabel(item: RewardItem): string {
   const list =
@@ -56,6 +63,7 @@ export function LookSettings({ profile }: { profile: Profile }) {
     decoration: profile.decoration,
     effect: profile.effect,
     nameStyle: profile.nameStyle,
+    plate: profile.namePlate,
   });
   const [busy, setBusy] = useState(false);
   const days = profile.activeDays ?? 0;
@@ -63,7 +71,7 @@ export function LookSettings({ profile }: { profile: Profile }) {
   const next = team ? null : nextTier(days);
   const prevDay = [...REWARD_TIERS].reverse().find((t) => t.day <= days)?.day ?? 0;
   const progress = next ? Math.min(1, (days - prevDay) / (next.day - prevDay)) : 1;
-  const open = (kind: RewardKind, id: string, current: string | null) =>
+  const open = (kind: ShopKind, id: string, current: string | null) =>
     id === current || canUseItem(kind, id, { activeDays: days, team, owned: profile.owned });
 
   async function save(next: Look) {
@@ -150,11 +158,9 @@ export function LookSettings({ profile }: { profile: Profile }) {
             className="size-20"
             imgClassName="border-2 border-bg"
           />
-          <StyledName
-            text={profile.displayName}
-            nameStyle={look.nameStyle}
-            className="font-display text-xl"
-          />
+          <NamePlate plate={look.plate} className="font-display text-xl">
+            <StyledName text={profile.displayName} nameStyle={look.nameStyle} />
+          </NamePlate>
         </div>
       </div>
 
@@ -241,6 +247,47 @@ export function LookSettings({ profile }: { profile: Profile }) {
       </div>
 
       <div className="space-y-2">
+        <p className="text-xs font-medium text-fg-muted">Namensschild</p>
+        <ul className="flex flex-wrap gap-2">
+          {[{ id: null, label: "Keins" } as const, ...NAME_PLATES].map((p) => {
+            const unlocked = p.id === null || open("plate", p.id, profile.namePlate);
+            if (!unlocked) {
+              return (
+                <li key={p.id}>
+                  <Link
+                    to="/shop"
+                    className="flex h-10 items-center gap-1.5 rounded-full border border-border px-3 text-sm text-fg-muted opacity-70 hover:opacity-100"
+                  >
+                    <Lock className="size-3.5" /> {p.label} · Shop
+                  </Link>
+                </li>
+              );
+            }
+            return (
+              <li key={p.id ?? "none"}>
+                <button
+                  type="button"
+                  aria-pressed={look.plate === p.id}
+                  disabled={busy}
+                  onClick={() => void save({ ...look, plate: p.id })}
+                  className={cn(
+                    "flex h-10 items-center rounded-full border px-2 text-sm",
+                    look.plate === p.id ? "border-accent bg-accent/10" : "border-border",
+                  )}
+                >
+                  {p.id ? (
+                    <NamePlate plate={p.id}>{p.label}</NamePlate>
+                  ) : (
+                    <span className="px-2">{p.label}</span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className="space-y-2">
         <p className="text-xs font-medium text-fg-muted">Profil-Effekt</p>
         <ul className="flex flex-wrap gap-2">
           {[{ id: null, label: "Keiner" } as const, ...PROFILE_EFFECTS].map((e) => {
@@ -262,7 +309,7 @@ export function LookSettings({ profile }: { profile: Profile }) {
                 >
                   {unlocked ? null : <Lock className="size-3.5" />}
                   {e.label}
-                  {unlocked ? null : ` · Tag ${unlockDay("effect", e.id!)}`}
+                  {unlocked ? null : ` · ${unlockText(unlockDay("effect", e.id!))}`}
                 </button>
               </li>
             );
@@ -276,7 +323,7 @@ export function LookSettings({ profile }: { profile: Profile }) {
 function LockBadge({ day }: { day: number }) {
   return (
     <span className="absolute top-1.5 right-1.5 flex items-center gap-1 rounded-full bg-bg/80 px-1.5 py-0.5 text-[10px] text-fg-muted">
-      <Lock className="size-3" /> Tag {day}
+      <Lock className="size-3" /> {unlockText(day)}
     </span>
   );
 }

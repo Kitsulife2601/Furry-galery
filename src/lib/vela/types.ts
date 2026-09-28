@@ -1,5 +1,5 @@
 import type { NameStyle } from "./rewards";
-import type { AvatarDecoration, ProfileEffect } from "./decorations";
+import type { AvatarDecoration, NamePlate, ProfileEffect } from "./decorations";
 export const RELATIONSHIP_STATUSES = [
   { id: "single", label: "Single" },
   { id: "taken", label: "Vergeben" },
@@ -35,6 +35,8 @@ export type Profile = {
   effect: ProfileEffect | null;
   /** Animated display name (a reward). */
   nameStyle: NameStyle | null;
+  /** Decorated strip behind the name (shop). */
+  namePlate: NamePlate | null;
   /** Days you've been active — only filled in on your own profile. */
   activeDays: number | null;
   /** Pfoten balance (shop currency) — only filled in on your own profile. */
@@ -86,6 +88,7 @@ export type PostCard = {
     age: number;
     decoration: AvatarDecoration | null;
     nameStyle: NameStyle | null;
+    namePlate: NamePlate | null;
   };
 };
 

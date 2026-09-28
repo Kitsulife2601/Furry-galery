@@ -19,7 +19,13 @@ import { BAN_DURATION_IDS, DELETE_DELAY_IDS, addDuration } from "./durations";
 import { notify } from "./notifications";
 import { blobToken, isBlobVideoUrl } from "./video";
 import { extractHashtags, normalizeHashtag } from "./hashtags";
-import { AVATAR_DECORATIONS, PROFILE_EFFECTS, asDecoration, asProfileEffect } from "./decorations";
+import {
+  AVATAR_DECORATIONS,
+  PROFILE_EFFECTS,
+  asDecoration,
+  asNamePlate,
+  asProfileEffect,
+} from "./decorations";
 import {
   NAME_STYLES,
   asNameStyle,
@@ -31,6 +37,7 @@ import {
   DAILY_PAW_CAP,
   PAWS_PER_TICK,
   TICK_SECONDS,
+  bundleQuote,
   canUseItem,
   shopPrice,
   type ShopKind,
@@ -98,6 +105,7 @@ type ProfileRow = {
   avatar_decoration: string | null;
   profile_effect: string | null;
   name_style: string | null;
+  name_plate: string | null;
   created_at: string;
 };
 
@@ -126,7 +134,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, name_plate, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -177,6 +185,7 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     decoration: asDecoration(row.avatar_decoration),
     effect: asProfileEffect(row.profile_effect),
     nameStyle: asNameStyle(row.name_style),
+    namePlate: asNamePlate(row.name_plate),
     activeDays: viewerId === row.user_id ? await countActiveDays(row.user_id) : null,
     paws: viewerId === row.user_id ? await loadPaws(row.user_id) : null,
     owned: viewerId === row.user_id ? await loadOwned(row.user_id) : [],
@@ -223,6 +232,7 @@ type FeedRow = {
   birthdate: string;
   avatar_decoration: string | null;
   name_style: string | null;
+  name_plate: string | null;
 };
 
 async function optionalViewerId(): Promise<string | null> {
@@ -266,6 +276,7 @@ function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[
         age: ageFromBirthdate(asIsoDate(row.birthdate)),
         decoration: asDecoration(row.avatar_decoration),
         nameStyle: asNameStyle(row.name_style),
+        namePlate: asNamePlate(row.name_plate),
       },
     };
   });
@@ -396,11 +407,16 @@ export const updateLook = createServerFn({ method: "POST" })
       decoration: z.string().max(40).nullable(),
       effect: z.string().max(40).nullable(),
       nameStyle: z.string().max(40).nullable().optional(),
+      /** Omitted = keep the current name plate. */
+      plate: z.string().max(40).nullable().optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdult(context.userId);
     const nameStyle = data.nameStyle ?? null;
+    if (data.plate != null && !asNamePlate(data.plate)) {
+      throw new Error("Unbekanntes Namensschild.");
+    }
     if (data.decoration !== null && !asDecoration(data.decoration)) {
       throw new Error("Unbekannter Rahmen.");
     }
@@ -420,7 +436,12 @@ export const updateLook = createServerFn({ method: "POST" })
     if (
       !allowed("decoration", data.decoration, current?.avatar_decoration) ||
       !allowed("effect", data.effect, current?.profile_effect) ||
-      !allowed("name", nameStyle, current?.name_style)
+      !allowed("name", nameStyle, current?.name_style) ||
+      !(
+        data.plate == null ||
+        data.plate === current?.name_plate ||
+        canUseItem("plate", data.plate, access)
+      )
     ) {
       throw new Error("Das ist noch nicht freigeschaltet.");
     }
@@ -431,6 +452,9 @@ export const updateLook = createServerFn({ method: "POST" })
           name_style = ${nameStyle}
       where user_id = ${context.userId}
     `;
+    if (data.plate !== undefined) {
+      await sql`update profiles set name_plate = ${data.plate} where user_id = ${context.userId}`;
+    }
     return { ok: true };
   });
 
@@ -556,7 +580,8 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         pr.relationship_status,
         pr.birthdate::text as birthdate,
         pr.avatar_decoration,
-        pr.name_style
+        pr.name_style,
+        pr.name_plate
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null
@@ -654,7 +679,8 @@ export const listExplore = createServerFn({ method: "GET" })
         pr.relationship_status,
         pr.birthdate::text as birthdate,
         pr.avatar_decoration,
-        pr.name_style
+        pr.name_style,
+        pr.name_plate
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null and (${tag}::text is null or ${tag}::text = any(p.tags))
@@ -681,7 +707,7 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, name_plate, created_at::text as created_at
       from profiles
       where banned_at is null
       order by created_at asc
@@ -725,7 +751,8 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         pr.relationship_status,
         pr.birthdate::text as birthdate,
         pr.avatar_decoration,
-        pr.name_style
+        pr.name_style,
+        pr.name_plate
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.handle = ${data.handle} and pr.banned_at is null
@@ -745,7 +772,7 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, name_plate, created_at::text as created_at
       from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
@@ -825,7 +852,8 @@ export const createPost = createServerFn({ method: "POST" })
         pr.relationship_status,
         pr.birthdate::text as birthdate,
         pr.avatar_decoration,
-        pr.name_style
+        pr.name_style,
+        pr.name_plate
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where p.id = ${id}
@@ -1093,7 +1121,7 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, name_plate, created_at::text as created_at
       from profiles
       where banned_at is null
         and (handle like ${contains} or lower(display_name) like ${contains})
@@ -1750,10 +1778,11 @@ function isShopItem(kind: ShopKind, id: string): boolean {
   if (kind === "background") return isBackgroundId(id);
   if (kind === "decoration") return asDecoration(id) !== null;
   if (kind === "effect") return asProfileEffect(id) !== null;
+  if (kind === "plate") return asNamePlate(id) !== null;
   return asNameStyle(id) !== null;
 }
 
-const SHOP_KIND = z.enum(["background", "decoration", "effect", "name"]);
+const SHOP_KIND = z.enum(["background", "decoration", "effect", "name", "plate"]);
 
 export type PawStatus = { paws: number; today: number; cap: number };
 
@@ -1855,6 +1884,8 @@ export const equipShopItem = createServerFn({ method: "POST" })
       await sql`update profiles set avatar_decoration = ${data.id} where user_id = ${context.userId}`;
     } else if (data.kind === "effect") {
       await sql`update profiles set profile_effect = ${data.id} where user_id = ${context.userId}`;
+    } else if (data.kind === "plate") {
+      await sql`update profiles set name_plate = ${data.id} where user_id = ${context.userId}`;
     } else {
       await sql`update profiles set name_style = ${data.id} where user_id = ${context.userId}`;
     }
@@ -2017,4 +2048,48 @@ export const removeTeamMember = createServerFn({ method: "POST" })
       delete from team_members where ref_kind = ${data.kind} and ref_value = ${data.value}
     `;
     return { ok: true };
+  });
+
+/** Buy everything still missing from a bundle, a quarter cheaper, in one go. */
+export const buyShopBundle = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.string().max(40) }))
+  .handler(async ({ context, data }): Promise<{ paws: number; count: number }> => {
+    await requireAdult(context.userId);
+    const quote = bundleQuote(data.id, await shopAccess(context.userId));
+    if (!quote) throw new Error("Das Paket gibt es nicht.");
+    if (quote.missing.length === 0) throw new Error("Du hast schon alles aus diesem Paket.");
+    if ((await loadPaws(context.userId)) < quote.price) {
+      throw new Error("Dafür hast du noch nicht genug Pfoten.");
+    }
+    // Each item is recorded at its share of the discounted price.
+    const share = (it: (typeof quote.missing)[number]) =>
+      Math.round((shopPrice(it.kind, it.id) ?? 0) * (quote.price / Math.max(1, quote.full)));
+    const sql = await getSql();
+    const rows = await sql<{ paws: number | null }>`
+      with bought as (
+        insert into shop_purchases (user_id, kind, item_id, price)
+        select ${context.userId}, k, i, p
+        from unnest(${quote.missing.map((it) => it.kind)}::text[],
+                    ${quote.missing.map((it) => it.id)}::text[],
+                    ${quote.missing.map(share)}::int[]) as t(k, i, p)
+        on conflict do nothing
+        returning 1
+      ),
+      paid as (
+        update profiles set paws = paws - ${quote.price}
+        where user_id = ${context.userId} and paws >= ${quote.price}
+          and exists (select 1 from bought)
+        returning paws
+      )
+      select (select paws from paid) as paws,
+             case when exists (select 1 from bought)
+                  then 1 / (select count(*)::int from paid) else 1 end as guard
+    `.catch(() => {
+      throw new Error("Dafür hast du noch nicht genug Pfoten.");
+    });
+    return {
+      paws: Number(rows[0]?.paws ?? (await loadPaws(context.userId))),
+      count: quote.missing.length,
+    };
   });

@@ -681,3 +681,303 @@ input[type="search"]::-webkit-search-cancel-button {
     transform: translateY(-0.18em);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Shop effects & name plates (avatar-decoration.tsx, name-plate.tsx) */
+.fx-rosenblaetter {
+  background: linear-gradient(135deg, #ffffff, #d9cff7);
+  border-radius: 80% 0 80% 0;
+  box-shadow: 0 0 6px rgba(230, 224, 255, 0.6);
+  opacity: 0.9;
+}
+.fx-lichtfalter {
+  top: auto;
+  bottom: -8%;
+  width: 18px !important;
+  height: 18px !important;
+  filter: drop-shadow(0 0 5px rgba(240, 236, 255, 0.9));
+  animation-name: fx-rise;
+}
+.fx-moth-flap {
+  animation: fx-moth-flap 0.45s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+@keyframes fx-moth-flap {
+  to {
+    transform: scaleX(0.4);
+  }
+}
+.fx-moon {
+  top: 6%;
+  right: 8%;
+  width: min(30%, 150px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle at 38% 36%, #ffffff 0%, #f1edff 45%, #cfc6f0 75%, #b3a8e6 100%);
+  box-shadow:
+    0 0 40px 10px rgba(230, 224, 255, 0.45),
+    0 0 90px 30px rgba(180, 168, 240, 0.25);
+  animation: deco-pulse 6s ease-in-out infinite;
+}
+.fx-aurora {
+  left: -20%;
+  width: 140%;
+  height: 34%;
+  border-radius: 50%;
+  filter: blur(18px);
+  opacity: 0.55;
+  animation: fx-aurora 12s ease-in-out infinite alternate;
+}
+.fx-aurora-a {
+  top: 2%;
+  background: linear-gradient(90deg, transparent, #5dffc4, #3fd0ff, transparent);
+}
+.fx-aurora-b {
+  top: 14%;
+  background: linear-gradient(90deg, transparent, #b07bff, #5dffc4, transparent);
+  animation-duration: 16s;
+  animation-delay: -4s;
+}
+.fx-aurora-c {
+  top: 26%;
+  background: linear-gradient(90deg, transparent, #ff8ad8, #8f7bff, transparent);
+  opacity: 0.35;
+  animation-duration: 20s;
+  animation-delay: -9s;
+}
+@keyframes fx-aurora {
+  from {
+    transform: translateX(-8%) skewY(-4deg) scaleY(0.8);
+  }
+  to {
+    transform: translateX(8%) skewY(5deg) scaleY(1.2);
+  }
+}
+
+.name-plate {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.15em 2.6em 0.15em 0.55em;
+  border-radius: 0.6em;
+  overflow: hidden;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  isolation: isolate;
+}
+.name-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: right 0.4em center;
+  background-size: auto 85%;
+  z-index: 0;
+}
+.plate-mondwolf {
+  background:
+    radial-gradient(circle at 88% 40%, rgba(240, 236, 255, 0.55), transparent 30%),
+    linear-gradient(90deg, #1c1830, #3a3360 70%, #6d63a8);
+}
+.plate-mondwolf::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Ccircle cx='24' cy='12' r='9' fill='%23f4f1ff'/%3E%3Cpath d='M10 30 C9 24 10 20 13 17 C14 13 15 8 17 5 L18 1 L20 5 C21 4 23 4 24 5 L23 7 C25 9 24 12 22 13 C21 16 22 19 24 22 C26 24 27 27 26 30 Z' fill='%23231d3d'/%3E%3C/svg%3E");
+}
+.plate-rosenblueten {
+  background: linear-gradient(90deg, #3b2e5c, #7a66b8 60%, #c9bdf2);
+}
+.plate-rosenblueten::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Cg fill='%23fbf9ff'%3E%3Ccircle cx='28' cy='15' r='7'/%3E%3Ccircle cx='16' cy='20' r='4.5' opacity='.85'/%3E%3Cellipse cx='8' cy='9' rx='2.5' ry='1.4' transform='rotate(30 8 9)' opacity='.8'/%3E%3Cellipse cx='36' cy='5' rx='2.5' ry='1.4' transform='rotate(-20 36 5)' opacity='.8'/%3E%3C/g%3E%3Cpath d='M23 15 A5 5 0 1 1 30 19' fill='none' stroke='%23c9bff0' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+.plate-lichtfalter {
+  background: linear-gradient(90deg, #15131f, #2d2944 65%, #4a4470);
+}
+.plate-lichtfalter::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Cg fill='%23fff'%3E%3Cpath d='M28 12 C22 4 16 8 21 13 C17 17 24 20 28 14 Z'/%3E%3Cpath d='M28 12 C34 4 40 8 35 13 C39 17 32 20 28 14 Z' fill='%23e4dcff'/%3E%3Cpath d='M12 22 C9 18 6 20 9 23 C7 25 11 26 12 23 Z' opacity='.8'/%3E%3Ccircle cx='6' cy='8' r='1'/%3E%3Ccircle cx='18' cy='4' r='.8'/%3E%3C/g%3E%3C/svg%3E");
+}
+.plate-meeresblasen {
+  background: linear-gradient(90deg, #0d2a3d, #1d5f7a 60%, #3fa3b8);
+}
+.plate-meeresblasen::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Cg fill='none' stroke='%23d6f6ff' stroke-width='1.2'%3E%3Ccircle cx='28' cy='14' r='7'/%3E%3Ccircle cx='14' cy='20' r='4'/%3E%3Ccircle cx='36' cy='24' r='3'/%3E%3Ccircle cx='8' cy='8' r='2.2'/%3E%3C/g%3E%3Ccircle cx='25.5' cy='11.5' r='1.6' fill='%23fff'/%3E%3C/svg%3E");
+}
+.plate-perlmutt {
+  background: linear-gradient(100deg, #6b5b9a, #9c8fd6 30%, #a5d8e8 55%, #f0bfe0 80%, #b9a8f0);
+  background-size: 200% 100%;
+  animation: plate-shimmer 6s ease-in-out infinite alternate;
+}
+.plate-tagtraum {
+  background: linear-gradient(90deg, #2a1b4a, #5a3d8f 60%, #8a6cc9);
+}
+.plate-tagtraum::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Cg fill='none' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 28 A18 18 0 0 1 38 28' stroke='%23ff9ecf'/%3E%3Cpath d='M9 28 A15 15 0 0 1 35 28' stroke='%23fff59e'/%3E%3Cpath d='M12 28 A12 12 0 0 1 32 28' stroke='%23a8f0c8'/%3E%3Cpath d='M15 28 A9 9 0 0 1 29 28' stroke='%239ed8ff'/%3E%3C/g%3E%3C/svg%3E");
+}
+@keyframes plate-shimmer {
+  to {
+    background-position: 100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plate-perlmutt,
+  .fx-moon,
+  .fx-aurora {
+    animation: none;
+  }
+}
+
+/* Kosmos collection: backgrounds, name plate, effects */
+[data-bg="nebula"] {
+  --bg-art: radial-gradient(ellipse 70% 40% at 30% 40%, rgba(80, 150, 255, 0.55), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 70% 70%, rgba(140, 90, 255, 0.5), transparent 70%),
+    radial-gradient(ellipse 40% 20% at 80% 20%, rgba(255, 120, 90, 0.3), transparent 70%),
+    linear-gradient(160deg, #0a0f2e, #1a1240 60%, #07081a);
+  --shell-glow: radial-gradient(ellipse at 20% -10%, rgba(80, 150, 255, 0.16), transparent 55%),
+    radial-gradient(ellipse at 100% 100%, rgba(140, 90, 255, 0.14), transparent 50%);
+}
+[data-bg="rings"] {
+  --bg-art: radial-gradient(circle at 80% 22%, #fff 1px, transparent 1.6px),
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.8) 0.8px, transparent 1.4px),
+    radial-gradient(circle at 45% 12%, #fff 1px, transparent 1.6px),
+    radial-gradient(ellipse 58% 9% at 62% 58%, transparent 70%, rgba(255, 200, 150, 0.75) 76%, transparent 86%),
+    radial-gradient(circle at 62% 58%, #3a3f7a 0%, #1d2150 24%, transparent 25%),
+    radial-gradient(circle at 58% 54%, rgba(160, 180, 255, 0.5) 0%, transparent 24%),
+    linear-gradient(170deg, #1b1f4a, #0b0d24);
+  --shell-glow: radial-gradient(ellipse at 70% -10%, rgba(255, 200, 150, 0.12), transparent 55%),
+    radial-gradient(ellipse at 0% 20%, rgba(100, 120, 255, 0.12), transparent 50%);
+}
+[data-bg="galaxy"] {
+  --bg-art: radial-gradient(circle at 15% 25%, #fff 1px, transparent 1.6px),
+    radial-gradient(circle at 85% 65%, #fff 1px, transparent 1.6px),
+    radial-gradient(circle at 60% 15%, rgba(255, 255, 255, 0.7) 0.8px, transparent 1.4px),
+    radial-gradient(circle at 35% 80%, rgba(255, 255, 255, 0.7) 0.8px, transparent 1.4px),
+    radial-gradient(circle at 50% 50%, rgba(220, 240, 255, 0.85), rgba(90, 170, 255, 0.35) 12%, transparent 35%),
+    conic-gradient(from 30deg at 50% 50%, transparent, rgba(80, 160, 255, 0.35), transparent 30%, rgba(60, 120, 230, 0.3), transparent 60%, rgba(80, 160, 255, 0.35), transparent),
+    linear-gradient(180deg, #06122e, #0a1f4a);
+  --shell-glow: radial-gradient(ellipse at 50% -10%, rgba(90, 170, 255, 0.16), transparent 55%);
+}
+[data-bg="twilight"] {
+  --bg-art: radial-gradient(circle at 25% 30%, #fff 1px, transparent 1.6px),
+    radial-gradient(circle at 75% 20%, #fff 0.9px, transparent 1.5px),
+    radial-gradient(ellipse 60% 45% at 70% 30%, rgba(255, 150, 200, 0.45), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 20% 80%, rgba(160, 110, 200, 0.5), transparent 70%),
+    linear-gradient(160deg, #4a2a45, #2a1a33 60%, #140c1c);
+  --shell-glow: radial-gradient(ellipse at 60% -10%, rgba(255, 150, 200, 0.14), transparent 55%);
+}
+.vela-shell[data-bg="nebula"],
+.vela-shell[data-bg="rings"],
+.vela-shell[data-bg="galaxy"] {
+  --color-bg: #070a1c;
+  --color-bg-elevated: #0e1330;
+  --color-bg-subtle: #161c40;
+  --color-fg: #eef1ff;
+  --color-fg-muted: #9aa3cc;
+  --color-fg-subtle: #6f78a3;
+  --color-accent: #9ec4ff;
+  --color-accent-fg: #070a1c;
+}
+.vela-shell[data-bg="twilight"] {
+  --color-bg: #150c18;
+  --color-bg-elevated: #1f1224;
+  --color-bg-subtle: #2b1a31;
+  --color-fg: #fbeef6;
+  --color-fg-muted: #c29ab4;
+  --color-fg-subtle: #926f88;
+  --color-accent: #f4a9d0;
+  --color-accent-fg: #150c18;
+}
+.plate-kosmos {
+  background: radial-gradient(ellipse 40% 90% at 80% 50%, rgba(255, 150, 230, 0.55), transparent 70%),
+    radial-gradient(ellipse 30% 80% at 95% 40%, rgba(90, 220, 200, 0.5), transparent 70%),
+    linear-gradient(90deg, #1a1440, #3d2a7a 60%, #6a3fb0);
+}
+.plate-kosmos::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='8' cy='8' r='1'/%3E%3Ccircle cx='20' cy='22' r='.8'/%3E%3Ccircle cx='34' cy='10' r='1.2'/%3E%3Ccircle cx='28' cy='26' r='.7'/%3E%3C/g%3E%3C/svg%3E");
+}
+.fx-starfield {
+  inset: -50%;
+  background-image: radial-gradient(circle, #fff 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(190, 215, 255, 0.9) 0.8px, transparent 1.4px);
+  background-size: 46px 46px, 71px 71px;
+  background-position: 0 0, 20px 30px;
+  animation: deco-spin 90s linear infinite;
+  opacity: 0.8;
+}
+.fx-galaxy-core {
+  top: 8%;
+  left: 50%;
+  width: 60%;
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg, transparent, rgba(90, 170, 255, 0.45), transparent 35%, rgba(170, 120, 255, 0.4), transparent 70%);
+  filter: blur(10px);
+  animation: deco-spin 30s linear infinite;
+}
+.fx-planet {
+  top: 8%;
+  right: 8%;
+  width: min(26%, 130px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #c9d4ff, #5a63b8 45%, #23285e 80%);
+  box-shadow: 0 0 40px 6px rgba(140, 160, 255, 0.35);
+}
+.fx-planet-ring {
+  top: calc(8% + min(13%, 65px) - 12px);
+  right: calc(8% - min(8%, 40px));
+  width: min(42%, 210px);
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 205, 160, 0.75);
+  border-top-color: transparent;
+  transform: rotate(-14deg);
+  box-shadow: 0 0 12px rgba(255, 205, 160, 0.4);
+}
+.fx-moonlet {
+  top: 6%;
+  right: 42%;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #fff, #b9b3d8);
+  animation: fx-orbit 14s ease-in-out infinite alternate;
+}
+@keyframes fx-orbit {
+  to {
+    transform: translate(-60px, 40px);
+  }
+}
+.fx-nebula {
+  width: 70%;
+  height: 45%;
+  border-radius: 50%;
+  filter: blur(22px);
+  opacity: 0.6;
+  animation: fx-aurora 14s ease-in-out infinite alternate;
+}
+.fx-nebula-a {
+  top: 0;
+  left: -10%;
+  background: radial-gradient(ellipse, rgba(70, 150, 255, 0.9), transparent 70%);
+}
+.fx-nebula-b {
+  top: 18%;
+  right: -10%;
+  background: radial-gradient(ellipse, rgba(160, 90, 255, 0.85), transparent 70%);
+  animation-duration: 18s;
+  animation-delay: -6s;
+}
+.fx-nebula-c {
+  top: 38%;
+  left: 20%;
+  background: radial-gradient(ellipse, rgba(255, 120, 170, 0.6), transparent 70%);
+  animation-duration: 22s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-starfield,
+  .fx-galaxy-core,
+  .fx-moonlet,
+  .fx-nebula {
+    animation: none;
+  }
+}

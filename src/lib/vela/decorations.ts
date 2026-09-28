@@ -1,4 +1,7 @@
-/** Avatar decorations (animated rings/frames) and profile effects — all free. */
+/**
+ * Avatar decorations (animated rings/frames), profile effects and name plates.
+ * The first ones unlock with active days (rewards.ts); the rest are shop-only.
+ */
 export const AVATAR_DECORATIONS = [
   { id: "flammen", label: "Flammen" },
   { id: "neon", label: "Neon" },
@@ -12,6 +15,18 @@ export const AVATAR_DECORATIONS = [
   { id: "finsternis", label: "Sonnenfinsternis" },
   { id: "frost", label: "Frost" },
   { id: "schmetterling", label: "Halluzination" },
+  { id: "mondsichel", label: "Mondsichel-Traum" },
+  { id: "silberrosen", label: "Silberrosen" },
+  { id: "lichtfalter", label: "Lichtfalter" },
+  { id: "perlen", label: "Regenbogenperlen" },
+  { id: "schleier", label: "Regenbogenschleier" },
+  { id: "delfine", label: "Delfin-Tanz" },
+  { id: "blutmond", label: "Blutmond" },
+  { id: "planet", label: "Planet" },
+  { id: "kometen", label: "Kometen" },
+  { id: "sonneneruption", label: "Sonneneruption" },
+  { id: "sternbild", label: "Sternbilder" },
+  { id: "nova", label: "Nova" },
 ] as const;
 export type AvatarDecoration = (typeof AVATAR_DECORATIONS)[number]["id"];
 
@@ -22,8 +37,31 @@ export const PROFILE_EFFECTS = [
   { id: "glut", label: "Glut" },
   { id: "herzen", label: "Herzen" },
   { id: "blasen", label: "Blasen" },
+  { id: "mondnacht", label: "Mondnacht" },
+  { id: "rosenblaetter", label: "Rosenblätter" },
+  { id: "lichtfalter", label: "Lichtfalter" },
+  { id: "polarlicht", label: "Polarlicht" },
+  { id: "sternwirbel", label: "Sternwirbel" },
+  { id: "planetenringe", label: "Planetenringe" },
+  { id: "kosmossturm", label: "Kosmischer Sturm" },
 ] as const;
 export type ProfileEffect = (typeof PROFILE_EFFECTS)[number]["id"];
+
+/** Name plates: a decorated strip behind the name (profile and feed). Shop-only. */
+export const NAME_PLATES = [
+  { id: "mondwolf", label: "Mondwolf" },
+  { id: "rosenblueten", label: "Rosenblüten" },
+  { id: "lichtfalter", label: "Lichtfalter" },
+  { id: "meeresblasen", label: "Meeresblasen" },
+  { id: "perlmutt", label: "Perlmuttwellen" },
+  { id: "tagtraum", label: "Regenbogen-Tagtraum" },
+  { id: "kosmos", label: "Kosmischer Zwielichtfluss" },
+] as const;
+export type NamePlate = (typeof NAME_PLATES)[number]["id"];
+
+export function asNamePlate(value: unknown): NamePlate | null {
+  return NAME_PLATES.some((d) => d.id === value) ? (value as NamePlate) : null;
+}
 
 export function asDecoration(value: unknown): AvatarDecoration | null {
   return AVATAR_DECORATIONS.some((d) => d.id === value) ? (value as AvatarDecoration) : null;
