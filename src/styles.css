@@ -426,3 +426,111 @@ input[type="search"]::-webkit-search-cancel-button {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Animated names (rewards, src/components/styled-name.tsx) */
+[class*="name-"] > .name-fill {
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: name-shine 3s linear infinite;
+}
+.name-schimmer > .name-fill {
+  background-image: linear-gradient(100deg, #e9e2d6 20%, #ffffff 40%, #fff7e0 50%, #e9e2d6 70%);
+}
+.name-pastell > .name-fill {
+  background-image: linear-gradient(90deg, #ffb3d1, #c7b3ff, #a8e6ff, #b8f5c8, #ffb3d1);
+  animation-duration: 6s;
+}
+.name-neon > .name-fill {
+  background-image: none;
+  color: #7df9ff;
+  animation: name-neon 2.2s ease-in-out infinite;
+}
+.name-glitzer > .name-fill {
+  background-image: linear-gradient(100deg, #f8c8ff 20%, #ffffff 45%, #d9b8ff 60%, #f8c8ff 80%);
+}
+.name-spark {
+  position: absolute;
+  top: -0.35em;
+  font-size: 0.55em;
+  color: #fff;
+  text-shadow: 0 0 6px #e7a6ff;
+  animation: deco-twinkle 1.8s ease-in-out infinite;
+}
+.name-feuer > .name-fill {
+  background-image: linear-gradient(0deg, #ff3d00, #ff9800 45%, #ffe082 70%, #ff9800);
+  background-size: auto 200%;
+  filter: drop-shadow(0 0 6px rgb(255 109 0 / 0.6));
+  animation: name-fire 1.2s ease-in-out infinite alternate;
+}
+.name-regenbogen > .name-fill {
+  background-image: linear-gradient(
+    90deg,
+    #ff5252,
+    #ffb74d,
+    #fff176,
+    #69f0ae,
+    #40c4ff,
+    #b388ff,
+    #ff5252
+  );
+  animation-duration: 4s;
+}
+.name-gold > .name-fill {
+  background-image: linear-gradient(
+    100deg,
+    #b8860b 10%,
+    #ffd700 30%,
+    #fff8dc 45%,
+    #ffd700 60%,
+    #b8860b 85%
+  );
+  filter: drop-shadow(0 0 4px rgb(255 215 0 / 0.35));
+}
+.name-welle > span {
+  animation: name-wave 1.6s ease-in-out infinite;
+  background-image: linear-gradient(90deg, #a8e6ff, #c7b3ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@keyframes name-shine {
+  to {
+    background-position: -200% center;
+  }
+}
+@keyframes name-neon {
+  0%,
+  100% {
+    text-shadow:
+      0 0 4px #00e5ff,
+      0 0 10px #00e5ff,
+      0 0 18px #7c4dff;
+  }
+  50% {
+    text-shadow:
+      0 0 2px #00e5ff,
+      0 0 5px #00e5ff,
+      0 0 8px #7c4dff;
+  }
+}
+@keyframes name-fire {
+  from {
+    background-position: center 0%;
+  }
+  to {
+    background-position: center 100%;
+  }
+}
+@keyframes name-wave {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.18em);
+  }
+}

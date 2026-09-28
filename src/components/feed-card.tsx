@@ -15,6 +15,7 @@ import { FeedVideo } from "@/components/post-video";
 import { PostViewer } from "@/components/post-viewer";
 import { PostMenu } from "@/components/post-menu";
 import { Caption } from "@/components/caption";
+import { StyledName } from "@/components/styled-name";
 import { DecoratedAvatar } from "@/components/avatar-decoration";
 import { cn } from "@/lib/utils";
 
@@ -177,7 +178,7 @@ export function FeedCard({ post }: { post: PostCard }) {
             params={{ handle: post.author.handle }}
             className="pointer-events-auto font-medium"
           >
-            @{post.author.handle}
+            <StyledName text={`@${post.author.handle}`} nameStyle={post.author.nameStyle} />
           </Link>
           <p className="mt-0.5 text-xs text-on-media/70">
             {post.author.age} · {relationshipLabel(post.author.relationshipStatus)}

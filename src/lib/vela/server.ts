@@ -19,7 +19,30 @@ import { BAN_DURATION_IDS, DELETE_DELAY_IDS, addDuration } from "./durations";
 import { notify } from "./notifications";
 import { blobToken, isBlobVideoUrl } from "./video";
 import { extractHashtags, normalizeHashtag } from "./hashtags";
-import { asDecoration, asProfileEffect } from "./decorations";
+import { AVATAR_DECORATIONS, PROFILE_EFFECTS, asDecoration, asProfileEffect } from "./decorations";
+import {
+  NAME_STYLES,
+  asNameStyle,
+  isUnlocked,
+  tierOn,
+  type RewardItem,
+  type RewardKind,
+} from "./rewards";
+
+function rewardLabel(item: RewardItem): string {
+  const list =
+    item.kind === "decoration"
+      ? AVATAR_DECORATIONS
+      : item.kind === "effect"
+        ? PROFILE_EFFECTS
+        : NAME_STYLES;
+  const label = list.find((x) => x.id === item.id)?.label ?? item.id;
+  return item.kind === "decoration"
+    ? `Rahmen „${label}“`
+    : item.kind === "effect"
+      ? `Effekt „${label}“`
+      : `Name „${label}“`;
+}
 import type {
   Fsk18Status,
   PostCard,
@@ -67,6 +90,7 @@ type ProfileRow = {
   interests_asked: boolean;
   avatar_decoration: string | null;
   profile_effect: string | null;
+  name_style: string | null;
   created_at: string;
 };
 
@@ -95,7 +119,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
            relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
     from profiles where user_id = ${userId}
   `;
   return rows[0] ?? null;
@@ -145,6 +169,8 @@ async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profi
     banReason: row.banned ? row.ban_reason : null,
     decoration: asDecoration(row.avatar_decoration),
     effect: asProfileEffect(row.profile_effect),
+    nameStyle: asNameStyle(row.name_style),
+    activeDays: viewerId === row.user_id ? await countActiveDays(row.user_id) : null,
     interests: viewerId === row.user_id ? (row.interests ?? []) : [],
     needsInterests: viewerId === row.user_id && !row.interests_asked,
     bannedUntil: row.banned && row.banned_until ? asTime(row.banned_until) : null,
@@ -187,6 +213,7 @@ type FeedRow = {
   relationship_status: string;
   birthdate: string;
   avatar_decoration: string | null;
+  name_style: string | null;
 };
 
 async function optionalViewerId(): Promise<string | null> {
@@ -229,6 +256,7 @@ function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[
           : "single",
         age: ageFromBirthdate(asIsoDate(row.birthdate)),
         decoration: asDecoration(row.avatar_decoration),
+        nameStyle: asNameStyle(row.name_style),
       },
     };
   });
@@ -240,6 +268,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
     await sweepModeration();
     const row = await loadProfileRow(context.userId);
     if (!row) return null;
+    await recordActiveDay(context.userId);
     if (ageFromBirthdate(asIsoDate(row.birthdate)) < 18) return null;
     return toPublicProfile(row, context.userId);
   });
@@ -316,27 +345,75 @@ export const updateProfile = createServerFn({ method: "POST" })
     return toPublicProfile(row, context.userId);
   });
 
-/** Avatar decoration and profile effect (null = none). */
+async function countActiveDays(userId: string): Promise<number> {
+  const sql = await getSql();
+  const rows =
+    await sql<CountRow>`select count(*)::int as n from active_days where user_id = ${userId}`;
+  return rows[0]?.n ?? 0;
+}
+
+/** Count today as an active day; on a reward day, tell the member what unlocked. */
+async function recordActiveDay(userId: string): Promise<void> {
+  const sql = await getSql();
+  const inserted = await sql<{ day: string }>`
+    insert into active_days (user_id, day)
+    values (${userId}, (now() at time zone 'Europe/Berlin')::date)
+    on conflict do nothing
+    returning day::text as day
+  `;
+  if (!inserted.length) return;
+  const tier = tierOn(await countActiveDays(userId));
+  if (tier) {
+    await notify({
+      userId,
+      kind: "system",
+      body: `🎁 Neue Belohnung (Tag ${tier.day}): ${tier.items.map(rewardLabel).join(", ")}. Einstellungen → Avatar-Rahmen & Effekte.`,
+    }).catch(() => undefined);
+  }
+}
+
+/** Avatar decoration, profile effect and name style (null = none); only unlocked ones. */
 export const updateLook = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
       decoration: z.string().max(40).nullable(),
       effect: z.string().max(40).nullable(),
+      nameStyle: z.string().max(40).nullable().optional(),
     }),
   )
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdult(context.userId);
+    const nameStyle = data.nameStyle ?? null;
     if (data.decoration !== null && !asDecoration(data.decoration)) {
       throw new Error("Unbekannter Rahmen.");
     }
     if (data.effect !== null && !asProfileEffect(data.effect)) {
       throw new Error("Unbekannter Effekt.");
     }
+    if (nameStyle !== null && !asNameStyle(nameStyle)) {
+      throw new Error("Unbekannter Namens-Stil.");
+    }
+    const [days, team, current] = await Promise.all([
+      countActiveDays(context.userId),
+      isAdminUser(context.userId),
+      loadProfileRow(context.userId),
+    ]);
+    // Anything already chosen stays allowed; new picks must be unlocked.
+    const allowed = (kind: RewardKind, id: string | null, now: string | null | undefined) =>
+      id === null || id === now || isUnlocked(kind, id, days, team);
+    if (
+      !allowed("decoration", data.decoration, current?.avatar_decoration) ||
+      !allowed("effect", data.effect, current?.profile_effect) ||
+      !allowed("name", nameStyle, current?.name_style)
+    ) {
+      throw new Error("Das ist noch nicht freigeschaltet.");
+    }
     const sql = await getSql();
     await sql`
       update profiles
-      set avatar_decoration = ${data.decoration}, profile_effect = ${data.effect}
+      set avatar_decoration = ${data.decoration}, profile_effect = ${data.effect},
+          name_style = ${nameStyle}
       where user_id = ${context.userId}
     `;
     return { ok: true };
@@ -460,7 +537,8 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate,
-        pr.avatar_decoration
+        pr.avatar_decoration,
+        pr.name_style
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null
@@ -557,7 +635,8 @@ export const listExplore = createServerFn({ method: "GET" })
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate,
-        pr.avatar_decoration
+        pr.avatar_decoration,
+        pr.name_style
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.banned_at is null and (${tag}::text is null or ${tag}::text = any(p.tags))
@@ -584,7 +663,7 @@ export const listCreators = createServerFn({ method: "GET" }).handler(
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
       from profiles
       where banned_at is null
       order by created_at asc
@@ -627,7 +706,8 @@ export const listProfilePosts = createServerFn({ method: "POST" })
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate,
-        pr.avatar_decoration
+        pr.avatar_decoration,
+        pr.name_style
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where pr.handle = ${data.handle} and pr.banned_at is null
@@ -647,7 +727,7 @@ export const getProfileByHandle = createServerFn({ method: "POST" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
       from profiles where handle = ${data.handle}
     `;
     const row = rows[0];
@@ -726,7 +806,8 @@ export const createPost = createServerFn({ method: "POST" })
         case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
         pr.relationship_status,
         pr.birthdate::text as birthdate,
-        pr.avatar_decoration
+        pr.avatar_decoration,
+        pr.name_style
       from posts p
       join profiles pr on pr.user_id = p.user_id
       where p.id = ${id}
@@ -994,7 +1075,7 @@ export const searchProfiles = createServerFn({ method: "GET" })
              relationship_status,
            case when avatar_url is null then null else '/api/media/avatar/' || user_id || '?v=' || avatar_version end as avatar_url,
            case when banner_url is null then null else '/api/media/banner/' || user_id || '?v=' || banner_version end as banner_url,
-           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, created_at::text as created_at
+           background_id, banned_at is not null as banned, ban_reason, banned_until::text as banned_until, delete_at::text as delete_at, interests, interests_asked_at is not null as interests_asked, avatar_decoration, profile_effect, name_style, created_at::text as created_at
       from profiles
       where banned_at is null
         and (handle like ${contains} or lower(display_name) like ${contains})
