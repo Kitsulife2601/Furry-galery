@@ -2,10 +2,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, CalendarDays, Flag, MoreHorizontal, PawPrint, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { adminSetBirthdate, deleteProfile, reportProfile, setBanned } from "@/lib/vela/server";
+import {
+  adminGetBirthdate,
+  adminSetBirthdate,
+  deleteProfile,
+  reportProfile,
+  setBanned,
+} from "@/lib/vela/server";
 import { ageFromBirthdate } from "@/lib/vela/age";
 import { Input } from "@/components/ui/input";
 import { useAppSession } from "@/lib/vela/app-session";
@@ -23,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const REFRESH_KEYS = [
+  "team-birthdate",
   "profile",
   "admin-profile-reports",
   "admin-banned",
@@ -431,24 +438,60 @@ function AgeDialog({
   onClose: () => void;
   onConfirm: (birthdate: string) => void;
 }) {
-  const [birthdate, setBirthdate] = useState("");
+  const entered = useQuery({
+    queryKey: ["team-birthdate", handle],
+    queryFn: () => adminGetBirthdate({ data: { handle } }),
+  });
+  const [year, setYear] = useState("");
+  const original = entered.data?.birthdate ?? null;
+  const [oy, om, od] = original ? original.split("-") : ["", "", ""];
+
+  // Only the year changes; day and month stay as entered (29.02. → 28.02. off leap years).
+  let birthdate: string | null = null;
+  if (original && /^\d{4}$/.test(year)) {
+    const y = Number(year);
+    const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    const day = om === "02" && od === "29" && !leap ? "28" : od;
+    birthdate = `${year}-${om}-${day}`;
+  }
   const age = birthdate ? ageFromBirthdate(birthdate) : null;
-  const valid = age !== null && age >= 0 && age <= 120;
+  const valid = age !== null && age >= 0 && age <= 120 && birthdate !== original;
+  const german = (iso: string) => iso.split("-").reverse().join(".");
+
   return (
     <ModalShell title={`Alter von @${handle} ändern`} onClose={onClose}>
-      <p className="mt-1 text-sm text-fg-muted">
-        Angegeben: {currentAge} Jahre. Für falsche Altersangaben das echte Geburtsdatum eintragen.
-      </p>
-      <div className="mt-4 space-y-2">
-        <Label htmlFor="team-birthdate">Geburtsdatum</Label>
-        <Input
-          id="team-birthdate"
-          type="date"
-          value={birthdate}
-          max={new Date().toISOString().slice(0, 10)}
-          onChange={(e) => setBirthdate(e.target.value)}
-        />
-      </div>
+      {entered.isPending ? (
+        <p className="mt-1 text-sm text-fg-muted">Lädt…</p>
+      ) : entered.isError || !original ? (
+        <p className="mt-1 text-sm text-heart">Geburtsdatum konnte nicht geladen werden.</p>
+      ) : (
+        <>
+          <div className="mt-2 rounded-lg border border-border bg-bg px-3 py-2.5">
+            <p className="text-xs text-fg-subtle">Angegeben</p>
+            <p className="text-sm font-medium">
+              {german(original)} · {currentAge} Jahre
+            </p>
+          </div>
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="team-birth-year">Richtiges Geburtsjahr</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-fg-muted tabular-nums">
+                {od}.{om}.
+              </span>
+              <Input
+                id="team-birth-year"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder={oy}
+                value={year}
+                onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                className="w-28 tabular-nums"
+              />
+            </div>
+            <p className="text-xs text-fg-subtle">Tag und Monat bleiben wie angegeben.</p>
+          </div>
+        </>
+      )}
       {valid ? (
         <p
           className={cn(
@@ -456,16 +499,17 @@ function AgeDialog({
             age < 18 ? "border-heart/50 text-heart" : "border-border text-fg-muted",
           )}
         >
+          {german(birthdate!)}:{" "}
           {age < 18
-            ? `${age} Jahre: FSK-18-Freischaltung wird entfernt, das Profil ist nicht mehr nutzbar (Seite ab 18).`
-            : `Neues Alter: ${age} Jahre.`}
+            ? `${age} Jahre. FSK-18-Freischaltung wird entfernt, das Profil ist nicht mehr nutzbar (Seite ab 18).`
+            : `neues Alter ${age} Jahre.`}
         </p>
       ) : null}
       <Button
         className="mt-5 w-full"
         variant={valid && age < 18 ? "danger" : "primary"}
         disabled={busy || !valid}
-        onClick={() => onConfirm(birthdate)}
+        onClick={() => birthdate && onConfirm(birthdate)}
       >
         {busy ? "Speichert…" : "Alter speichern"}
       </Button>

@@ -2093,3 +2093,18 @@ export const buyShopBundle = createServerFn({ method: "POST" })
       count: quote.missing.length,
     };
   });
+
+/** Team only: the birthdate a member entered (for the "Alter ändern" dialog). */
+export const adminGetBirthdate = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(z.object({ handle: z.string().trim().toLowerCase() }))
+  .handler(async ({ context, data }): Promise<{ birthdate: string }> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const rows = await sql<{ birthdate: string }>`
+      select birthdate::text as birthdate from profiles
+      where handle = ${data.handle.replace(/^@/, "")}
+    `;
+    if (!rows[0]) throw new Error("Profil nicht gefunden.");
+    return { birthdate: asIsoDate(rows[0].birthdate) };
+  });
