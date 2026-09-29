@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Splash } from "@/components/splash";
 import { SiteFooter } from "@/components/legal-page";
+import { LogoEmblem } from "@/components/logo";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -106,10 +107,10 @@ function Login() {
       />
       <div className="absolute inset-0 bg-bg/75" />
       <div className="relative mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-12">
-        <Link to="/" className="font-display text-3xl tracking-tight">
-          Furry Gallery
+        <Link to="/" aria-label="Furry Gallery, Startseite" className="self-start">
+          <LogoEmblem className="size-28" />
         </Link>
-        <p className="mt-2 text-sm text-fg-muted">Eintritt ab 18. Google, Discord oder E-Mail.</p>
+        <p className="mt-2 text-sm text-fg-muted">Ab 15, FSK 18 erst ab 18. Google, Discord oder E-Mail.</p>
 
         {authEnabled ? (
           <div className="mt-8 space-y-3">

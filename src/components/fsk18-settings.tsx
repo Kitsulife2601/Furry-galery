@@ -51,6 +51,18 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
     }
   }
 
+  // Under 18: no FSK 18 at all, so no Discord check either.
+  if (profile.age < 18) {
+    return (
+      <section className="mt-10 rounded-xl border border-border p-4">
+        <p className="text-sm font-medium">FSK 18</p>
+        <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
+          FSK-18-Inhalte gibt es erst ab 18. Bis dahin werden sie dir nirgends angezeigt.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section id="fsk18" className="mt-10 scroll-mt-6 rounded-2xl border border-border p-5">
       <div className="flex items-center gap-2">

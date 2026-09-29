@@ -4,6 +4,7 @@ import { Bell, Compass, House, Plus, ShoppingBag, UserRound } from "lucide-react
 import { useAppSession } from "@/lib/vela/app-session";
 import { unreadNotificationCount } from "@/lib/vela/server";
 import { cn } from "@/lib/utils";
+import { LogoWordmark } from "@/components/logo";
 
 const ITEMS = [
   { to: "/", label: "Für dich", icon: House },
@@ -84,8 +85,8 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
   return (
     <aside className="hidden w-56 shrink-0 flex-col justify-between border-r border-border px-4 py-8 md:flex">
       <div>
-        <Link to="/" className="font-display px-2 text-2xl tracking-tight">
-          Furry Gallery
+        <Link to="/" aria-label="Furry Gallery, Startseite" className="block">
+          <LogoWordmark compact />
         </Link>
         <nav className="mt-10 flex flex-col gap-1">
           {SIDE_ITEMS.map((item) => {

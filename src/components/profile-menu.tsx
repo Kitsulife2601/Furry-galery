@@ -224,7 +224,7 @@ export function ProfileMenu({ profile, isAdmin }: { profile: Profile; isAdmin: b
             const ok = await run(
               () => adminSetBirthdate({ data: { handle: profile.handle, birthdate } }),
               age < 18
-                ? `@${profile.handle} ist jetzt ${age}: gesperrt für FSK 18 und die Seite.`
+                ? `@${profile.handle} ist jetzt ${age}: FSK 18 gesperrt.`
                 : `Alter von @${profile.handle} auf ${age} geändert.`,
             );
             if (ok) setDialog(null);
@@ -501,7 +501,9 @@ function AgeDialog({
         >
           {german(birthdate!)}:{" "}
           {age < 18
-            ? `${age} Jahre. FSK-18-Freischaltung wird entfernt, das Profil ist nicht mehr nutzbar (Seite ab 18).`
+            ? age < 15
+              ? `${age} Jahre. Unter 15: das Profil ist nicht mehr nutzbar, FSK 18 wird entfernt.`
+              : `${age} Jahre. Unter 18: FSK-18-Freischaltung wird entfernt, FSK-18-Beiträge sind für diese Person unsichtbar.`
             : `neues Alter ${age} Jahre.`}
         </p>
       ) : null}

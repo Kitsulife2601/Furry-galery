@@ -9,6 +9,8 @@ import { SiteFooter } from "@/components/legal-page";
 import { PawDialog } from "@/components/admin-panel";
 import { InterestsDialog } from "@/components/interests";
 import { usePawTicker, usePaws } from "@/lib/vela/use-paws";
+import { LogoWordmark } from "@/components/logo";
+import { NotificationPopups } from "@/components/notification-popups";
 
 export function AppShell({
   profile,
@@ -32,6 +34,15 @@ export function AppShell({
       <div className="mx-auto flex min-h-dvh max-w-6xl">
         <SideNav hasProfile={Boolean(profile)} />
         <div className="relative min-w-0 flex-1">
+          {pathname === "/" ? null : (
+            <Link
+              to="/"
+              aria-label="Furry Gallery, Startseite"
+              className="absolute top-2 left-3 z-30 md:hidden"
+            >
+              <LogoWordmark compact />
+            </Link>
+          )}
           {profile ? (
             <header className="absolute top-0 right-0 z-30 flex items-center gap-1 p-2 md:p-4">
               <Link
@@ -64,6 +75,8 @@ export function AppShell({
             className={cn(
               hideMobilePad ? "" : "pb-16 md:pb-0",
               fullBleed ? "" : "flex min-h-dvh flex-col",
+              // Room for the logo on phones.
+              !fullBleed && pathname !== "/" && "pt-12 md:pt-0",
             )}
           >
             {fullBleed ? children : <div className="flex-1">{children}</div>}
@@ -71,6 +84,7 @@ export function AppShell({
           </div>
         </div>
       </div>
+      <NotificationPopups enabled={Boolean(profile) && !profile?.banned} />
       <BottomNav />
       {profile?.needsInterests && !interestsDone ? (
         <InterestsDialog onDone={() => setInterestsDone(true)} />

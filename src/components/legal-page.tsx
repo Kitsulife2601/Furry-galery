@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { LogoWordmark } from "@/components/logo";
 
 /** Contact details for Impressum and Datenschutz (one place to change them). */
 export const CONTACT = {
@@ -52,8 +53,8 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
   return (
     <main className="min-h-dvh bg-bg text-fg">
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <Link to="/" className="font-display text-2xl tracking-tight">
-          Furry Gallery
+        <Link to="/" aria-label="Furry Gallery, Startseite" className="inline-block">
+          <LogoWordmark />
         </Link>
         <h1 className="mt-8 font-display text-4xl">{title}</h1>
         <div className="legal-prose mt-8 space-y-6 text-sm leading-relaxed text-fg-muted">

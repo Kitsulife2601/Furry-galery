@@ -23,7 +23,7 @@ function promptCopy(pathname: string) {
   if (pathname === "/upload") {
     return {
       title: "Hochladen",
-      body: "Melde dich an und lege ein Profil an, um Bilder zu teilen. Wir prüfen dein Alter — nur ab 18.",
+      body: "Melde dich an und lege ein Profil an, um Bilder zu teilen. Profile ab 15, FSK 18 erst ab 18.",
     };
   }
   if (pathname === "/feedback") {
@@ -52,7 +52,7 @@ function promptCopy(pathname: string) {
   }
   return {
     title: "Dein Profil",
-    body: "Name, Alter, Beziehung. Melde dich an — unter 18 wird das Profil nicht angelegt.",
+    body: "Name, Alter, Beziehung. Melde dich an — Profile gibt es ab 15 Jahren.",
   };
 }
 

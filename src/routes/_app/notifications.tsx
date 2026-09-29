@@ -10,6 +10,7 @@ import {
   type NotificationItem,
 } from "@/lib/vela/server";
 import { memberErrorMessage } from "@/lib/vela/errors";
+import { notificationText } from "@/lib/vela/notification-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -35,14 +36,7 @@ function timeAgo(iso: string): string {
   return relative.format(Math.round(value), "year");
 }
 
-function text(n: NotificationItem): string {
-  if (n.kind === "like") return "gefällt dein Bild.";
-  if (n.kind === "follow") return "folgt dir jetzt.";
-  if (n.kind === "comment") return `hat kommentiert: „${n.body}“`;
-  if (n.kind === "reply") return `hat dir geantwortet: „${n.body}“`;
-  if (n.kind === "comment_like") return "gefällt dein Kommentar.";
-  return n.body;
-}
+const text = notificationText;
 
 const ICONS = {
   like: Heart,

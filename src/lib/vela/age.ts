@@ -14,6 +14,14 @@ export function ageFromBirthdate(iso: string, now = new Date()): number {
   return age;
 }
 
+/** Youngest age that may have a profile. FSK 18 content still needs 18. */
+export const MIN_AGE = 15;
+
 export function isAdultBirthdate(iso: string, now = new Date()): boolean {
   return ageFromBirthdate(iso, now) >= 18;
+}
+
+/** Old enough for a profile (MIN_AGE+). */
+export function isAllowedBirthdate(iso: string, now = new Date()): boolean {
+  return ageFromBirthdate(iso, now) >= MIN_AGE;
 }

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { ageFromBirthdate, isAdultBirthdate } from "./age";
+import { MIN_AGE, ageFromBirthdate, isAllowedBirthdate } from "./age";
 import { isBackgroundId } from "./backgrounds";
 import { discordConfig, discordInviteUrl, isFsk18Verified } from "./discord";
 import { MEDIA_LIMITS, dataUrlChars, isImageDataUrl } from "./media-limits";
@@ -142,7 +142,7 @@ async function loadProfileRow(userId: string): Promise<ProfileRow | null> {
 
 async function requireAdult(userId: string): Promise<ProfileRow> {
   const row = await loadProfileRow(userId);
-  if (!row || ageFromBirthdate(asIsoDate(row.birthdate)) < 18) {
+  if (!row || ageFromBirthdate(asIsoDate(row.birthdate)) < MIN_AGE) {
     throw new Error("Age verification required");
   }
   if (row.banned) throw new Error("Dein Konto ist gesperrt.");
@@ -249,8 +249,14 @@ async function optionalViewerId(): Promise<string | null> {
  * `canSeeNsfw` decides server-side which image leaves the server: unverified
  * viewers of an FSK18 post only ever receive the tiny preview, never the image.
  */
-function mapFeed(rows: FeedRow[], canSeeNsfw: boolean, viewerId = ""): PostCard[] {
-  return rows.map((row) => {
+function mapFeed(
+  rows: FeedRow[],
+  canSeeNsfw: boolean,
+  viewerId = "",
+  hideNsfw = false,
+): PostCard[] {
+  // Under 18: FSK 18 posts don't exist for them — not even the locked preview.
+  return rows.filter((row) => !(hideNsfw && row.nsfw)).map((row) => {
     // Uploaders always see their own posts, verified or not.
     const locked = Boolean(row.nsfw) && !canSeeNsfw && row.user_id !== viewerId;
     return {
@@ -289,7 +295,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
     const row = await loadProfileRow(context.userId);
     if (!row) return null;
     await recordActiveDay(context.userId);
-    if (ageFromBirthdate(asIsoDate(row.birthdate)) < 18) return null;
+    if (ageFromBirthdate(asIsoDate(row.birthdate)) < MIN_AGE) return null;
     return toPublicProfile(row, context.userId);
   });
 
@@ -308,7 +314,7 @@ export const createProfile = createServerFn({ method: "POST" })
     if (!HANDLE_RE.test(data.handle)) {
       throw new Error("Handle: 3–20 Zeichen, nur a–z, 0–9 und _.");
     }
-    if (!isAdultBirthdate(data.birthdate)) {
+    if (!isAllowedBirthdate(data.birthdate)) {
       throw new Error("Die Furry Gallery ist nur für Personen ab 18 Jahren.");
     }
     const existing = await loadProfileRow(context.userId);
@@ -604,7 +610,7 @@ export const listFeed = createServerFn({ method: "GET" }).handler(async (): Prom
       ) desc, p.created_at desc
       limit 60
     `;
-  return mapFeed(rows, canSeeNsfw, viewerId);
+  return mapFeed(rows, canSeeNsfw, viewerId, await isMinorViewer(viewerId));
 });
 
 /** The viewer looked at a post in the feed (feeds the "Für dich" ranking). */
@@ -688,7 +694,7 @@ export const listExplore = createServerFn({ method: "GET" })
       order by (select count(*) from likes l where l.post_id = p.id) desc, p.created_at desc
       limit 80
     `;
-    return mapFeed(rows, canSeeNsfw, viewerId);
+    return mapFeed(rows, canSeeNsfw, viewerId, await isMinorViewer(viewerId));
   });
 
 export type CreatorPreview = {
@@ -758,7 +764,7 @@ export const listProfilePosts = createServerFn({ method: "POST" })
       where pr.handle = ${data.handle} and pr.banned_at is null
       order by p.created_at desc
     `;
-    return mapFeed(rows, canSeeNsfw, viewerId);
+    return mapFeed(rows, canSeeNsfw, viewerId, await isMinorViewer(viewerId));
   });
 
 export const getProfileByHandle = createServerFn({ method: "POST" })
@@ -805,6 +811,9 @@ export const createPost = createServerFn({ method: "POST" })
       throw new Error("Ungültige Video-Adresse.");
     }
     const nsfw = data.nsfw ?? false;
+    if (nsfw && (await isMinorViewer(context.userId))) {
+      throw new Error("FSK-18-Inhalte kannst du erst ab 18 hochladen.");
+    }
     const adultTag = (data.tags ?? []).find(isAdultTag);
     if (adultTag && !nsfw) {
       throw new Error(`Die Kategorie „${tagLabel(adultTag)}“ gibt es nur mit FSK 18.`);
@@ -1753,6 +1762,16 @@ export const setFsk18Approval = createServerFn({ method: "POST" })
   .validator(z.object({ handle: z.string().trim().min(1), unlock: z.boolean() }))
   .handler(async ({ context, data }): Promise<{ displayName: string }> => {
     await requireAdmin(context.userId);
+    if (data.unlock) {
+      const sql = await getSql();
+      const target = await sql<{ birthdate: string }>`
+        select birthdate::text as birthdate from profiles
+        where handle = ${data.handle.trim().replace(/^@/, "").toLowerCase()}
+      `;
+      if (target[0] && ageFromBirthdate(asIsoDate(target[0].birthdate)) < 18) {
+        throw new Error("Unter 18 gibt es keine FSK-18-Freigabe.");
+      }
+    }
     const me = await loadProfileRow(context.userId);
     const { setManualFsk18ByHandle } = await import("./moderation");
     const result = await setManualFsk18ByHandle(
@@ -1964,7 +1983,7 @@ export const adminSetBirthdate = createServerFn({ method: "POST" })
       userId,
       kind: "system",
       body: minor
-        ? `Das Team hat dein Alter auf ${age} Jahre korrigiert. Die Furry Gallery ist erst ab 18, FSK-18-Inhalte sind für dich gesperrt.`
+        ? `Das Team hat dein Alter auf ${age} Jahre korrigiert. FSK-18-Inhalte sind für dich gesperrt.`
         : `Das Team hat dein Alter auf ${age} Jahre korrigiert.`,
     });
     return { age };
@@ -2181,3 +2200,13 @@ export const toggleCommentLike = createServerFn({ method: "POST" })
     `;
     return { liked, likeCount: count[0]?.n ?? 0 };
   });
+
+/** Signed-in viewer under 18 (FSK 18 posts are hidden for them entirely). */
+async function isMinorViewer(viewerId: string | null | undefined): Promise<boolean> {
+  if (!viewerId) return false;
+  const sql = await getSql();
+  const rows = await sql<{ birthdate: string }>`
+    select birthdate::text as birthdate from profiles where user_id = ${viewerId}
+  `;
+  return rows[0] ? ageFromBirthdate(asIsoDate(rows[0].birthdate)) < 18 : false;
+}

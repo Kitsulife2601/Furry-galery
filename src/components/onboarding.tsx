@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createProfile } from "@/lib/vela/server";
-import { isAdultBirthdate } from "@/lib/vela/age";
+import { MIN_AGE, isAllowedBirthdate } from "@/lib/vela/age";
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,7 @@ export function Onboarding() {
       setError("Bitte dein Geburtsdatum eintragen.");
       return;
     }
-    if (!isAdultBirthdate(birthdate)) {
+    if (!isAllowedBirthdate(birthdate)) {
       setStep("blocked");
       return;
     }
@@ -67,10 +67,10 @@ export function Onboarding() {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 text-center">
         <p className="text-xs tracking-[0.28em] text-accent uppercase">Furry Gallery</p>
-        <h1 className="mt-4 font-display text-3xl">Nur ab 18</h1>
+        <h1 className="mt-4 font-display text-3xl">Erst ab {MIN_AGE}</h1>
         <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-          Die Furry Gallery ist nur für Erwachsene. Mit diesem Geburtsdatum kannst du kein Profil
-          anlegen.
+          Ein Profil in der Furry Gallery gibt es ab {MIN_AGE} Jahren. Mit diesem Geburtsdatum
+          kannst du noch keins anlegen.
         </p>
       </div>
     );
@@ -80,7 +80,7 @@ export function Onboarding() {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6">
         <p className="text-xs tracking-[0.28em] text-accent uppercase">Schritt 1</p>
-        <h1 className="mt-3 font-display text-3xl">Bist du 18?</h1>
+        <h1 className="mt-3 font-display text-3xl">Wie alt bist du?</h1>
         <p className="mt-3 text-sm leading-relaxed text-fg-muted">
           Wir brauchen dein Geburtsdatum, bevor Profile, Uploads und Einstellungen frei werden. Das
           Datum bleibt privat — andere sehen nur dein Alter.
