@@ -17,6 +17,7 @@ const PROTECTED = new Set([
   "/notifications",
   "/feedback",
   "/shop",
+  "/uploads",
 ]);
 
 function promptCopy(pathname: string) {
@@ -30,6 +31,12 @@ function promptCopy(pathname: string) {
     return {
       title: "Feedback & Wünsche",
       body: "Melde dich an, damit das Team dir antworten kann.",
+    };
+  }
+  if (pathname === "/uploads") {
+    return {
+      title: "Deine Uploads",
+      body: "Deine Beiträge mit Aufrufen, Likes und Kommentaren. Dafür brauchst du ein Konto.",
     };
   }
   if (pathname === "/shop") {

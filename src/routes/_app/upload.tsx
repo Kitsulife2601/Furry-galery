@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ImagePlus } from "lucide-react";
 import { toast } from "sonner";
@@ -17,13 +17,14 @@ import { videoPoster } from "@/lib/vela/video-poster";
 import { FSK18_THRESHOLD, explicitScore, loadNsfwModel } from "@/lib/vela/nsfw-check";
 import { formatMb } from "@/lib/vela/media-limits";
 import { Button } from "@/components/ui/button";
-import { MY_UPLOADS_KEY, MyUploads } from "@/components/my-uploads";
+import { MY_UPLOADS_KEY, UploadsLink } from "@/components/my-uploads";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_app/upload")({ component: Upload });
 
 function Upload() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [preview, setPreview] = useState<string | null>(null);
   const [thumb, setThumb] = useState<string | null>(null);
@@ -140,7 +141,9 @@ function Upload() {
         queryClient.invalidateQueries({ queryKey: ["profile-posts"] }),
         queryClient.invalidateQueries({ queryKey: ["profile"] }),
       ]);
-      toast.success("Veröffentlicht. Du findest es unten bei deinen Uploads.");
+      toast.success("Veröffentlicht.", {
+        action: { label: "Deine Uploads", onClick: () => void navigate({ to: "/uploads" }) },
+      });
       // Stay here: empty the form for the next upload and show the new post in the list.
       setPreview(null);
       setThumb(null);
@@ -152,7 +155,6 @@ function Upload() {
       setProgress(null);
       setBusy(false);
       await queryClient.invalidateQueries({ queryKey: MY_UPLOADS_KEY });
-      document.getElementById("my-uploads")?.scrollIntoView({ behavior: "smooth" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       toast.error(
@@ -309,7 +311,7 @@ function Upload() {
             : "Veröffentlichen"}
       </Button>
 
-      <MyUploads />
+      <UploadsLink />
     </div>
   );
 }

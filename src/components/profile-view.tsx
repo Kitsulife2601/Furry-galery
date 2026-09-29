@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { bgStyle } from "@/lib/vela/bg-style";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban } from "lucide-react";
+import { Ban, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
@@ -58,7 +58,8 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
           "bg-swatch w-full overflow-hidden md:rounded-b-2xl",
           profile.bannerUrl ? "h-40 md:h-48" : "h-36 md:h-44",
         )}
-        data-bg={profile.backgroundId} style={bgStyle(profile.backgroundId)}
+        data-bg={profile.backgroundId}
+        style={bgStyle(profile.backgroundId)}
       >
         {profile.bannerUrl ? (
           <img src={profile.bannerUrl} alt="" className="h-full w-full object-cover" />
@@ -87,6 +88,13 @@ export function ProfileView({ profile, posts }: { profile: Profile; posts: PostC
                 {following ? "Folgst du" : "Folgen"}
               </Button>
             )}
+            {profile.isOwn ? (
+              <Button asChild size="sm" variant="secondary">
+                <Link to="/uploads">
+                  <BarChart3 className="size-4" /> Statistik
+                </Link>
+              </Button>
+            ) : null}
             {profile.isOwn ? null : (
               <ProfileMenu profile={profile} isAdmin={Boolean(session.profile?.isAdmin)} />
             )}

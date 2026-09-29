@@ -23,6 +23,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppShopRouteImport } from './routes/_app/shop'
 import { Route as AppUpdatesRouteImport } from './routes/_app/updates'
 import { Route as AppUploadRouteImport } from './routes/_app/upload'
+import { Route as AppUploadsRouteImport } from './routes/_app/uploads'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as AppUHandleRouteImport } from './routes/_app/u.$handle'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -100,6 +101,11 @@ const AppUploadRoute = AppUploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUploadsRoute = AppUploadsRouteImport.update({
+  id: '/uploads',
+  path: '/uploads',
+  getParentRoute: () => AppRoute,
+} as any)
 const ApiUploadRoute = ApiUploadRouteImport.update({
   id: '/api/upload',
   path: '/api/upload',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/shop': typeof AppShopRoute
   '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
+  '/uploads': typeof AppUploadsRoute
   '/api/upload': typeof ApiUploadRoute
   '/u/$handle': typeof AppUHandleRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/shop': typeof AppShopRoute
   '/updates': typeof AppUpdatesRoute
   '/upload': typeof AppUploadRoute
+  '/uploads': typeof AppUploadsRoute
   '/api/upload': typeof ApiUploadRoute
   '/': typeof AppIndexRoute
   '/u/$handle': typeof AppUHandleRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/_app/shop': typeof AppShopRoute
   '/_app/updates': typeof AppUpdatesRoute
   '/_app/upload': typeof AppUploadRoute
+  '/_app/uploads': typeof AppUploadsRoute
   '/api/upload': typeof ApiUploadRoute
   '/_app/': typeof AppIndexRoute
   '/_app/u/$handle': typeof AppUHandleRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/updates'
     | '/upload'
+    | '/uploads'
     | '/api/upload'
     | '/u/$handle'
     | '/api/auth/$'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/updates'
     | '/upload'
+    | '/uploads'
     | '/api/upload'
     | '/'
     | '/u/$handle'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/_app/shop'
     | '/_app/updates'
     | '/_app/upload'
+    | '/_app/uploads'
     | '/api/upload'
     | '/_app/'
     | '/_app/u/$handle'
@@ -387,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUploadRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/uploads': {
+      id: '/_app/uploads'
+      path: '/uploads'
+      fullPath: '/uploads'
+      preLoaderRoute: typeof AppUploadsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/api/upload': {
       id: '/api/upload'
       path: '/api/upload'
@@ -449,6 +468,7 @@ interface AppRouteChildren {
   AppShopRoute: typeof AppShopRoute
   AppUpdatesRoute: typeof AppUpdatesRoute
   AppUploadRoute: typeof AppUploadRoute
+  AppUploadsRoute: typeof AppUploadsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppUHandleRoute: typeof AppUHandleRoute
 }
@@ -463,6 +483,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppShopRoute: AppShopRoute,
   AppUpdatesRoute: AppUpdatesRoute,
   AppUploadRoute: AppUploadRoute,
+  AppUploadsRoute: AppUploadsRoute,
   AppIndexRoute: AppIndexRoute,
   AppUHandleRoute: AppUHandleRoute,
 }
