@@ -26,13 +26,7 @@ import {
   asNamePlate,
   asProfileEffect,
 } from "./decorations";
-import {
-  NAME_STYLES,
-  asNameStyle,
-  tierOn,
-  type RewardItem,
-  type RewardKind,
-} from "./rewards";
+import { NAME_STYLES, asNameStyle, tierOn, type RewardItem, type RewardKind } from "./rewards";
 import {
   DAILY_PAW_CAP,
   PAWS_PER_TICK,
@@ -256,36 +250,38 @@ function mapFeed(
   hideNsfw = false,
 ): PostCard[] {
   // Under 18: FSK 18 posts don't exist for them — not even the locked preview.
-  return rows.filter((row) => !(hideNsfw && row.nsfw)).map((row) => {
-    // Uploaders always see their own posts, verified or not.
-    const locked = Boolean(row.nsfw) && !canSeeNsfw && row.user_id !== viewerId;
-    return {
-      id: Number(row.id),
-      userId: row.user_id,
-      imageUrl: locked ? (row.preview_url ?? "") : row.image_url,
-      videoUrl: locked ? null : row.video_url,
-      caption: row.caption,
-      createdAt: asTime(row.created_at),
-      nsfw: Boolean(row.nsfw),
-      locked,
-      commentCount: Number(row.comment_count) || 0,
-      tags: (row.tags ?? []).filter((t): t is PostTag => POST_TAG_IDS.includes(t as PostTag)),
-      likeCount: Number(row.like_count) || 0,
-      liked: Boolean(row.liked),
-      author: {
-        displayName: row.display_name,
-        handle: row.handle,
-        avatarUrl: row.avatar_url,
-        relationshipStatus: isRelationship(row.relationship_status)
-          ? row.relationship_status
-          : "single",
-        age: ageFromBirthdate(asIsoDate(row.birthdate)),
-        decoration: asDecoration(row.avatar_decoration),
-        nameStyle: asNameStyle(row.name_style),
-        namePlate: asNamePlate(row.name_plate),
-      },
-    };
-  });
+  return rows
+    .filter((row) => !(hideNsfw && row.nsfw))
+    .map((row) => {
+      // Uploaders always see their own posts, verified or not.
+      const locked = Boolean(row.nsfw) && !canSeeNsfw && row.user_id !== viewerId;
+      return {
+        id: Number(row.id),
+        userId: row.user_id,
+        imageUrl: locked ? (row.preview_url ?? "") : row.image_url,
+        videoUrl: locked ? null : row.video_url,
+        caption: row.caption,
+        createdAt: asTime(row.created_at),
+        nsfw: Boolean(row.nsfw),
+        locked,
+        commentCount: Number(row.comment_count) || 0,
+        tags: (row.tags ?? []).filter((t): t is PostTag => POST_TAG_IDS.includes(t as PostTag)),
+        likeCount: Number(row.like_count) || 0,
+        liked: Boolean(row.liked),
+        author: {
+          displayName: row.display_name,
+          handle: row.handle,
+          avatarUrl: row.avatar_url,
+          relationshipStatus: isRelationship(row.relationship_status)
+            ? row.relationship_status
+            : "single",
+          age: ageFromBirthdate(asIsoDate(row.birthdate)),
+          decoration: asDecoration(row.avatar_decoration),
+          nameStyle: asNameStyle(row.name_style),
+          namePlate: asNamePlate(row.name_plate),
+        },
+      };
+    });
 }
 
 export const getMyProfile = createServerFn({ method: "GET" })
@@ -2276,4 +2272,149 @@ export const listMyUploads = createServerFn({ method: "GET" })
       likes: Number(r.likes),
       comments: Number(r.comments),
     }));
+  });
+
+// ---------------------------------------------------------------------------
+// Star rating pop-up
+
+/** Ask members whose profile is older than this; "Später" waits this long. */
+const RATING_AFTER_DAYS = 7;
+const RATING_LATER_DAYS = 30;
+
+/** Should the rating pop-up show for you right now? */
+export const ratingPromptDue = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<boolean> => {
+    const sql = await getSql();
+    const rows = await sql<{ due: boolean }>`
+      select (p.created_at <= now() - make_interval(days => ${RATING_AFTER_DAYS})
+              and p.banned_at is null
+              and not exists (select 1 from site_ratings r where r.user_id = p.user_id)
+              and (p.rating_prompt_later_at is null
+                   or p.rating_prompt_later_at <= now() - make_interval(days => ${RATING_LATER_DAYS})))
+             as due
+      from profiles p where p.user_id = ${context.userId}
+    `;
+    return Boolean(rows[0]?.due);
+  });
+
+export const submitRating = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      stars: z.number().int().min(1).max(5),
+      comment: z.string().trim().max(500).optional().default(""),
+    }),
+  )
+  .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    await requireAdult(context.userId);
+    const sql = await getSql();
+    await sql`
+      insert into site_ratings (user_id, stars, comment)
+      values (${context.userId}, ${data.stars}, ${data.comment ?? ""})
+      on conflict (user_id) do update
+        set stars = excluded.stars, comment = excluded.comment, updated_at = now()
+    `;
+    return { ok: true };
+  });
+
+/** "Später": ask again in a month. */
+export const postponeRating = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    await sql`update profiles set rating_prompt_later_at = now() where user_id = ${context.userId}`;
+    return { ok: true };
+  });
+
+export type RatingSummary = {
+  count: number;
+  average: number;
+  /** Index 0 = 1 star … index 4 = 5 stars. */
+  distribution: number[];
+  recent: {
+    stars: number;
+    comment: string;
+    updatedAt: string;
+    author: { displayName: string; handle: string };
+  }[];
+};
+
+/** Team: all ratings at a glance. */
+export const listRatings = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<RatingSummary> => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const [dist, recent] = await Promise.all([
+      sql<{ stars: number; n: number }>`
+        select stars, count(*)::int as n from site_ratings group by stars
+      `,
+      sql<{
+        stars: number;
+        comment: string;
+        updated_at: string;
+        display_name: string | null;
+        handle: string | null;
+      }>`
+        select r.stars, r.comment, r.updated_at::text as updated_at, p.display_name, p.handle
+        from site_ratings r left join profiles p on p.user_id = r.user_id
+        order by r.updated_at desc
+        limit 50
+      `,
+    ]);
+    const distribution = [0, 0, 0, 0, 0];
+    for (const d of dist) distribution[Number(d.stars) - 1] = Number(d.n);
+    const count = distribution.reduce((a, b) => a + b, 0);
+    const average = count ? distribution.reduce((sum, n, i) => sum + n * (i + 1), 0) / count : 0;
+    return {
+      count,
+      average,
+      distribution,
+      recent: recent.map((r) => ({
+        stars: Number(r.stars),
+        comment: r.comment,
+        updatedAt: asTime(r.updated_at),
+        author: {
+          displayName: r.display_name ?? "Gelöschtes Profil",
+          handle: r.handle ?? "—",
+        },
+      })),
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// "Was ist neu" pop-up
+
+/**
+ * Site updates you haven't seen yet (newest first). Members who never saw the
+ * pop-up get the last two weeks, so a new account doesn't see ancient news.
+ */
+export const unseenUpdates = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<UpdateItem[]> => {
+    const sql = await getSql();
+    const rows = await sql<{ id: number; title: string; body: string; created_at: string }>`
+      select a.id, a.title, a.body, a.created_at::text as created_at
+      from announcements a, profiles p
+      where p.user_id = ${context.userId}
+        and a.created_at > coalesce(p.updates_seen_at,
+                                    greatest(p.created_at, now() - interval '14 days'))
+      order by a.created_at desc
+      limit 5
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      title: r.title,
+      body: r.body,
+      createdAt: asTime(r.created_at),
+    }));
+  });
+
+export const markUpdatesSeen = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<{ ok: true }> => {
+    const sql = await getSql();
+    await sql`update profiles set updates_seen_at = now() where user_id = ${context.userId}`;
+    return { ok: true };
   });

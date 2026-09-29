@@ -11,6 +11,8 @@ import { InterestsDialog } from "@/components/interests";
 import { usePawTicker, usePaws } from "@/lib/vela/use-paws";
 import { LogoWordmark } from "@/components/logo";
 import { NotificationPopups } from "@/components/notification-popups";
+import { RatingPopup } from "@/components/rating-popup";
+import { UpdatesPopup } from "@/components/updates-popup";
 
 export function AppShell({
   profile,
@@ -85,6 +87,8 @@ export function AppShell({
         </div>
       </div>
       <NotificationPopups enabled={Boolean(profile) && !profile?.banned} />
+      <UpdatesPopup enabled={Boolean(profile) && !profile?.banned} />
+      <RatingPopup enabled={Boolean(profile) && !profile?.banned} />
       <BottomNav />
       {profile?.needsInterests && !interestsDone ? (
         <InterestsDialog onDone={() => setInterestsDone(true)} />

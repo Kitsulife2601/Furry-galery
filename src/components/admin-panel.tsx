@@ -13,6 +13,7 @@ import {
   dismissReports,
   listBanned,
   listFeedback,
+  listRatings,
   listFsk18Approvals,
   listProfileReports,
   listReports,
@@ -38,6 +39,7 @@ export function AdminSections() {
       <Reports />
       <ProfileReports />
       <Fsk18Approvals />
+      <Ratings />
       <FeedbackList />
       <PublishUpdate />
       <Bans />
@@ -680,6 +682,74 @@ function ApproveDialog({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Star ratings from the pop-up: average, distribution, latest comments. */
+function Ratings() {
+  const ratings = useQuery({ queryKey: ["admin-ratings"], queryFn: () => listRatings() });
+  const data = ratings.data;
+  const max = Math.max(1, ...(data?.distribution ?? [0]));
+  return (
+    <section className="mt-12">
+      <h2 className="font-display text-xl">Bewertungen</h2>
+      {ratings.isPending ? (
+        <Skeleton className="mt-4 h-24 w-full" />
+      ) : !data || data.count === 0 ? (
+        <p className="mt-3 text-sm text-fg-muted">
+          Noch keine Bewertungen. Das Popup erscheint Mitgliedern nach einer Woche.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-6 rounded-2xl border border-border bg-bg-elevated p-4">
+            <div>
+              <p className="font-display text-4xl tabular-nums">
+                {data.average.toLocaleString("de", { maximumFractionDigits: 1 })}
+              </p>
+              <p className="text-amber-400" aria-label={`${data.average.toFixed(1)} von 5 Sternen`}>
+                {"★".repeat(Math.round(data.average))}
+                <span className="text-fg-subtle">{"★".repeat(5 - Math.round(data.average))}</span>
+              </p>
+              <p className="text-xs text-fg-muted">{data.count} Bewertungen</p>
+            </div>
+            <ol className="min-w-40 flex-1 space-y-1">
+              {[5, 4, 3, 2, 1].map((n) => {
+                const count = data.distribution[n - 1] ?? 0;
+                return (
+                  <li
+                    key={n}
+                    className="flex items-center gap-2 text-xs"
+                    title={`${count} × ${n} Sterne`}
+                  >
+                    <span className="w-6 text-fg-muted tabular-nums">{n}★</span>
+                    <span className="h-2 flex-1 overflow-hidden rounded-full bg-bg-subtle">
+                      <span
+                        className="block h-full rounded-full bg-amber-400"
+                        style={{ width: `${(count / max) * 100}%` }}
+                      />
+                    </span>
+                    <span className="w-6 text-right text-fg-muted tabular-nums">{count}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+          <ul className="mt-4 space-y-2">
+            {data.recent
+              .filter((r) => r.comment)
+              .map((r, i) => (
+                <li key={i} className="rounded-xl border border-border p-3 text-sm">
+                  <p className="text-xs text-fg-muted">
+                    <span className="text-amber-400">{"★".repeat(r.stars)}</span> · @
+                    {r.author.handle} · {dateFormat.format(new Date(r.updatedAt))}
+                  </p>
+                  <p className="mt-1 whitespace-pre-line">{r.comment}</p>
+                </li>
+              ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 
