@@ -1,7 +1,13 @@
 /** In-app notifications (server-only). "System" messages have no actor. */
 import { getSql } from "@/lib/db";
 
-export type NotificationKind = "like" | "comment" | "follow" | "system";
+export type NotificationKind =
+  | "like"
+  | "comment"
+  | "follow"
+  | "system"
+  | "reply"
+  | "comment_like";
 
 export async function notify(opts: {
   userId: string;

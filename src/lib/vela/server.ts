@@ -1166,6 +1166,9 @@ export const unlinkDiscord = createServerFn({ method: "POST" })
 
 type CommentRow = {
   id: number;
+  parent_id: number | null;
+  like_count: number;
+  liked: boolean;
   body: string;
   created_at: string;
   user_id: string;
@@ -1194,7 +1197,10 @@ export const listComments = createServerFn({ method: "GET" })
     const sql = await getSql();
     const [rows, admin, owner] = await Promise.all([
       sql<CommentRow>`
-        select c.id, c.body, c.created_at::text as created_at, c.user_id,
+        select c.id, c.parent_id, c.body, c.created_at::text as created_at, c.user_id,
+               (select count(*)::int from comment_likes l where l.comment_id = c.id) as like_count,
+               exists(select 1 from comment_likes l
+                      where l.comment_id = c.id and l.user_id = ${viewerId}) as liked,
                pr.display_name, pr.handle,
                case when pr.avatar_url is null then null
                     else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url
@@ -1212,6 +1218,10 @@ export const listComments = createServerFn({ method: "GET" })
       locked: false,
       comments: rows.map((r) => ({
         id: Number(r.id),
+        parentId: r.parent_id === null ? null : Number(r.parent_id),
+        likeCount: Number(r.like_count),
+        liked: Boolean(r.liked),
+        isOwn: Boolean(viewerId) && r.user_id === viewerId,
         body: r.body,
         createdAt: asTime(r.created_at),
         canDelete: Boolean(viewerId) && (r.user_id === viewerId || postOwner === viewerId || admin),
@@ -1223,7 +1233,12 @@ export const listComments = createServerFn({ method: "GET" })
 export const addComment = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
-    z.object({ postId: z.number().int().positive(), body: z.string().trim().min(1).max(300) }),
+    z.object({
+      postId: z.number().int().positive(),
+      body: z.string().trim().min(1).max(300),
+      /** Answer to this comment (replies to replies go under the same top comment). */
+      replyTo: z.number().int().positive().optional(),
+    }),
   )
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     await requireAdult(context.userId);
@@ -1231,14 +1246,35 @@ export const addComment = createServerFn({ method: "POST" })
       throw new Error("Dieses Bild kannst du nicht kommentieren.");
     }
     const sql = await getSql();
+    let parentId: number | null = null;
+    let replyAuthor: string | null = null;
+    if (data.replyTo) {
+      const target = await sql<{ id: number; parent_id: number | null; user_id: string }>`
+        select id, parent_id, user_id from comments
+        where id = ${data.replyTo} and post_id = ${data.postId}
+      `;
+      if (!target[0]) throw new Error("Der Kommentar existiert nicht mehr.");
+      parentId = Number(target[0].parent_id ?? target[0].id);
+      replyAuthor = target[0].user_id;
+    }
     await sql`
-      insert into comments (post_id, user_id, body)
-      values (${data.postId}, ${context.userId}, ${data.body})
+      insert into comments (post_id, user_id, body, parent_id)
+      values (${data.postId}, ${context.userId}, ${data.body}, ${parentId})
     `;
+    if (replyAuthor) {
+      await notify({
+        userId: replyAuthor,
+        kind: "reply",
+        actorId: context.userId,
+        postId: data.postId,
+        body: data.body.slice(0, 140),
+      });
+    }
     const owner = await sql<{
       user_id: string;
     }>`select user_id from posts where id = ${data.postId}`;
-    if (owner[0]) {
+    // The post owner hears about it too, unless they were the one answered.
+    if (owner[0] && owner[0].user_id !== replyAuthor) {
       await notify({
         userId: owner[0].user_id,
         kind: "comment",
@@ -1436,7 +1472,7 @@ export const deleteProfile = createServerFn({ method: "POST" })
 
 export type NotificationItem = {
   id: number;
-  kind: "like" | "comment" | "follow" | "system";
+  kind: "like" | "comment" | "follow" | "system" | "reply" | "comment_like";
   body: string;
   createdAt: string;
   read: boolean;
@@ -2107,4 +2143,41 @@ export const adminGetBirthdate = createServerFn({ method: "GET" })
     `;
     if (!rows[0]) throw new Error("Profil nicht gefunden.");
     return { birthdate: asIsoDate(rows[0].birthdate) };
+  });
+
+/** Like / unlike a comment. */
+export const toggleCommentLike = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.number().int().positive() }))
+  .handler(async ({ context, data }): Promise<{ liked: boolean; likeCount: number }> => {
+    await requireAdult(context.userId);
+    const sql = await getSql();
+    const target = await sql<{ post_id: number; user_id: string }>`
+      select post_id, user_id from comments where id = ${data.id}
+    `;
+    if (!target[0]) throw new Error("Der Kommentar existiert nicht mehr.");
+    if (!(await canViewPost(Number(target[0].post_id), context.userId))) {
+      throw new Error("Diesen Kommentar kannst du nicht liken.");
+    }
+    const removed = await sql<{ comment_id: number }>`
+      delete from comment_likes where user_id = ${context.userId} and comment_id = ${data.id}
+      returning comment_id
+    `;
+    const liked = removed.length === 0;
+    if (liked) {
+      await sql`
+        insert into comment_likes (user_id, comment_id) values (${context.userId}, ${data.id})
+        on conflict do nothing
+      `;
+      await notify({
+        userId: target[0].user_id,
+        kind: "comment_like",
+        actorId: context.userId,
+        postId: Number(target[0].post_id),
+      });
+    }
+    const count = await sql<CountRow>`
+      select count(*)::int as n from comment_likes where comment_id = ${data.id}
+    `;
+    return { liked, likeCount: count[0]?.n ?? 0 };
   });

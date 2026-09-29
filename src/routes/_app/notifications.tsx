@@ -39,10 +39,19 @@ function text(n: NotificationItem): string {
   if (n.kind === "like") return "gefällt dein Bild.";
   if (n.kind === "follow") return "folgt dir jetzt.";
   if (n.kind === "comment") return `hat kommentiert: „${n.body}“`;
+  if (n.kind === "reply") return `hat dir geantwortet: „${n.body}“`;
+  if (n.kind === "comment_like") return "gefällt dein Kommentar.";
   return n.body;
 }
 
-const ICONS = { like: Heart, comment: MessageCircle, follow: UserPlus, system: ShieldAlert };
+const ICONS = {
+  like: Heart,
+  comment: MessageCircle,
+  follow: UserPlus,
+  system: ShieldAlert,
+  reply: MessageCircle,
+  comment_like: Heart,
+};
 
 function Notifications() {
   const queryClient = useQueryClient();
@@ -132,7 +141,7 @@ function Notifications() {
                   <span
                     className={cn(
                       "absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full border-2 border-bg",
-                      n.kind === "like" ? "bg-heart text-white" : "bg-accent text-accent-fg",
+                      n.kind === "like" || n.kind === "comment_like" ? "bg-heart text-white" : "bg-accent text-accent-fg",
                     )}
                   >
                     <Icon className="size-2.5" strokeWidth={2.5} />
