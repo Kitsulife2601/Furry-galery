@@ -622,7 +622,8 @@ export const recordView = createServerFn({ method: "POST" })
     await sql`
       insert into post_views (user_id, post_id)
       select ${context.userId}, id from posts where id = ${data.postId}
-      on conflict (user_id, post_id) do update set seen_at = now()
+      on conflict (user_id, post_id) do update
+        set seen_at = now(), view_count = post_views.view_count + 1
     `;
     return { ok: true };
   });
@@ -2210,3 +2211,69 @@ async function isMinorViewer(viewerId: string | null | undefined): Promise<boole
   `;
   return rows[0] ? ageFromBirthdate(asIsoDate(rows[0].birthdate)) < 18 : false;
 }
+
+export type MyUpload = {
+  id: number;
+  imageUrl: string;
+  isVideo: boolean;
+  caption: string;
+  createdAt: string;
+  nsfw: boolean;
+  /** Members who looked at it (without you). */
+  viewers: number;
+  /** Members who came back to it more than once. */
+  repeatViewers: number;
+  /** All views together. */
+  views: number;
+  likes: number;
+  comments: number;
+};
+
+/** Your own uploads with their statistics (upload page). */
+export const listMyUploads = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<MyUpload[]> => {
+    const sql = await getSql();
+    const rows = await sql<{
+      id: number;
+      video_url: string | null;
+      caption: string;
+      created_at: string;
+      nsfw: boolean;
+      viewers: number;
+      repeat_viewers: number;
+      views: number;
+      likes: number;
+      comments: number;
+    }>`
+      select p.id, p.video_url, p.caption, p.created_at::text as created_at, p.nsfw,
+             coalesce(v.viewers, 0) as viewers, coalesce(v.repeat_viewers, 0) as repeat_viewers,
+             coalesce(v.views, 0) as views,
+             (select count(*)::int from likes l where l.post_id = p.id) as likes,
+             (select count(*)::int from comments c where c.post_id = p.id) as comments
+      from posts p
+      left join lateral (
+        select count(*)::int as viewers,
+               count(*) filter (where pv.view_count > 1)::int as repeat_viewers,
+               coalesce(sum(pv.view_count), 0)::int as views
+        from post_views pv
+        where pv.post_id = p.id and pv.user_id <> p.user_id
+      ) v on true
+      where p.user_id = ${context.userId}
+      order by p.created_at desc
+      limit 200
+    `;
+    return rows.map((r) => ({
+      id: Number(r.id),
+      imageUrl: `/api/media/post/${r.id}`,
+      isVideo: Boolean(r.video_url),
+      caption: r.caption,
+      createdAt: asTime(r.created_at),
+      nsfw: Boolean(r.nsfw),
+      viewers: Number(r.viewers),
+      repeatViewers: Number(r.repeat_viewers),
+      views: Number(r.views),
+      likes: Number(r.likes),
+      comments: Number(r.comments),
+    }));
+  });
