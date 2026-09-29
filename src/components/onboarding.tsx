@@ -3,7 +3,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createProfile } from "@/lib/vela/server";
 import { MIN_AGE, isAllowedBirthdate } from "@/lib/vela/age";
 import { RELATIONSHIP_STATUSES } from "@/lib/vela/types";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/sign-out-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +74,14 @@ export function Onboarding() {
           Ein Profil in der Furry Gallery gibt es ab {MIN_AGE} Jahren. Mit diesem Geburtsdatum
           kannst du noch keins anlegen.
         </p>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <Button asChild className="w-full max-w-60">
+            <Link to="/">Zur Startseite</Link>
+          </Button>
+          <div className="w-full max-w-60">
+            <SignOutButton />
+          </div>
+        </div>
       </div>
     );
   }
