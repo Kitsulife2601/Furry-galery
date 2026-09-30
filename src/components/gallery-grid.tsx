@@ -15,12 +15,16 @@ export function GalleryGrid({ posts, emptyLabel }: { posts: PostCard[]; emptyLab
 
   return (
     <>
-      <ul className="grid grid-cols-3 gap-0.5">
-        {posts.map((post) => (
-          <li key={post.id} className="bg-bg">
+      <ul className="grid grid-cols-3 gap-1 px-1 pb-3 md:gap-1.5 md:px-5">
+        {posts.map((post, index) => (
+          <li
+            key={post.id}
+            className="gallery-cell overflow-hidden rounded-md bg-bg-subtle md:rounded-lg"
+            style={{ animationDelay: `${Math.min(index, 14) * 36}ms` }}
+          >
             <button
               type="button"
-              className="relative block aspect-3/4 w-full overflow-hidden"
+              className="gallery-tile relative block aspect-3/4 w-full overflow-hidden"
               onClick={() => setActiveId(post.id)}
               aria-label={post.locked ? "FSK-18-Bild (gesperrt)" : undefined}
             >

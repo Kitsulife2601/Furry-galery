@@ -991,3 +991,532 @@ input[type="search"]::-webkit-search-cancel-button {
   bottom: -8%;
   animation-name: fx-rise;
 }
+/* ---------------------------------------------------------------------------
+   Motion polish — softer curves, living photos, glass chrome.
+   Later keyframes replace the mechanical ones above. */
+:root {
+  --ease-silk: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-breathe: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+.feed-scroller {
+  scroll-snap-type: y mandatory;
+}
+
+.feed-slide {
+  scroll-snap-stop: normal;
+}
+
+.feed-frame {
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.28);
+}
+
+@media (min-width: 768px) {
+  .feed-frame {
+    border-radius: 28px;
+    box-shadow:
+      0 30px 80px rgb(0 0 0 / 0.38),
+      inset 0 0 0 1px color-mix(in oklab, white 12%, transparent);
+  }
+}
+
+.feed-alive {
+  animation: feed-alive 16s var(--ease-breathe) infinite alternate;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@keyframes feed-alive {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.045);
+  }
+}
+
+.heart-burst {
+  animation: heart-pop 780ms var(--ease-silk) forwards;
+}
+
+.heart-burst-ring {
+  animation: heart-ring 780ms var(--ease-silk) forwards;
+}
+
+@keyframes heart-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+    filter: blur(8px);
+  }
+  38% {
+    opacity: 1;
+    transform: translate(-50%, -46%) scale(1.08);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -62%) scale(1.22);
+    filter: blur(1px);
+  }
+}
+
+@keyframes heart-ring {
+  0% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.7);
+  }
+}
+
+.like-pop {
+  animation: like-pop 460ms var(--ease-silk);
+}
+
+@keyframes like-pop {
+  0% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.glass-bar {
+  background: color-mix(in oklab, var(--color-bg) 58%, transparent);
+  border-color: color-mix(in oklab, var(--color-fg) 12%, transparent);
+  box-shadow: 0 -16px 40px rgb(0 0 0 / 0.22);
+  backdrop-filter: blur(18px) saturate(1.35);
+}
+
+.glass-chip {
+  background: color-mix(in oklab, var(--color-bg) 55%, transparent);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
+  backdrop-filter: blur(16px) saturate(1.3);
+  transition:
+    transform 220ms var(--ease-silk),
+    border-color 220ms var(--ease-silk),
+    background-color 220ms var(--ease-silk);
+}
+
+.glass-chip:active {
+  transform: scale(0.97);
+}
+
+.nav-icon {
+  transition: scale 320ms var(--ease-silk), color 220ms ease;
+}
+
+.nav-dot {
+  transform: scale(0);
+  opacity: 0;
+  transition:
+    transform 320ms var(--ease-silk),
+    opacity 220ms ease;
+}
+
+.nav-dot-on {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.page-rise {
+  animation: page-rise 520ms var(--ease-silk) both;
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gallery-cell {
+  animation: tile-in 560ms var(--ease-silk) both;
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gallery-tile {
+  transition: scale 180ms var(--ease-silk);
+}
+
+.gallery-tile:active {
+  scale: 0.98;
+}
+
+.gallery-tile img,
+.gallery-tile video {
+  transition: transform 720ms var(--ease-silk);
+}
+
+@media (hover: hover) {
+  .gallery-tile:hover img,
+  .gallery-tile:hover video {
+    transform: scale(1.06);
+  }
+}
+
+.viewer-backdrop {
+  background: color-mix(in oklab, var(--color-bg) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  animation: viewer-fade 240ms ease-out both;
+}
+
+.viewer-sheet {
+  box-shadow:
+    0 28px 80px rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px color-mix(in oklab, white 8%, transparent);
+  animation: viewer-sheet 460ms var(--ease-silk) both;
+}
+
+@keyframes viewer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes viewer-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.splash-stage {
+  position: relative;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 42%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 46%),
+    var(--color-bg);
+}
+
+.splash-glow {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in oklab, var(--color-accent) 42%, transparent), transparent 68%);
+  filter: blur(6px);
+  animation: splash-glow 3.2s var(--ease-breathe) infinite;
+}
+
+.splash-emblem {
+  position: relative;
+  animation: splash-breathe 3.2s var(--ease-breathe) infinite;
+}
+
+@keyframes splash-breathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes splash-glow {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.85;
+  }
+}
+
+/* Softer decoration & particle motion */
+.deco-flicker {
+  animation: deco-flicker 1.7s var(--ease-breathe) infinite;
+}
+.deco-twinkle {
+  animation: deco-twinkle 3.4s var(--ease-breathe) infinite;
+}
+.deco-petal {
+  animation: deco-petal 7s var(--ease-breathe) infinite;
+}
+.deco-rise {
+  animation: deco-rise 5.4s var(--ease-silk) infinite;
+}
+.deco-pulse {
+  animation: deco-pulse 3.6s var(--ease-breathe) infinite;
+}
+.deco-ear {
+  animation: deco-ear 4.8s var(--ease-breathe) infinite;
+}
+.deco-flap,
+.fx-moth-flap {
+  animation: deco-flap 1.05s var(--ease-breathe) infinite;
+  transform-origin: center;
+}
+.fx-particle {
+  animation-duration: 13s;
+  animation-timing-function: cubic-bezier(0.37, 0.02, 0.45, 1);
+}
+.fx-moon {
+  animation-duration: 8s;
+}
+.fx-aurora,
+.fx-nebula {
+  animation-timing-function: var(--ease-breathe);
+}
+[class*="name-"] > .name-fill {
+  animation-duration: 5.2s;
+  animation-timing-function: var(--ease-breathe);
+  animation-direction: alternate;
+}
+.name-welle > span {
+  animation-duration: 2.2s;
+  animation-timing-function: var(--ease-breathe);
+}
+
+@keyframes deco-flicker {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+    opacity: 0.88;
+  }
+  50% {
+    transform: scale(1.05, 1.1) translate3d(0, -3%, 0);
+    opacity: 1;
+  }
+}
+@keyframes deco-twinkle {
+  0%,
+  100% {
+    transform: scale(0.62);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes deco-petal {
+  0% {
+    transform: translate3d(0, -6px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  42% {
+    transform: translate3d(12px, 46px, 0) rotate(70deg);
+  }
+  72% {
+    transform: translate3d(-8px, 92px, 0) rotate(170deg);
+  }
+  100% {
+    transform: translate3d(10px, 132px, 0) rotate(260deg);
+    opacity: 0;
+  }
+}
+@keyframes deco-rise {
+  0% {
+    transform: translate3d(0, 4px, 0);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(6px, -44px, 0);
+    opacity: 0;
+  }
+}
+@keyframes deco-pulse {
+  0%,
+  100% {
+    transform: scale(0.98);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.035);
+    opacity: 1;
+  }
+}
+@keyframes deco-ear {
+  0%,
+  72%,
+  100% {
+    transform: rotate(0deg);
+  }
+  80% {
+    transform: rotate(-5deg);
+  }
+  88% {
+    transform: rotate(3.5deg);
+  }
+  94% {
+    transform: rotate(-1.5deg);
+  }
+}
+@keyframes deco-flap {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.46);
+  }
+}
+@keyframes fx-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  38% {
+    transform: translate3d(16px, 150px, 0) rotate(80deg);
+  }
+  70% {
+    transform: translate3d(-18px, 300px, 0) rotate(210deg);
+  }
+  100% {
+    transform: translate3d(8px, 440px, 0) rotate(330deg);
+    opacity: 0;
+  }
+}
+@keyframes fx-twinkle-fall {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  48% {
+    transform: translate3d(10px, 150px, 0) scale(1.05);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(-8px, 390px, 0) scale(0.7);
+    opacity: 0;
+  }
+}
+@keyframes fx-rise {
+  0% {
+    transform: translate3d(0, 8px, 0) scale(0.85);
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate3d(-10px, -170px, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(14px, -400px, 0) scale(1.04);
+    opacity: 0;
+  }
+}
+@keyframes fx-moth-flap {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.48);
+  }
+}
+@keyframes name-wave {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.14em);
+  }
+}
+@keyframes fx-aurora {
+  from {
+    transform: translate3d(-6%, 0, 0) skewY(-3deg) scaleY(0.9);
+  }
+  to {
+    transform: translate3d(6%, 0, 0) skewY(3deg) scaleY(1.12);
+  }
+}
+@keyframes fx-orbit {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-48px, 28px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-alive,
+  .heart-burst,
+  .heart-burst-ring,
+  .like-pop,
+  .page-rise,
+  .gallery-cell,
+  .viewer-backdrop,
+  .viewer-sheet,
+  .splash-emblem,
+  .splash-glow,
+  .deco-ring,
+  .deco-flicker,
+  .deco-twinkle,
+  .deco-petal,
+  .deco-rise,
+  .deco-pulse,
+  .deco-ear,
+  .deco-flap,
+  .fx-moth-flap,
+  .fx-moon,
+  .fx-aurora,
+  .fx-starfield,
+  .fx-galaxy-core,
+  .fx-moonlet,
+  .fx-nebula,
+  .name-spark,
+  [class*="name-"] > .name-fill,
+  .name-welle > span,
+  .plate-perlmutt {
+    animation: none !important;
+  }
+  .gallery-tile img,
+  .gallery-tile video,
+  .nav-icon,
+  .nav-dot {
+    transition: none;
+  }
+}

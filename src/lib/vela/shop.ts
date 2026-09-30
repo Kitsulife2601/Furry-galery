@@ -12,6 +12,8 @@ export type ShopKind = "background" | "plate" | RewardKind;
 export const PAWS_PER_TICK = 1;
 export const TICK_SECONDS = 60;
 export const DAILY_PAW_CAP = 120;
+/** Extra Pfoten for opening the gallery, once per Berlin day. */
+export const DAILY_GIFT = 8;
 
 /** Backgrounds that cost Pfoten; every other background is free. */
 export const PREMIUM_BACKGROUNDS: Record<string, number> = {

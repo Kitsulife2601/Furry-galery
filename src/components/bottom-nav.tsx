@@ -44,7 +44,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg/90 backdrop-blur-md md:hidden"
+      className="glass-bar fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
@@ -60,15 +60,19 @@ export function BottomNav() {
                 to={item.to}
                 aria-label={item.label}
                 className={cn(
-                  "flex h-14 flex-col items-center justify-center gap-1 text-[11px]",
+                  "flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition-colors duration-300",
                   active ? "text-fg" : "text-fg-subtle",
                 )}
               >
                 <span className="relative">
-                  <Icon className="size-5" strokeWidth={active ? 2.2 : 1.7} />
+                  <Icon
+                    className={cn("nav-icon size-5", active && "scale-110")}
+                    strokeWidth={active ? 2.2 : 1.7}
+                  />
                   {item.to === "/notifications" ? <UnreadBadge count={unread} /> : null}
                 </span>
                 {item.label}
+                <span className={cn("nav-dot h-0.5 w-3 rounded-full bg-accent", active && "nav-dot-on")} />
               </Link>
             </li>
           );
@@ -100,12 +104,15 @@ export function SideNav({ hasProfile }: { hasProfile: boolean }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex h-11 items-center gap-3 rounded-lg px-3 text-sm",
-                  active ? "bg-bg-subtle text-fg" : "text-fg-muted hover:bg-bg-subtle/60",
+                  "flex h-11 items-center gap-3 rounded-xl px-3 text-sm transition-[background-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  active ? "bg-bg-subtle text-fg" : "text-fg-muted hover:bg-bg-subtle/70",
                 )}
               >
                 <span className="relative">
-                  <Icon className="size-4" strokeWidth={active ? 2.2 : 1.7} />
+                  <Icon
+                    className={cn("nav-icon size-4", active && "scale-110")}
+                    strokeWidth={active ? 2.2 : 1.7}
+                  />
                   {item.to === "/notifications" ? <UnreadBadge count={unread} /> : null}
                 </span>
                 {item.label}

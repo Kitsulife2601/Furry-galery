@@ -3,12 +3,15 @@ import test from "node:test";
 import { isUnlocked, nextTier, REWARD_TIERS, unlockDay } from "./rewards.ts";
 import { AVATAR_DECORATIONS, PROFILE_EFFECTS } from "./decorations.ts";
 
-test("every frame and effect is a reward exactly once", () => {
-  for (const d of AVATAR_DECORATIONS)
-    assert.ok(Number.isFinite(unlockDay("decoration", d.id)), d.id);
-  for (const e of PROFILE_EFFECTS) assert.ok(Number.isFinite(unlockDay("effect", e.id)), e.id);
+test("rewards point at real frames/effects, each only once (the rest is shop-only)", () => {
+  const known = new Set([
+    ...AVATAR_DECORATIONS.map((d) => `decoration:${d.id}`),
+    ...PROFILE_EFFECTS.map((e) => `effect:${e.id}`),
+  ]);
   const keys = REWARD_TIERS.flatMap((t) => t.items.map((i) => `${i.kind}:${i.id}`));
+  for (const key of keys) if (!key.startsWith("name:")) assert.ok(known.has(key), key);
   assert.equal(new Set(keys).size, keys.length);
+  assert.equal(unlockDay("decoration", "pfoten"), 1);
 });
 
 test("unlocking by active days; the team has everything", () => {

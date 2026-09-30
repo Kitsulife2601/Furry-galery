@@ -20,7 +20,7 @@ import { NamePlate } from "@/components/name-plate";
 import { DecoratedAvatar } from "@/components/avatar-decoration";
 import { cn } from "@/lib/utils";
 
-export function FeedCard({ post }: { post: PostCard }) {
+export function FeedCard({ post, spotlight = false }: { post: PostCard; spotlight?: boolean }) {
   const lastTap = useRef(0);
   const [burst, setBurst] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -71,7 +71,7 @@ export function FeedCard({ post }: { post: PostCard }) {
       patchPostInCaches(queryClient, { ...post, liked: result.liked, likeCount: result.likeCount });
       if (result.liked) {
         setBurst(true);
-        window.setTimeout(() => setBurst(false), 500);
+        window.setTimeout(() => setBurst(false), 780);
       }
     } catch (err) {
       toast.error(memberErrorMessage(err, "Like fehlgeschlagen."));
@@ -88,7 +88,7 @@ export function FeedCard({ post }: { post: PostCard }) {
 
   return (
     <article ref={slideRef} className="feed-slide relative flex items-center justify-center bg-bg">
-      <div className="relative h-full w-full max-w-lg overflow-hidden bg-bg-elevated md:max-h-[min(100dvh,920px)]">
+      <div className="feed-frame relative h-full w-full max-w-lg overflow-hidden bg-bg-elevated md:max-h-[min(100dvh,920px)]">
         {post.locked ? (
           <>
             <PostImage post={post} className="absolute inset-0 h-full w-full" />
@@ -113,13 +113,22 @@ export function FeedCard({ post }: { post: PostCard }) {
                 src={post.imageUrl}
                 alt={post.caption || `Bild von ${post.author.displayName}`}
                 className="h-full w-full"
+                alive
               />
             )}
           </button>
         )}
         {post.nsfw ? <Fsk18Badge locked={post.locked} /> : null}
+        {spotlight ? (
+          <p className="pointer-events-none absolute top-28 left-4 z-10 rounded-full bg-bg/60 px-2.5 py-1 text-[11px] tracking-wide text-on-media backdrop-blur-md">
+            Heute im Licht
+          </p>
+        ) : null}
         {burst ? (
-          <Heart className="pointer-events-none absolute top-1/2 left-1/2 size-20 -translate-x-1/2 -translate-y-1/2 fill-on-media text-on-media drop-shadow-lg" />
+          <>
+            <span className="heart-burst-ring pointer-events-none absolute top-1/2 left-1/2 size-28 rounded-full border border-on-media/70" />
+            <Heart className="heart-burst pointer-events-none absolute top-1/2 left-1/2 size-20 fill-on-media text-on-media drop-shadow-[0_10px_24px_rgb(0_0_0/0.35)]" />
+          </>
         ) : null}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-bg/90 via-bg/40 to-transparent" />
@@ -148,7 +157,11 @@ export function FeedCard({ post }: { post: PostCard }) {
             aria-label="Like"
           >
             <Heart
-              className={cn("size-8", post.liked && "fill-heart text-heart")}
+              className={cn(
+                "nav-icon size-8",
+                post.liked && "fill-heart text-heart",
+                burst && "like-pop",
+              )}
               strokeWidth={1.7}
             />
             <span className="text-xs tabular-nums">{post.likeCount}</span>
