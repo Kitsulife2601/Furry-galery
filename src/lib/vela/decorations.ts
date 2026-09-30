@@ -2,7 +2,7 @@
  * Avatar decorations (animated rings/frames), profile effects and name plates.
  * The first ones unlock with active days (rewards.ts); the rest are shop-only.
  */
-import { genItem } from "./catalog";
+import { genItem } from "./catalog.ts";
 export const AVATAR_DECORATIONS = [
   { id: "flammen", label: "Flammen" },
   { id: "neon", label: "Neon" },

@@ -69,7 +69,7 @@ function Explore() {
                         params={{ handle: person.handle }}
                         className="flex w-16 flex-col items-center gap-2"
                       >
-                        <span className="size-14 overflow-hidden rounded-full bg-bg-subtle">
+                        <span className="size-14 overflow-hidden rounded-full bg-bg-subtle ring-1 ring-border transition-[scale,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-105 hover:ring-accent/60">
                           {person.avatarUrl ? (
                             <img
                               src={person.avatarUrl}

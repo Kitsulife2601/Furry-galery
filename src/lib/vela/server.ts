@@ -26,8 +26,9 @@ import {
   asNamePlate,
   asProfileEffect,
 } from "./decorations";
-import { NAME_STYLES, asNameStyle, tierOn, type RewardItem, type RewardKind } from "./rewards";
+import { NAME_STYLES, asNameStyle, nextTier, tierOn, type RewardItem, type RewardKind } from "./rewards";
 import {
+  DAILY_GIFT,
   DAILY_PAW_CAP,
   PAWS_PER_TICK,
   TICK_SECONDS,
@@ -1836,7 +1837,66 @@ function isShopItem(kind: ShopKind, id: string): boolean {
 
 const SHOP_KIND = z.enum(["background", "decoration", "effect", "name", "plate"]);
 
-export type PawStatus = { paws: number; today: number; cap: number };
+export type PawStatus = {
+  paws: number;
+  today: number;
+  cap: number;
+  /** Consecutive Berlin days ending today or yesterday. */
+  streak: number;
+  /** The once-a-day opening gift is still waiting. */
+  giftReady: boolean;
+  /** Next active-day reward, if any remain. */
+  nextReward: { inDays: number; label: string } | null;
+};
+
+async function streakOf(userId: string): Promise<number> {
+  const sql = await getSql();
+  const rows = await sql<{ n: number }>`
+    with marked as (
+      select day, (day - (row_number() over (order by day))::int) as grp
+      from active_days
+      where user_id = ${userId}
+    ),
+    islands as (
+      select max(day) as end_day, count(*)::int as n
+      from marked
+      group by grp
+    )
+    select coalesce((
+      select n from islands
+      where end_day >= (now() at time zone 'Europe/Berlin')::date - 1
+      order by end_day desc
+      limit 1
+    ), 0)::int as n
+  `;
+  return Number(rows[0]?.n ?? 0);
+}
+
+async function readPawStatus(userId: string): Promise<PawStatus> {
+  const sql = await getSql();
+  const [rows, streak, activeDays] = await Promise.all([
+    sql<{ paws: number; today: number; gift_ready: boolean }>`
+      select paws,
+             case when paws_day = (now() at time zone 'Europe/Berlin')::date
+                  then paws_today else 0 end as today,
+             gift_day is distinct from (now() at time zone 'Europe/Berlin')::date as gift_ready
+      from profiles where user_id = ${userId}
+    `,
+    streakOf(userId),
+    countActiveDays(userId),
+  ]);
+  const tier = nextTier(activeDays);
+  return {
+    paws: Number(rows[0]?.paws ?? 0),
+    today: Number(rows[0]?.today ?? 0),
+    cap: DAILY_PAW_CAP,
+    streak,
+    giftReady: Boolean(rows[0]?.gift_ready ?? false),
+    nextReward: tier
+      ? { inDays: Math.max(0, tier.day - activeDays), label: rewardLabel(tier.items[0]!) }
+      : null,
+  };
+}
 
 /**
  * Balance plus today's earnings. With `tick`, the client reports a minute on
@@ -1864,17 +1924,23 @@ export const collectPaws = createServerFn({ method: "POST" })
                or paws_today < ${DAILY_PAW_CAP})
       `;
     }
-    const rows = await sql<{ paws: number; today: number }>`
-      select paws,
-             case when paws_day = (now() at time zone 'Europe/Berlin')::date
-                  then paws_today else 0 end as today
-      from profiles where user_id = ${context.userId}
+    return readPawStatus(context.userId);
+  });
+
+/** Eight Pfoten for showing up, once per Berlin day. Does not eat the minute cap. */
+export const claimDailyGift = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<PawStatus> => {
+    const sql = await getSql();
+    await sql`
+      update profiles
+      set paws = paws + ${DAILY_GIFT},
+          gift_day = (now() at time zone 'Europe/Berlin')::date
+      where user_id = ${context.userId}
+        and banned_at is null
+        and gift_day is distinct from (now() at time zone 'Europe/Berlin')::date
     `;
-    return {
-      paws: Number(rows[0]?.paws ?? 0),
-      today: Number(rows[0]?.today ?? 0),
-      cap: DAILY_PAW_CAP,
-    };
+    return readPawStatus(context.userId);
   });
 
 /** Buy an item with Pfoten. Buying something you already own costs nothing. */

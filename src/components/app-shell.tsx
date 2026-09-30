@@ -52,8 +52,8 @@ export function AppShell({
                 aria-label={`Shop, ${paws.data?.paws ?? 0} Pfoten`}
                 title="Shop"
                 className={cn(
-                  "flex h-9 items-center gap-1.5 rounded-full border border-border bg-bg/70 px-3 text-sm tabular-nums backdrop-blur-md",
-                  pathname === "/shop" ? "text-accent" : "text-fg hover:border-border-strong",
+                  "glass-chip flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm tabular-nums",
+                  pathname === "/shop" ? "text-accent" : "text-fg",
                 )}
               >
                 <ShoppingBag className="size-4" />
@@ -74,9 +74,10 @@ export function AppShell({
             </header>
           ) : null}
           <div
+            key={fullBleed ? "feed" : pathname}
             className={cn(
               hideMobilePad ? "" : "pb-16 md:pb-0",
-              fullBleed ? "" : "flex min-h-dvh flex-col",
+              fullBleed ? "" : "page-rise flex min-h-dvh flex-col",
               // Room for the logo on phones.
               !fullBleed && pathname !== "/" && "pt-12 md:pt-0",
             )}

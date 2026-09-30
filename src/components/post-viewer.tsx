@@ -65,7 +65,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-bg/90 p-4"
+        className="viewer-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={onClose}
         role="dialog"
         aria-modal="true"
@@ -79,7 +79,7 @@ export function PostViewer({ post, onClose }: { post: PostCard; onClose: () => v
           <X className="size-5" />
         </button>
         <div
-          className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-bg-elevated"
+          className="viewer-sheet relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-bg-elevated"
           onClick={(e) => e.stopPropagation()}
         >
           {post.locked ? null : (

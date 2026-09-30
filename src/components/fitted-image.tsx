@@ -9,10 +9,12 @@ export function FittedImage({
   src,
   alt,
   className,
+  alive = false,
 }: {
   src: string;
   alt: string;
   className?: string;
+  alive?: boolean;
 }) {
   return (
     <span className={cn("relative block overflow-hidden bg-bg", className)}>
@@ -22,7 +24,7 @@ export function FittedImage({
         aria-hidden="true"
         className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
       />
-      <img src={src} alt={alt} className="relative h-full w-full object-contain" />
+      <img src={src} alt={alt} className={cn("relative h-full w-full object-contain", alive && "feed-alive")} />
     </span>
   );
 }

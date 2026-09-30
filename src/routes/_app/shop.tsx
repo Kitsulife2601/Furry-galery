@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { bgStyle } from "@/lib/vela/bg-style";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, ChevronRight, Clock, Package, ShoppingBag } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clock, Package, Search, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { buyShopBundle, buyShopItem, equipShopItem, getMyProfile } from "@/lib/vela/server";
 import { BACKGROUNDS } from "@/lib/vela/backgrounds";
@@ -30,6 +30,7 @@ import { DecoratedAvatar, ProfileEffectLayer } from "@/components/avatar-decorat
 import { StyledName } from "@/components/styled-name";
 import { NamePlate } from "@/components/name-plate";
 import { GENERATED, genItem, isGeneratedId, type GenKind } from "@/lib/vela/catalog";
+import { RitualBar } from "@/components/ritual-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -63,13 +64,13 @@ function forSale(kind: ShopKind, list: readonly { id: string; label: string }[])
 }
 
 /** Filter chips by kind, in shop order. */
-const TYPES: { id: ShopKind | "alle"; label: string }[] = [
-  { id: "alle", label: "Alles" },
-  { id: "decoration", label: "Rahmen" },
-  { id: "effect", label: "Effekte" },
-  { id: "plate", label: "Namensschilder" },
-  { id: "background", label: "Hintergründe" },
-  { id: "name", label: "Namen" },
+const TYPES: { id: ShopKind | "alle"; label: string; hint: string }[] = [
+  { id: "alle", label: "Überblick", hint: "Nach Art sortiert" },
+  { id: "decoration", label: "Rahmen", hint: "Um dein Bild" },
+  { id: "effect", label: "Effekte", hint: "Auf dem Profil" },
+  { id: "plate", label: "Schilder", hint: "Hinter dem Namen" },
+  { id: "background", label: "Hintergründe", hint: "Fürs Profil" },
+  { id: "name", label: "Namen", hint: "Schriftstil" },
 ];
 
 /** Every item for sale: hand-made ones (new first), then the generated catalogue. */
@@ -82,7 +83,8 @@ const ALL_ITEMS: Item[] = [
   ...GENERATED.map((g) => ({ kind: g.kind, id: g.id, label: g.label, price: g.price })),
 ];
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 12;
+const SHELF_SIZE = 8;
 
 function inUse(profile: Profile, item: Item): boolean {
   if (item.kind === "background") return profile.backgroundId === item.id;
@@ -100,14 +102,8 @@ function Shop() {
   const [collection, setCollection] = useState("alle");
   const [type, setType] = useState<ShopKind | "alle">("alle");
   const [page, setPage] = useState(0);
-  const items = ALL_ITEMS.filter(
-    (it) =>
-      (type === "alle" || it.kind === type) &&
-      (collection === "alle" || collectionOf(it.kind, it.id) === collection),
-  );
-  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const current = Math.min(page, pages - 1);
-  const pageItems = items.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  const [query, setQuery] = useState("");
+  const [mine, setMine] = useState(false);
   function goTo(p: number) {
     setPage(p);
     document.getElementById("shop-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -132,6 +128,24 @@ function Shop() {
     team: profile.isAdmin,
     owned: profile.owned,
   };
+  const q = query.trim().toLowerCase();
+  const pool = ALL_ITEMS.filter(
+    (it) =>
+      (collection === "alle" || collectionOf(it.kind, it.id) === collection) &&
+      (!mine || canUseItem(it.kind, it.id, access)) &&
+      (q.length === 0 || it.label.toLowerCase().includes(q)),
+  );
+  const overview = type === "alle" && q.length === 0;
+  const items = overview ? pool : pool.filter((it) => type === "alle" || it.kind === type);
+  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const current = Math.min(page, pages - 1);
+  const pageItems = items.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  const counts = Object.fromEntries(
+    TYPES.map((t) => [
+      t.id,
+      t.id === "alle" ? pool.length : pool.filter((it) => it.kind === t.id).length,
+    ]),
+  ) as Record<ShopKind | "alle", number>;
 
   async function refresh() {
     await Promise.all(
@@ -198,26 +212,32 @@ function Shop() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 pb-24">
+    <div className="mx-auto max-w-5xl px-5 py-8 pb-24">
       <p className="text-xs tracking-[0.22em] text-fg-subtle uppercase">Profil schmücken</p>
-      <h1 className="mt-1 font-display text-3xl">Shop</h1>
+      <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+        <h1 className="font-display text-3xl">Shop</h1>
+        <p className="text-sm text-fg-muted">
+          <span className="tabular-nums text-fg">{profile.owned.length}</span> Teile gehören dir
+        </p>
+      </div>
 
-      <div className="mt-6 rounded-2xl border border-border bg-bg-elevated/70 p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <section className="relative mt-6 overflow-hidden rounded-3xl border border-border bg-bg-elevated/75 p-5">
+        <div className="pointer-events-none absolute -top-16 -right-10 size-44 rounded-full bg-accent/15 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs text-fg-muted">Dein Guthaben</p>
-            <p className="font-display text-4xl tabular-nums">
-              🐾 {balance}
+            <p className="text-xs tracking-[0.16em] text-fg-subtle uppercase">Dein Guthaben</p>
+            <p className="mt-1 font-display text-5xl tabular-nums leading-none">
+              {balance}
               <span className="ml-2 font-sans text-sm text-fg-muted">Pfoten</span>
             </p>
           </div>
-          <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+          <p className="flex items-center gap-1.5 rounded-full border border-border bg-bg/50 px-3 py-1.5 text-xs text-fg-muted">
             <Clock className="size-3.5" />
             Heute {today} / {DAILY_PAW_CAP}
           </p>
         </div>
         <div
-          className="mt-3 h-2 overflow-hidden rounded-full bg-bg-subtle"
+          className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-bg-subtle"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={DAILY_PAW_CAP}
@@ -225,56 +245,110 @@ function Shop() {
           aria-label="Heute verdiente Pfoten"
         >
           <div
-            className="h-full rounded-full bg-accent transition-[width]"
+            className="h-full rounded-full bg-accent transition-[width] duration-500"
             style={{ width: `${Math.min(1, today / DAILY_PAW_CAP) * 100}%` }}
           />
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-fg-subtle">
-          Für jede Minute, die du hier bist, bekommst du 1 Pfote, bis zu {DAILY_PAW_CAP} am Tag.
-          Belohnungen für aktive Tage schalten sich weiterhin von selbst frei, hier bekommst du sie
-          früher.
+        <p className="relative mt-3 max-w-xl text-xs leading-relaxed text-fg-subtle">
+          1 Pfote pro Minute, bis zu {DAILY_PAW_CAP} am Tag. Die Tagespfote oben drauf gibt es nur
+          einmal — dafür lohnt sich das Öffnen.
         </p>
-      </div>
+        <div className="relative mt-4">
+          <RitualBar tone="page" />
+        </div>
+      </section>
 
-      <nav
-        aria-label="Kategorien"
-        className="sticky top-0 z-20 -mx-5 mt-6 flex gap-2 overflow-x-auto bg-bg/85 px-5 py-3 backdrop-blur-md"
-      >
-        {[
-          { id: "alle", label: "Alle" },
-          ...ALL_COLLECTIONS,
-          { id: CLASSIC_COLLECTION, label: "Klassiker" },
-        ].map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            aria-pressed={collection === c.id}
-            onClick={() => {
-              setCollection(c.id);
+      <div className="mt-6 grid gap-2 sm:grid-cols-[1fr_auto]">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
               setPage(0);
             }}
-            className={cn(
-              "h-9 shrink-0 rounded-full border px-4 text-sm",
-              collection === c.id
-                ? "border-accent bg-accent text-accent-fg"
-                : "border-border text-fg-muted hover:text-fg",
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
-      </nav>
+            placeholder="Artikel suchen"
+            aria-label="Artikel suchen"
+            className="h-11 w-full rounded-2xl border border-border bg-bg-elevated/70 pr-4 pl-10 text-sm outline-none focus:border-accent"
+          />
+        </label>
+        <button
+          type="button"
+          aria-pressed={mine}
+          onClick={() => {
+            setMine((v) => !v);
+            setPage(0);
+          }}
+          className={cn(
+            "h-11 rounded-2xl border px-4 text-sm",
+            mine ? "border-accent bg-accent/15 text-accent" : "border-border text-fg-muted hover:text-fg",
+          )}
+        >
+          Nur meine
+        </button>
+      </div>
 
-      {bundles.length > 0 && current === 0 && type === "alle" ? (
-        <section className="mt-6">
-          <h2 className="flex items-center gap-2 font-display text-xl">
-            <Package className="size-5 text-accent" /> Pakete
-          </h2>
-          <p className="text-xs text-fg-subtle">
-            Passende Teile zusammen, {Math.round(BUNDLE_DISCOUNT * 100)} % günstiger. Was du schon
-            hast, zahlst du nicht noch mal.
-          </p>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+      <label className="mt-3 block text-xs text-fg-muted">
+        Kollektion
+        <select
+          value={collection}
+          onChange={(e) => {
+            setCollection(e.target.value);
+            setPage(0);
+          }}
+          className="mt-1.5 h-11 w-full rounded-2xl border border-border bg-bg-elevated px-3 text-sm text-fg outline-none focus:border-accent"
+        >
+          <option value="alle">Alle Kollektionen</option>
+          {ALL_COLLECTIONS.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+          <option value={CLASSIC_COLLECTION}>Klassiker</option>
+        </select>
+      </label>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" role="tablist" aria-label="Art">
+        {TYPES.map((t) => {
+          const on = type === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                setType(t.id);
+                setPage(0);
+              }}
+              className={cn(
+                "rounded-2xl border px-3 py-2.5 text-left transition-colors",
+                on ? "border-accent bg-accent text-accent-fg" : "border-border bg-bg-elevated/50 hover:border-border-strong",
+              )}
+            >
+              <span className="block text-sm font-medium">{t.label}</span>
+              <span className={cn("text-[11px] tabular-nums", on ? "text-accent-fg/75" : "text-fg-subtle")}>
+                {counts[t.id]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {overview && bundles.length > 0 ? (
+        <section className="mt-8">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 font-display text-2xl">
+                <Package className="size-5 text-accent" /> Pakete
+              </h2>
+              <p className="text-xs text-fg-subtle">
+                Zusammen {Math.round(BUNDLE_DISCOUNT * 100)} % günstiger. Was du schon hast, zahlst du nicht noch mal.
+              </p>
+            </div>
+          </div>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {bundles.map((bundle) => {
               const quote = bundleQuote(bundle.id, access)!;
               const complete = quote.missing.length === 0;
@@ -285,7 +359,7 @@ function Shop() {
               return (
                 <li
                   key={bundle.id}
-                  className="flex flex-col overflow-hidden rounded-xl border border-border bg-bg-elevated/60"
+                  className="flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated/60"
                 >
                   <div
                     className={cn(
@@ -315,13 +389,14 @@ function Shop() {
                     </span>
                   </div>
                   <div className="flex flex-1 flex-col gap-2 p-4">
+                    <p className="text-[11px] tracking-[0.14em] text-fg-subtle uppercase">Paket</p>
                     <p className="font-medium">{bundle.label}</p>
-                    <p className="text-xs text-fg-subtle">
+                    <p className="text-xs leading-relaxed text-fg-subtle">
                       {bundle.items.map((it) => itemLabel(it.kind, it.id)).join(" · ")}
                     </p>
                     <div className="mt-auto pt-2">
                       {complete ? (
-                        <span className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent/15 text-sm text-accent">
+                        <span className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-accent/15 text-sm text-accent">
                           <Check className="size-4" /> Alles gehört dir
                         </span>
                       ) : (
@@ -330,7 +405,7 @@ function Shop() {
                           disabled={busy !== null}
                           onClick={() => void buyBundle(bundle.id, bundle.label, quote.price)}
                           className={cn(
-                            "flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium tabular-nums",
+                            "flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium tabular-nums",
                             balance >= quote.price
                               ? "bg-accent text-accent-fg"
                               : "border border-border text-fg-muted",
@@ -340,9 +415,9 @@ function Shop() {
                             "…"
                           ) : (
                             <>
-                              <ShoppingBag className="size-4" /> 🐾 {quote.price}
+                              <ShoppingBag className="size-4" /> {quote.price}
                               <span className="text-xs line-through opacity-60">{quote.full}</span>
-                              <span className="rounded bg-heart/20 px-1 text-[11px] text-heart">
+                              <span className="rounded-md bg-heart/15 px-1.5 py-0.5 text-[11px] text-heart">
                                 −{Math.round(BUNDLE_DISCOUNT * 100)} %
                               </span>
                             </>
@@ -358,173 +433,241 @@ function Shop() {
         </section>
       ) : null}
 
-      <section id="shop-grid" className="mt-10 scroll-mt-16">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {TYPES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              aria-pressed={type === t.id}
-              onClick={() => {
-                setType(t.id);
-                setPage(0);
-              }}
-              className={cn(
-                "h-8 shrink-0 rounded-lg px-3 text-xs",
-                type === t.id ? "bg-bg-subtle text-fg" : "text-fg-muted hover:text-fg",
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-fg-subtle">
-          {items.length} Artikel · Seite {current + 1} von {pages}
-        </p>
-        {pageItems.length === 0 ? (
-          <p className="mt-6 text-sm text-fg-muted">Hier gibt es (noch) nichts.</p>
-        ) : (
-          <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {pageItems.map((item) => {
-              const key = `${item.kind}:${item.id}`;
-              const usable = canUseItem(item.kind, item.id, access);
-              const active = inUse(profile, item);
-              const day =
-                item.kind === "background" ||
-                item.kind === "plate" ||
-                isNew(item) ||
-                isGeneratedId(item.id)
-                  ? null
-                  : unlockDay(item.kind, item.id);
-              return (
-                <li
-                  key={key}
-                  className={cn(
-                    "flex flex-col overflow-hidden rounded-xl border bg-bg-elevated/60",
-                    active ? "border-accent" : "border-border",
-                  )}
-                >
-                  <Preview item={item} profile={profile} />
-                  <div className="flex flex-1 flex-col gap-2 p-3">
-                    <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-                      {item.label}
-                      {isNew(item) ? (
-                        <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
-                          Neu
-                        </span>
-                      ) : null}
+      {overview ? (
+        <div className="mt-10 flex flex-col gap-10">
+          {TYPES.filter((t) => t.id !== "alle").map((t) => {
+            const shelf = pool.filter((it) => it.kind === t.id);
+            if (shelf.length === 0) return null;
+            return (
+              <section key={t.id}>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-2xl">{t.label}</h2>
+                    <p className="text-xs text-fg-subtle">
+                      {t.hint} · {shelf.length}
                     </p>
-                    {day !== null && !usable ? (
-                      <p className="text-[11px] text-fg-subtle">Gratis ab Tag {day}</p>
-                    ) : null}
-                    <div className="mt-auto">
-                      {active ? (
-                        <span className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent/15 text-xs text-accent">
-                          <Check className="size-3.5" /> Aktiv
-                        </span>
-                      ) : usable ? (
-                        <button
-                          type="button"
-                          disabled={busy !== null}
-                          onClick={() => void equip(item)}
-                          className="h-9 w-full rounded-lg border border-border text-xs hover:bg-bg-subtle"
-                        >
-                          {busy === key ? "…" : "Benutzen"}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy !== null}
-                          onClick={() => void buy(item)}
-                          className={cn(
-                            "flex h-9 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium tabular-nums",
-                            balance >= item.price
-                              ? "bg-accent text-accent-fg"
-                              : "border border-border text-fg-muted",
-                          )}
-                        >
-                          {busy === key ? (
-                            "…"
-                          ) : (
-                            <>
-                              <ShoppingBag className="size-3.5" /> 🐾 {item.price}
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {pages > 1 ? (
-          <nav aria-label="Seiten" className="mt-6 flex items-center justify-center gap-1">
-            <button
-              type="button"
-              aria-label="Vorherige Seite"
-              disabled={current === 0}
-              onClick={() => goTo(current - 1)}
-              className="grid size-10 place-items-center rounded-lg border border-border disabled:opacity-30"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <div className="flex max-w-full gap-1 overflow-x-auto px-1">
-              {Array.from({ length: pages }, (_, p) => p)
-                .filter((p) => p === 0 || p === pages - 1 || Math.abs(p - current) <= 2)
-                .flatMap((p, i, arr) => {
-                  const gap = i > 0 && p - arr[i - 1]! > 1;
-                  const btn = (
+                  {shelf.length > SHELF_SIZE ? (
                     <button
-                      key={p}
                       type="button"
-                      aria-current={p === current ? "page" : undefined}
-                      onClick={() => goTo(p)}
-                      className={cn(
-                        "grid h-10 min-w-10 place-items-center rounded-lg px-2 text-sm tabular-nums",
-                        p === current
-                          ? "bg-accent text-accent-fg"
-                          : "text-fg-muted hover:bg-bg-subtle",
-                      )}
+                      onClick={() => {
+                        setType(t.id);
+                        setPage(0);
+                        window.setTimeout(() => {
+                          document.getElementById("shop-grid")?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }, 40);
+                      }}
+                      className="text-sm text-accent"
                     >
-                      {p + 1}
+                      Alle {shelf.length}
                     </button>
-                  );
-                  return gap
-                    ? [
-                        <span
-                          key={`gap${p}`}
-                          className="grid h-10 place-items-center px-1 text-fg-subtle"
-                        >
-                          …
-                        </span>,
-                        btn,
-                      ]
-                    : [btn];
-                })}
-            </div>
-            <button
-              type="button"
-              aria-label="Nächste Seite"
-              disabled={current >= pages - 1}
-              onClick={() => goTo(current + 1)}
-              className="grid size-10 place-items-center rounded-lg border border-border disabled:opacity-30"
-            >
-              <ChevronRight className="size-4" />
-            </button>
-          </nav>
-        ) : null}
-      </section>
+                  ) : null}
+                </div>
+                <ul className="mt-3 flex gap-3 overflow-x-auto pb-1">
+                  {shelf.slice(0, SHELF_SIZE).map((item) => (
+                    <li key={`${item.kind}:${item.id}`} className="w-40 shrink-0">
+                      <ShopCard
+                        item={item}
+                        profile={profile}
+                        access={access}
+                        balance={balance}
+                        busy={busy}
+                        onBuy={(it) => void buy(it)}
+                        onEquip={(it) => void equip(it)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          {pool.length === 0 ? (
+            <p className="text-sm text-fg-muted">Nichts passt zu diesem Filter.</p>
+          ) : null}
+        </div>
+      ) : (
+        <section id="shop-grid" className="mt-8 scroll-mt-6">
+          <div className="flex items-end justify-between gap-3">
+            <h2 className="font-display text-2xl">
+              {q.length > 0 ? "Treffer" : TYPES.find((t) => t.id === type)?.label}
+            </h2>
+            <p className="text-xs text-fg-subtle">
+              {items.length} Artikel
+              {pages > 1 ? ` · Seite ${current + 1} von ${pages}` : ""}
+            </p>
+          </div>
+          {pageItems.length === 0 ? (
+            <p className="mt-6 text-sm text-fg-muted">Hier gibt es nichts dazu.</p>
+          ) : (
+            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {pageItems.map((item) => (
+                <li key={`${item.kind}:${item.id}`}>
+                  <ShopCard
+                    item={item}
+                    profile={profile}
+                    access={access}
+                    balance={balance}
+                    busy={busy}
+                    onBuy={(it) => void buy(it)}
+                    onEquip={(it) => void equip(it)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          {pages > 1 ? (
+            <nav aria-label="Seiten" className="mt-6 flex items-center justify-center gap-1">
+              <button
+                type="button"
+                aria-label="Vorherige Seite"
+                disabled={current === 0}
+                onClick={() => goTo(current - 1)}
+                className="grid size-10 place-items-center rounded-xl border border-border disabled:opacity-30"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <div className="flex max-w-full gap-1 overflow-x-auto px-1">
+                {Array.from({ length: pages }, (_, p) => p)
+                  .filter((p) => p === 0 || p === pages - 1 || Math.abs(p - current) <= 2)
+                  .flatMap((p, i, arr) => {
+                    const gap = i > 0 && p - arr[i - 1]! > 1;
+                    const btn = (
+                      <button
+                        key={p}
+                        type="button"
+                        aria-current={p === current ? "page" : undefined}
+                        onClick={() => goTo(p)}
+                        className={cn(
+                          "grid h-10 min-w-10 place-items-center rounded-xl px-2 text-sm tabular-nums",
+                          p === current ? "bg-accent text-accent-fg" : "text-fg-muted hover:bg-bg-subtle",
+                        )}
+                      >
+                        {p + 1}
+                      </button>
+                    );
+                    return gap
+                      ? [
+                          <span key={`gap${p}`} className="grid h-10 place-items-center px-1 text-fg-subtle">
+                            …
+                          </span>,
+                          btn,
+                        ]
+                      : [btn];
+                  })}
+              </div>
+              <button
+                type="button"
+                aria-label="Nächste Seite"
+                disabled={current >= pages - 1}
+                onClick={() => goTo(current + 1)}
+                className="grid size-10 place-items-center rounded-xl border border-border disabled:opacity-30"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </nav>
+          ) : null}
+        </section>
+      )}
     </div>
   );
 }
 
-function Preview({ item, profile }: { item: Item; profile: Profile }) {
+type Access = { activeDays: number; team: boolean; owned: readonly string[] };
+
+function ShopCard({
+  item,
+  profile,
+  access,
+  balance,
+  busy,
+  onBuy,
+  onEquip,
+}: {
+  item: Item;
+  profile: Profile;
+  access: Access;
+  balance: number;
+  busy: string | null;
+  onBuy: (item: Item) => void;
+  onEquip: (item: Item) => void;
+}) {
+  const key = `${item.kind}:${item.id}`;
+  const usable = canUseItem(item.kind, item.id, access);
+  const active = inUse(profile, item);
+  const day =
+    item.kind === "background" || item.kind === "plate" || isNew(item) || isGeneratedId(item.id)
+      ? null
+      : unlockDay(item.kind, item.id);
+  const kindLabel = TYPES.find((t) => t.id === item.kind)?.label;
+  return (
+    <article
+      className={cn(
+        "flex h-full flex-col overflow-hidden rounded-2xl border bg-bg-elevated/60",
+        active ? "border-accent" : "border-border",
+      )}
+    >
+      <Preview item={item} profile={profile} />
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
+        <p className="text-[10px] tracking-[0.14em] text-fg-subtle uppercase">{kindLabel}</p>
+        <p className="line-clamp-2 text-sm leading-snug font-medium">
+          {item.label}
+          {isNew(item) ? (
+            <span className="ml-1.5 align-middle rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+              Neu
+            </span>
+          ) : null}
+        </p>
+        {day !== null && !usable ? <p className="text-[11px] text-fg-subtle">Gratis ab Tag {day}</p> : null}
+        <div className="mt-auto pt-2">
+          {active ? (
+            <span className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-accent/15 text-xs text-accent">
+              <Check className="size-3.5" /> Aktiv
+            </span>
+          ) : usable ? (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => onEquip(item)}
+              className="h-9 w-full rounded-xl border border-border text-xs hover:bg-bg-subtle"
+            >
+              {busy === key ? "…" : "Benutzen"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => onBuy(item)}
+              className={cn(
+                "flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-medium tabular-nums",
+                balance >= item.price ? "bg-accent text-accent-fg" : "border border-border text-fg-muted",
+              )}
+            >
+              {busy === key ? "…" : <>🐾 {item.price}</>}
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Preview({
+  item,
+  profile,
+  className,
+}: {
+  item: Item;
+  profile: Profile;
+  className?: string;
+}) {
   let content: ReactNode;
   if (item.kind === "background") {
-    return <div className="bg-swatch h-24" data-bg={item.id} style={bgStyle(item.id)} />;
+    return (
+      <div className={cn("bg-swatch h-28", className)} data-bg={item.id} style={bgStyle(item.id)} />
+    );
   }
   if (item.kind === "decoration") {
     content = (
@@ -568,7 +711,7 @@ function Preview({ item, profile }: { item: Item; profile: Profile }) {
     );
   }
   return (
-    <div className="relative grid h-24 place-items-center overflow-hidden bg-bg-subtle px-2">
+    <div className={cn("relative grid h-28 place-items-center overflow-hidden bg-bg-subtle px-2", className)}>
       {content}
     </div>
   );
