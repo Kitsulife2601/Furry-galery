@@ -78,12 +78,19 @@ export function FeedCard({ post, spotlight = false }: { post: PostCard; spotligh
     }
   }
 
+  // One tap opens the post big (with comments), a double tap likes it.
+  const tapTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(tapTimer.current), []);
   function onImageClick() {
     const now = Date.now();
+    window.clearTimeout(tapTimer.current);
     if (now - lastTap.current < 280) {
+      lastTap.current = 0;
       void like(true);
+      return;
     }
     lastTap.current = now;
+    tapTimer.current = window.setTimeout(() => setViewing(true), 290);
   }
 
   return (
@@ -99,7 +106,7 @@ export function FeedCard({ post, spotlight = false }: { post: PostCard; spotligh
             type="button"
             className="absolute inset-0 h-full w-full"
             onClick={onImageClick}
-            aria-label="Doppeltippen zum Liken"
+            aria-label="Antippen zum Öffnen, doppelt tippen zum Liken"
           >
             {post.videoUrl ? (
               <FeedVideo

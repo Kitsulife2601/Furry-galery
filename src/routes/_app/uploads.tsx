@@ -9,6 +9,7 @@ import { Eye, Heart, MessageCircle, Play, Plus, Repeat, Users } from "lucide-rea
 import { listMyUploads, type MyUpload } from "@/lib/vela/server";
 import { MY_UPLOADS_KEY } from "@/components/my-uploads";
 import { Button } from "@/components/ui/button";
+import { PostViewerLoader } from "@/components/post-viewer-loader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const day = new Intl.DateTimeFormat("de", { day: "numeric", month: "short" });
 function Uploads() {
   const query = useQuery({ queryKey: MY_UPLOADS_KEY, queryFn: () => listMyUploads() });
   const [sort, setSort] = useState<Sort>("new");
+  const [openId, setOpenId] = useState<number | null>(null);
   const list = query.data ?? [];
 
   const totals = list.reduce(
@@ -109,7 +111,14 @@ function Uploads() {
                     <span className="w-4 text-right text-xs text-fg-subtle tabular-nums">
                       {i + 1}
                     </span>
-                    <Thumb upload={u} className="size-10 rounded-md" />
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(u.id)}
+                      aria-label="Beitrag öffnen"
+                      className="shrink-0"
+                    >
+                      <Thumb upload={u} className="size-10 rounded-md" />
+                    </button>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs text-fg-muted">
                         {u.caption || day.format(new Date(u.createdAt))}
@@ -155,7 +164,12 @@ function Uploads() {
             <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {sorted.map((u) => (
                 <li key={u.id} className="overflow-hidden rounded-xl border border-border">
-                  <div className="relative aspect-square">
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(u.id)}
+                    aria-label="Beitrag öffnen"
+                    className="relative block aspect-square w-full"
+                  >
                     <Thumb upload={u} className="h-full w-full" />
                     <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-linear-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-xs text-white">
                       <span className="flex items-center gap-1 tabular-nums">
@@ -168,7 +182,7 @@ function Uploads() {
                         <MessageCircle className="size-3.5" /> {number.format(u.comments)}
                       </span>
                     </div>
-                  </div>
+                  </button>
                   <div className="px-2.5 py-2">
                     <p className="truncate text-xs">
                       {u.caption || <span className="text-fg-subtle">Ohne Text</span>}
@@ -190,6 +204,9 @@ function Uploads() {
           </section>
         </>
       )}
+      {openId !== null ? (
+        <PostViewerLoader postId={openId} onClose={() => setOpenId(null)} />
+      ) : null}
     </div>
   );
 }

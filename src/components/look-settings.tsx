@@ -24,7 +24,6 @@ import {
   unlockDay,
   type NameStyle,
   type RewardItem,
-  type RewardKind,
 } from "@/lib/vela/rewards";
 import type { Profile } from "@/lib/vela/types";
 import { canUseItem, type ShopKind } from "@/lib/vela/shop";

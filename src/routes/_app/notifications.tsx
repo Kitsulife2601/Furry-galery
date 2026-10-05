@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PostViewerLoader } from "@/components/post-viewer-loader";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart, MessageCircle, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
@@ -61,6 +62,7 @@ function Notifications() {
   }, [hasUnread, queryClient]);
 
   const [busy, setBusy] = useState(false);
+  const [openPost, setOpenPost] = useState<number | null>(null);
   async function remove(id?: number) {
     if (id === undefined && !window.confirm("Alle Mitteilungen löschen?")) return;
     setBusy(true);
@@ -135,7 +137,9 @@ function Notifications() {
                   <span
                     className={cn(
                       "absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full border-2 border-bg",
-                      n.kind === "like" || n.kind === "comment_like" ? "bg-heart text-white" : "bg-accent text-accent-fg",
+                      n.kind === "like" || n.kind === "comment_like"
+                        ? "bg-heart text-white"
+                        : "bg-accent text-accent-fg",
                     )}
                   >
                     <Icon className="size-2.5" strokeWidth={2.5} />
@@ -158,12 +162,15 @@ function Notifications() {
                   </p>
                   <p className="mt-0.5 text-xs text-fg-subtle">{timeAgo(n.createdAt)}</p>
                 </div>
-                {n.postImageUrl ? (
-                  <img
-                    src={n.postImageUrl}
-                    alt=""
-                    className="size-11 shrink-0 rounded-md object-cover"
-                  />
+                {n.postImageUrl && n.postId ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenPost(n.postId)}
+                    aria-label="Beitrag öffnen"
+                    className="size-11 shrink-0 overflow-hidden rounded-md"
+                  >
+                    <img src={n.postImageUrl} alt="" className="h-full w-full object-cover" />
+                  </button>
                 ) : null}
                 {!n.read ? (
                   <span className="mt-2 size-2 shrink-0 rounded-full bg-heart" aria-label="Neu" />
@@ -182,6 +189,9 @@ function Notifications() {
           })}
         </ul>
       )}
+      {openPost !== null ? (
+        <PostViewerLoader postId={openPost} onClose={() => setOpenPost(null)} />
+      ) : null}
     </div>
   );
 }
