@@ -26,7 +26,14 @@ import {
   asNamePlate,
   asProfileEffect,
 } from "./decorations";
-import { NAME_STYLES, asNameStyle, nextTier, tierOn, type RewardItem, type RewardKind } from "./rewards";
+import {
+  NAME_STYLES,
+  asNameStyle,
+  nextTier,
+  tierOn,
+  type RewardItem,
+  type RewardKind,
+} from "./rewards";
 import {
   DAILY_GIFT,
   DAILY_PAW_CAP,
@@ -112,10 +119,15 @@ function asIsoDate(value: unknown): string {
   return "";
 }
 
+/**
+ * Timestamps as ISO strings. Postgres sends "2026-10-05 12:00:00.1+00", which
+ * Safari (iPhone) can't parse — `new Date()` there gives "Invalid Date".
+ */
 function asTime(value: unknown): string {
-  if (typeof value === "string") return value;
   if (value instanceof Date) return value.toISOString();
-  return "";
+  if (typeof value !== "string" || !value) return "";
+  const date = new Date(value.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00"));
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
 function isRelationship(value: string): value is RelationshipStatus {
@@ -693,6 +705,42 @@ export const listExplore = createServerFn({ method: "GET" })
       limit 80
     `;
     return mapFeed(rows, canSeeNsfw, viewerId, await isMinorViewer(viewerId));
+  });
+
+/** One post (for opening it from notifications or "Deine Uploads"); null if gone. */
+export const getPost = createServerFn({ method: "GET" })
+  .validator(z.object({ id: z.number().int().positive() }))
+  .handler(async ({ data }): Promise<PostCard | null> => {
+    const viewerId = (await optionalViewerId()) ?? "";
+    const canSeeNsfw = await isFsk18Verified(viewerId || null);
+    const sql = await getSql();
+    const rows = await sql<FeedRow>`
+      select
+        p.id,
+        p.user_id,
+        '/api/media/post/' || p.id as image_url,
+        p.preview_url,
+        p.video_url,
+        p.nsfw,
+        p.tags,
+        (select count(*)::int from comments c where c.post_id = p.id) as comment_count,
+        p.caption,
+        p.created_at::text as created_at,
+        (select count(*)::int from likes l where l.post_id = p.id) as like_count,
+        exists(select 1 from likes l where l.post_id = p.id and l.user_id = ${viewerId}) as liked,
+        pr.display_name,
+        pr.handle,
+        case when pr.avatar_url is null then null else '/api/media/avatar/' || pr.user_id || '?v=' || pr.avatar_version end as avatar_url,
+        pr.relationship_status,
+        pr.birthdate::text as birthdate,
+        pr.avatar_decoration,
+        pr.name_style,
+        pr.name_plate
+      from posts p
+      join profiles pr on pr.user_id = p.user_id
+      where p.id = ${data.id} and (pr.banned_at is null or p.user_id = ${viewerId})
+    `;
+    return mapFeed(rows, canSeeNsfw, viewerId, await isMinorViewer(viewerId))[0] ?? null;
   });
 
 export type CreatorPreview = {
@@ -1485,6 +1533,7 @@ export type NotificationItem = {
   read: boolean;
   /** null for "System" messages. */
   actor: { displayName: string; handle: string; avatarUrl: string | null } | null;
+  postId: number | null;
   postImageUrl: string | null;
 };
 
@@ -1526,6 +1575,7 @@ export const listNotifications = createServerFn({ method: "GET" })
       actor: r.handle
         ? { displayName: r.display_name ?? r.handle, handle: r.handle, avatarUrl: r.avatar_url }
         : null,
+      postId: r.post_id ? Number(r.post_id) : null,
       // Notifications are about your own posts, which you can always see.
       postImageUrl: r.post_id ? `/api/media/post/${r.post_id}` : null,
     }));

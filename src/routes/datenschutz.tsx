@@ -26,7 +26,7 @@ function Datenschutz() {
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>
             <strong className="text-fg">Konto:</strong> E-Mail-Adresse, Name und Passwort-Hash bzw.
-            die Kennung deines Google- oder X-Kontos, wenn du dich darüber anmeldest.
+            die Kennung deines Google- oder Discord-Kontos, wenn du dich darüber anmeldest.
           </li>
           <li>
             <strong className="text-fg">Profil:</strong> Anzeigename, Handle, Bio, Beziehungsstatus,

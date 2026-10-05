@@ -9,6 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const SEEN_KEY = "fg-last-seen";
 
+/** Postgres ("2026-10-05 12:00:00.1+00") or ISO time → ms; Safari needs the ISO shape. */
+function toMs(value: string): number {
+  return Date.parse(value.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00"));
+}
+
 /** Same post stays "Heute im Licht" for the whole Berlin day. */
 function spotlightId(posts: PostCard[]): number | null {
   if (posts.length === 0) return null;
@@ -39,7 +44,7 @@ function ForYou() {
     queryKey: ["feed"],
     queryFn: () => listFeed(),
   });
-  const items = query.data ?? [];
+  const items = useMemo(() => query.data ?? [], [query.data]);
   const spot = useMemo(() => spotlightId(items), [items]);
   const ordered = useMemo(() => {
     if (spot == null) return items;
@@ -51,10 +56,22 @@ function ForYou() {
 
   useEffect(() => {
     if (items.length === 0) return;
-    const prev = localStorage.getItem(SEEN_KEY);
-    setFresh(prev ? items.filter((post) => post.createdAt > prev).length : 0);
+    let prev: string | null = null;
+    try {
+      prev = window.localStorage.getItem(SEEN_KEY);
+    } catch {
+      // Storage blocked (private mode): just no "new since" hint.
+    }
+    const since = prev ? toMs(prev) : NaN;
+    setFresh(
+      Number.isFinite(since) ? items.filter((post) => toMs(post.createdAt) > since).length : 0,
+    );
     const timer = window.setTimeout(() => {
-      localStorage.setItem(SEEN_KEY, new Date().toISOString());
+      try {
+        window.localStorage.setItem(SEEN_KEY, new Date().toISOString());
+      } catch {
+        // ignore
+      }
     }, 4000);
     return () => window.clearTimeout(timer);
   }, [items]);

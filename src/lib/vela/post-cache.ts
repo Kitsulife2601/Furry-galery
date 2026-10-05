@@ -13,10 +13,13 @@ export function patchPostInCaches(queryClient: QueryClient, next: PostCard) {
   queryClient.setQueriesData<PostCard[]>({ predicate: (q) => isPostList(q.queryKey) }, (old) =>
     old?.map((p) => (p.id === next.id ? next : p)),
   );
+  // A post opened on its own (notifications, "Deine Uploads").
+  queryClient.setQueryData<PostCard | null>(["post", next.id], (old) => (old ? next : old));
 }
 
 /** Drop a deleted post from every cached list. */
 export function removePostFromCaches(queryClient: QueryClient, id: number) {
+  queryClient.removeQueries({ queryKey: ["post", id] });
   queryClient.setQueriesData<PostCard[]>({ predicate: (q) => isPostList(q.queryKey) }, (old) =>
     old?.filter((p) => p.id !== id),
   );
