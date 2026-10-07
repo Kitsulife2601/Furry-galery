@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { bgStyle } from "@/lib/vela/bg-style";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { PawPrint, ShoppingBag } from "lucide-react";
@@ -30,9 +30,22 @@ export function AppShell({
   const hideMobilePad = pathname === "/";
   usePawTicker(Boolean(profile) && !profile?.banned);
   const paws = usePaws();
+  const mainRef = useRef<HTMLElement>(null);
+
+  // After navigating with the keyboard via the nav, move focus to the new
+  // page so screen readers and Tab continue there (not back in the nav).
+  useEffect(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest("nav")) {
+      mainRef.current?.focus({ preventScroll: true });
+    }
+  }, [pathname]);
 
   return (
     <div className="vela-shell" data-bg={profile?.backgroundId ?? "midnight"} style={bgStyle(profile?.backgroundId ?? "midnight", true)}>
+      <a href="#main" className="skip-link">
+        Zum Inhalt springen
+      </a>
       <div className="mx-auto flex min-h-dvh max-w-6xl">
         <SideNav hasProfile={Boolean(profile)} />
         <div className="relative min-w-0 flex-1">
@@ -46,13 +59,16 @@ export function AppShell({
             </Link>
           )}
           {profile ? (
-            <header className="absolute top-0 right-0 z-30 flex items-center gap-1 p-2 md:p-4">
+            <header
+              aria-label="Konto"
+              className="absolute top-0 right-0 z-30 flex items-center gap-1 p-1.5 md:p-4"
+            >
               <Link
                 to="/shop"
                 aria-label={`Shop, ${paws.data?.paws ?? 0} Pfoten`}
                 title="Shop"
                 className={cn(
-                  "glass-chip flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm tabular-nums",
+                  "glass-chip flex h-11 items-center gap-1.5 rounded-full border border-border px-3.5 text-sm font-medium tabular-nums hover:border-border-strong",
                   pathname === "/shop" ? "text-accent" : "text-fg",
                 )}
               >
@@ -62,21 +78,27 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
                 aria-label={profile.isAdmin ? "Einstellungen & Moderation" : "Einstellungen"}
                 title={profile.isAdmin ? "Einstellungen & Moderation" : "Einstellungen"}
                 className={cn(
-                  "grid size-11 place-items-center rounded-lg",
-                  menuOpen ? "text-accent" : "text-fg-muted hover:text-fg",
+                  "grid size-11 place-items-center rounded-full transition-colors duration-200",
+                  menuOpen ? "text-accent" : "text-fg-muted hover:bg-fg/8 hover:text-fg",
                 )}
               >
                 <PawPrint className="size-5" />
               </button>
             </header>
           ) : null}
-          <div
+          <main
+            id="main"
+            ref={mainRef}
+            tabIndex={-1}
             key={fullBleed ? "feed" : pathname}
             className={cn(
-              hideMobilePad ? "" : "pb-16 md:pb-0",
+              "outline-none",
+              hideMobilePad ? "" : "pb-nav",
               fullBleed ? "" : "page-rise flex min-h-dvh flex-col",
               // Room for the logo on phones.
               !fullBleed && pathname !== "/" && "pt-12 md:pt-0",
@@ -84,7 +106,7 @@ export function AppShell({
           >
             {fullBleed ? children : <div className="flex-1">{children}</div>}
             {fullBleed ? null : <SiteFooter />}
-          </div>
+          </main>
         </div>
       </div>
       <NotificationPopups enabled={Boolean(profile) && !profile?.banned} />

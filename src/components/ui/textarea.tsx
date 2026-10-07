@@ -5,7 +5,10 @@ export function Textarea({ className, ...props }: React.ComponentProps<"textarea
     <textarea
       className={cn(
         "min-h-24 w-full rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm text-fg placeholder:text-fg-subtle",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+        "transition-[border-color,box-shadow] duration-200 hover:border-border-strong",
+        "focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        "aria-invalid:border-heart aria-invalid:focus-visible:ring-heart/40",
         className,
       )}
       {...props}
