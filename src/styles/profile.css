@@ -1,0 +1,61 @@
+/* Profile pages (profile-view, profile-people, profile-menu). */
+
+/* Active tab: a soft accent underline. */
+.profile-tab::after {
+  content: "";
+  position: absolute;
+  inset-inline: 22%;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  opacity: 0;
+  transition:
+    transform 320ms var(--ease-silk, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity 200ms ease;
+}
+.profile-tab[data-active]::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .profile-rise {
+    animation: profile-rise 520ms var(--ease-silk, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  }
+  .profile-sheet-backdrop {
+    animation: profile-fade 200ms ease-out both;
+  }
+  .profile-sheet {
+    animation: profile-sheet-in 360ms var(--ease-silk, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  }
+  .profile-menu-pop {
+    transform-origin: top right;
+    animation: profile-pop 180ms var(--ease-silk, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  }
+}
+
+@keyframes profile-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes profile-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes profile-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+@keyframes profile-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}

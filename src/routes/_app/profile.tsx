@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getMyProfile, listProfilePosts } from "@/lib/vela/server";
-import { ProfileView } from "@/components/profile-view";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProfileSkeleton, ProfileView } from "@/components/profile-view";
 
 export const Route = createFileRoute("/_app/profile")({ component: MyProfile });
 
@@ -15,17 +14,14 @@ function MyProfile() {
     enabled: Boolean(handle),
   });
 
-  if (!me.data) {
-    return (
-      <div className="px-5 py-10">
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
-  }
+  if (!me.data) return <ProfileSkeleton />;
 
   return (
-    <div className="pt-0">
-      <ProfileView profile={me.data} posts={posts.data ?? []} />
-    </div>
+    <ProfileView
+      key={me.data.userId}
+      profile={me.data}
+      posts={posts.data ?? []}
+      postsLoading={posts.isPending}
+    />
   );
 }
