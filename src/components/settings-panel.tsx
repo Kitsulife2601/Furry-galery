@@ -81,7 +81,7 @@ function SectionNav({ active, onJump }: { active: SectionId; onJump: (id: Sectio
   return (
     <nav
       aria-label="Bereiche"
-      className="sticky top-0 z-20 -mx-5 border-b border-border bg-bg-elevated/90 px-5 py-2 backdrop-blur supports-[backdrop-filter]:bg-bg-elevated/75"
+      className="sticky top-0 z-20 -mx-5 border-b border-border bg-bg-elevated px-5 py-2"
     >
       <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {SECTIONS.map((s) => (
