@@ -3,7 +3,7 @@
  * and profile effects (particles over the profile header). Drawn with SVG/CSS,
  * so they stay sharp at every size; animations pause for "reduce motion".
  */
-import { useId, type ReactNode } from "react";
+import { memo, useId, type ReactNode } from "react";
 import type { AvatarDecoration, ProfileEffect } from "@/lib/vela/decorations";
 import { cn } from "@/lib/utils";
 import { isGeneratedId } from "@/lib/vela/catalog";
@@ -50,7 +50,8 @@ export function DecoratedAvatar({
   );
 }
 
-export function DecorationLayer({ id }: { id: AvatarDecoration }) {
+/** Memoized: the SVG art is static per id, so re-renders of the parent skip it. */
+export const DecorationLayer = memo(function DecorationLayer({ id }: { id: AvatarDecoration }) {
   if (isGeneratedId(id)) return <GenDecorationLayer id={id} />;
   if (id === "neon" || id === "regenbogen") {
     return (
@@ -76,7 +77,7 @@ export function DecorationLayer({ id }: { id: AvatarDecoration }) {
       <DecorationArt id={id} />
     </svg>
   );
-}
+});
 
 /** A flame tongue standing on (x, y), curling sideways at the tip. */
 const flame = (x: number, y: number, w: number, h: number, curl: number) =>
@@ -983,8 +984,8 @@ function DecorationArt({ id }: { id: AvatarDecoration }) {
   }
 }
 
-/** Particles over the profile header. */
-export function ProfileEffectLayer({
+/** Particles over the profile header (memoized, static per effect). */
+export const ProfileEffectLayer = memo(function ProfileEffectLayer({
   effect,
   className,
 }: {
@@ -1027,7 +1028,7 @@ export function ProfileEffectLayer({
       })}
     </div>
   );
-}
+});
 
 function MiniMoth() {
   return (
