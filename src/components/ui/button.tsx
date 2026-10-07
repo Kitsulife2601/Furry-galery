@@ -20,7 +20,8 @@ const buttonVariants = cva(
         danger: "bg-heart text-white shadow-[var(--shadow-xs)] hover:opacity-90",
       },
       size: {
-        sm: "h-9 rounded-md px-3 text-sm",
+        // 44px touch target on phones, compact on desktop.
+        sm: "h-11 rounded-md px-3 text-sm md:h-9",
         md: "h-11 rounded-lg px-4 text-sm",
         lg: "h-12 rounded-xl px-5 text-base",
         icon: "size-11 rounded-lg",
