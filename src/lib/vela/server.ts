@@ -469,7 +469,8 @@ export const updateLook = createServerFn({ method: "POST" })
     await sql`
       update profiles
       set avatar_decoration = ${data.decoration}, profile_effect = ${data.effect},
-          name_style = ${nameStyle}
+          -- Left out by the caller = keep the current name style.
+          name_style = ${data.nameStyle === undefined ? (current?.name_style ?? null) : nameStyle}
       where user_id = ${context.userId}
     `;
     if (data.plate !== undefined) {
