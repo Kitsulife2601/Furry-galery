@@ -97,7 +97,11 @@ export function PeopleSheet({
             <X className="size-5" />
           </button>
         </div>
-        <div role="tablist" aria-label="Liste" className="mx-5 mt-1 grid grid-cols-2 gap-1 rounded-full bg-bg-subtle p-1">
+        <div
+          role="tablist"
+          aria-label="Liste"
+          className="mx-5 mt-1 grid grid-cols-2 gap-1 rounded-full bg-bg-subtle p-1"
+        >
           {(["followers", "following"] as const).map((k) => (
             <button
               key={k}

@@ -281,11 +281,7 @@ export function ProfileView({
 
       {hidden ? null : (
         <div ref={tabsRef} className="mt-6 scroll-mt-2">
-          <div
-            role="tablist"
-            aria-label="Inhalte"
-            className="flex border-b border-border px-5"
-          >
+          <div role="tablist" aria-label="Inhalte" className="flex border-b border-border px-5">
             <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>
               <Images className="size-4" /> Beiträge
             </TabButton>
