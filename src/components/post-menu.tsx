@@ -33,7 +33,12 @@ async function downloadPost(post: PostCard) {
 }
 
 function hideFromFeed(queryClient: ReturnType<typeof useQueryClient>, id: number) {
-  queryClient.setQueryData<PostCard[]>(["feed"], (old) => old?.filter((p) => p.id !== id));
+  // Both the first feed page and the pages loaded later.
+  for (const key of [["feed"], ["feed-more"]]) {
+    queryClient.setQueriesData<PostCard[]>({ queryKey: key }, (old) =>
+      Array.isArray(old) ? old.filter((p) => p.id !== id) : old,
+    );
+  }
 }
 
 export function PostMenu({

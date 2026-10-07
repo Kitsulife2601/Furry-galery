@@ -158,8 +158,13 @@ async function requireAdult(userId: string): Promise<ProfileRow> {
 
 async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profile> {
   const sql = await getSql();
+  // Under-18 viewers never see FSK-18 posts, so they aren't counted for them either.
+  const hideNsfw = viewerId !== row.user_id && (await isMinorViewer(viewerId));
   const [posts, followers, following, followRow] = await Promise.all([
-    sql<CountRow>`select count(*)::int as n from posts where user_id = ${row.user_id}`,
+    sql<CountRow>`
+      select count(*)::int as n from posts
+      where user_id = ${row.user_id} and (${hideNsfw}::boolean = false or nsfw = false)
+    `,
     sql<CountRow>`select count(*)::int as n from follows where following_id = ${row.user_id}`,
     sql<CountRow>`select count(*)::int as n from follows where follower_id = ${row.user_id}`,
     sql<{ follower_id: string }>`
@@ -324,7 +329,7 @@ export const createProfile = createServerFn({ method: "POST" })
       throw new Error("Handle: 3–20 Zeichen, nur a–z, 0–9 und _.");
     }
     if (!isAllowedBirthdate(data.birthdate)) {
-      throw new Error("Die Furry Gallery ist nur für Personen ab 18 Jahren.");
+      throw new Error("Profile gibt es auf der Furry Gallery erst ab 15 Jahren.");
     }
     const existing = await loadProfileRow(context.userId);
     if (existing) {
@@ -988,6 +993,11 @@ export const toggleFollow = createServerFn({ method: "POST" })
       await sql`
         delete from follows
         where follower_id = ${context.userId} and following_id = ${targetId}
+      `;
+      // Unfollowing takes back the "folgt dir jetzt" note, so follow/unfollow doesn't pile up.
+      await sql`
+        delete from notifications
+        where user_id = ${targetId} and actor_id = ${context.userId} and kind = 'follow'
       `;
     } else {
       await sql`
@@ -2296,6 +2306,18 @@ export const toggleCommentLike = createServerFn({ method: "POST" })
       returning comment_id
     `;
     const liked = removed.length === 0;
+    if (!liked) {
+      await sql`
+        delete from notifications
+        where id = (
+          select id from notifications
+          where user_id = ${target[0].user_id} and actor_id = ${context.userId}
+            and kind = 'comment_like' and post_id = ${Number(target[0].post_id)}
+          order by created_at desc
+          limit 1
+        )
+      `;
+    }
     if (liked) {
       await sql`
         insert into comment_likes (user_id, comment_id) values (${context.userId}, ${data.id})

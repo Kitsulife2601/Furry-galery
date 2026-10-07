@@ -34,6 +34,8 @@ export function PostImage({
     <img
       src={post.imageUrl}
       alt={alt ?? post.caption ?? ""}
+      loading="lazy"
+      decoding="async"
       className={cn("object-cover", className)}
     />
   );

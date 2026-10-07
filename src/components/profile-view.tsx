@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GalleryGrid } from "@/components/gallery-grid";
 import { cn } from "@/lib/utils";
+import { FOLLOWING_KEY } from "@/lib/vela/feed-prefs";
 import { ProfileMenu } from "@/components/profile-menu";
 import { PeopleSheet, type PeopleKind } from "@/components/profile-people";
 import { StyledName } from "@/components/styled-name";
@@ -112,6 +113,7 @@ export function ProfileView({
         queryClient.invalidateQueries({ queryKey: ["me"] }),
         queryClient.invalidateQueries({ queryKey: ["profile", profile.handle] }),
         queryClient.invalidateQueries({ queryKey: ["follow-people", profile.handle] }),
+        queryClient.invalidateQueries({ queryKey: FOLLOWING_KEY }),
       ]);
       setOverride(null);
     } catch (err) {
