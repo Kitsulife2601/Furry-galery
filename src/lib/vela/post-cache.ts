@@ -1,8 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { PostCard } from "./types";
 
-/** Query keys whose data is a `PostCard[]` list (feed, gallery, profile grids). */
-const POST_LIST_KEYS = new Set(["feed", "explore", "profile-posts"]);
+/** Query keys whose data is a `PostCard[]` list (feed + its extra pages, gallery, profile grids). */
+const POST_LIST_KEYS = new Set(["feed", "feed-more", "explore", "profile-posts"]);
 
 function isPostList(queryKey: readonly unknown[]) {
   return POST_LIST_KEYS.has(String(queryKey[0]));
