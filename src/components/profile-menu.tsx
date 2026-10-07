@@ -53,8 +53,15 @@ export function ProfileMenu({ profile, isAdmin }: { profile: Profile; isAdmin: b
     const close = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   const refresh = () =>
@@ -92,14 +99,14 @@ export function ProfileMenu({ profile, isAdmin }: { profile: Profile; isAdmin: b
         aria-haspopup="menu"
         aria-expanded={open}
         title="Mehr"
-        className="grid size-9 place-items-center rounded-lg border border-border bg-bg-elevated text-fg-muted hover:text-fg"
+        className="grid size-11 place-items-center rounded-full border border-border bg-bg-elevated text-fg-muted transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none"
       >
         <MoreHorizontal className="size-5" />
       </button>
       {open ? (
         <div
           role="menu"
-          className="absolute top-11 right-0 z-30 w-60 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-xl"
+          className="profile-menu-pop absolute top-12 right-0 z-30 w-60 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-xl"
         >
           <button
             type="button"
@@ -319,6 +326,13 @@ function ModalShell({
   onClose: () => void;
   children: ReactNode;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   // Portal: the profile header is its own stacking context (z-10), which would
   // otherwise put this popup under the bottom navigation on phones.
   if (typeof document === "undefined") return null;
@@ -331,7 +345,7 @@ function ModalShell({
       aria-label={title}
     >
       <div
-        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-border bg-bg-elevated p-5 text-fg"
+        className="profile-sheet max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-border bg-bg-elevated p-5 text-fg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
