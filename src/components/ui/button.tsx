@@ -4,16 +4,20 @@ import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-[opacity,transform,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 active:not-disabled:scale-[0.97]",
+  [
+    "relative inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium select-none",
+    "transition-[opacity,transform,background-color,border-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    "disabled:pointer-events-none disabled:opacity-40 aria-busy:pointer-events-none",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+    "active:not-disabled:scale-[0.97]",
+  ].join(" "),
   {
     variants: {
       variant: {
-        primary:
-          "bg-accent text-accent-fg hover:opacity-90",
-        secondary:
-          "border border-border bg-bg-elevated text-fg hover:bg-bg-subtle",
+        primary: "bg-accent text-accent-fg shadow-[var(--shadow-xs)] hover:opacity-90",
+        secondary: "border border-border bg-bg-elevated text-fg hover:border-border-strong hover:bg-bg-subtle",
         ghost: "text-fg hover:bg-fg/10",
-        danger: "bg-heart text-fg hover:opacity-90",
+        danger: "bg-heart text-white shadow-[var(--shadow-xs)] hover:opacity-90",
       },
       size: {
         sm: "h-9 rounded-md px-3 text-sm",
@@ -26,16 +30,38 @@ const buttonVariants = cva(
   },
 );
 
+/**
+ * Button. `loading` shows a spinner, marks the button busy and disables it
+ * (the label stays, so the width doesn't jump).
+ */
 export function Button({
   className,
   variant,
   size,
   asChild,
+  loading = false,
+  disabled,
+  children,
   ...props
 }: ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "button";
+  VariantProps<typeof buttonVariants> & { asChild?: boolean; loading?: boolean }) {
+  const cls = cn(buttonVariants({ variant, size }), className);
+  if (asChild) {
+    return (
+      <Slot className={cls} aria-busy={loading || undefined} {...props}>
+        {children}
+      </Slot>
+    );
+  }
   return (
-    <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />
+    <button
+      className={cls}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading ? <span className="btn-spinner" aria-hidden="true" /> : null}
+      {children}
+    </button>
   );
 }

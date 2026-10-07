@@ -97,7 +97,7 @@ export function InterestsDialog({ onDone }: { onDone: () => void }) {
       aria-modal="true"
       aria-labelledby="interests-title"
     >
-      <div className="w-full max-w-md rounded-t-3xl border border-border bg-bg-elevated p-6 pb-8 sm:rounded-3xl">
+      <div className="max-h-[94dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-3xl border border-border bg-bg-elevated p-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
         <p className="text-xs tracking-[0.22em] text-fg-subtle uppercase">Willkommen</p>
         <h2 id="interests-title" className="mt-1 font-display text-3xl">
           Was interessiert dich?
@@ -144,11 +144,13 @@ export function InterestsSettings({ initial }: { initial: string[] }) {
       .join();
 
   return (
-    <section className="mt-10 space-y-3">
-      <div>
-        <p className="text-sm font-medium">Interessen</p>
-        <p className="text-xs text-fg-subtle">Davon zeigt dir „Für dich“ mehr.</p>
-      </div>
+    <div className="space-y-3">
+      <p className="text-xs text-fg-subtle">
+        Davon zeigt dir „Für dich“ mehr.{" "}
+        <span className="tabular-nums">
+          {tags.length === 0 ? "Noch nichts gewählt." : `${tags.length} gewählt.`}
+        </span>
+      </p>
       <InterestGrid value={tags} onToggle={toggle} />
       <Button
         type="button"
@@ -157,8 +159,8 @@ export function InterestsSettings({ initial }: { initial: string[] }) {
         disabled={busy || !changed}
         onClick={() => void save(tags, "Interessen gespeichert.")}
       >
-        {busy ? "Speichert…" : "Interessen speichern"}
+        {busy ? "Speichert…" : changed ? "Interessen speichern" : "Gespeichert"}
       </Button>
-    </section>
+    </div>
   );
 }

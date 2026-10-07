@@ -1,0 +1,133 @@
+/* Shop + look picker: item sheet, purchase celebration, card polish. */
+
+/* Item sheet: slides up from the bottom on phones, fades/zooms in on larger screens. */
+.shop-sheet-overlay[data-state="open"] {
+  animation: shop-fade 180ms ease-out;
+}
+.shop-sheet[data-state="open"] {
+  animation: shop-sheet-up 260ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+@media (min-width: 640px) {
+  .shop-sheet[data-state="open"] {
+    animation: shop-sheet-zoom 220ms cubic-bezier(0.2, 0.9, 0.25, 1);
+  }
+}
+@keyframes shop-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes shop-sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes shop-sheet-zoom {
+  from {
+    transform: translate(-50%, -48%) scale(0.97);
+    opacity: 0;
+  }
+}
+
+/* Cards lift a little on hover; the active one glows softly. */
+.shop-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+@media (hover: hover) {
+  .shop-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -18px color-mix(in oklab, var(--color-accent) 60%, transparent);
+  }
+}
+.shop-card[data-active="true"] {
+  box-shadow:
+    0 0 0 1px var(--color-accent),
+    0 12px 32px -20px color-mix(in oklab, var(--color-accent) 80%, transparent);
+}
+
+/* Purchase celebration: paws burst out of the preview, the preview pops once. */
+.shop-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.shop-burst span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 18px;
+  opacity: 0;
+  animation: shop-burst 900ms cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes shop-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r));
+    opacity: 0;
+  }
+}
+.shop-pop {
+  animation: shop-pop 520ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes shop-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Wishlist heart. */
+.shop-heart[aria-pressed="true"] svg {
+  animation: shop-heart 360ms ease-out;
+}
+@keyframes shop-heart {
+  50% {
+    transform: scale(1.3);
+  }
+}
+
+/* Horizontal shelves: hide the scrollbar, keep snap. */
+.shop-shelf {
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.shop-shelf::-webkit-scrollbar {
+  display: none;
+}
+.shop-shelf > * {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-sheet-overlay[data-state="open"],
+  .shop-sheet[data-state="open"],
+  .shop-pop,
+  .shop-heart[aria-pressed="true"] svg {
+    animation: none;
+  }
+  .shop-burst {
+    display: none;
+  }
+  .shop-card,
+  .shop-card:hover {
+    transition: none;
+    transform: none;
+  }
+}

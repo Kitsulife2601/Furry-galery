@@ -53,13 +53,14 @@ export function RitualBar({ tone = "media" }: { tone?: "media" | "page" }) {
         <span className={onMedia ? "text-on-media/80" : "text-fg-muted"}>Heute geholt</span>
       )}
       {status.nextReward ? (
-        <>
+        // Dot and text stay together, so a wrapped line never ends in a lone "·".
+        <span className="flex items-center gap-2 whitespace-nowrap">
           <span className={onMedia ? "text-on-media/55" : "text-fg-subtle"}>·</span>
           <span className={onMedia ? "text-on-media/80" : "text-fg-muted"}>
             {status.nextReward.label} in {status.nextReward.inDays}{" "}
             {status.nextReward.inDays === 1 ? "Tag" : "Tagen"}
           </span>
-        </>
+        </span>
       ) : null}
     </div>
   );

@@ -113,7 +113,7 @@ type ProfileRow = {
 
 type CountRow = { n: number };
 
-function asIsoDate(value: unknown): string {
+export function asIsoDate(value: unknown): string {
   if (typeof value === "string") return value.slice(0, 10);
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return "";
@@ -130,7 +130,7 @@ function asTime(value: unknown): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-function isRelationship(value: string): value is RelationshipStatus {
+export function isRelationship(value: string): value is RelationshipStatus {
   return RELATIONSHIP_IDS.includes(value as RelationshipStatus);
 }
 
@@ -158,8 +158,13 @@ async function requireAdult(userId: string): Promise<ProfileRow> {
 
 async function toPublicProfile(row: ProfileRow, viewerId: string): Promise<Profile> {
   const sql = await getSql();
+  // Under-18 viewers never see FSK-18 posts, so they aren't counted for them either.
+  const hideNsfw = viewerId !== row.user_id && (await isMinorViewer(viewerId));
   const [posts, followers, following, followRow] = await Promise.all([
-    sql<CountRow>`select count(*)::int as n from posts where user_id = ${row.user_id}`,
+    sql<CountRow>`
+      select count(*)::int as n from posts
+      where user_id = ${row.user_id} and (${hideNsfw}::boolean = false or nsfw = false)
+    `,
     sql<CountRow>`select count(*)::int as n from follows where following_id = ${row.user_id}`,
     sql<CountRow>`select count(*)::int as n from follows where follower_id = ${row.user_id}`,
     sql<{ follower_id: string }>`
@@ -219,7 +224,7 @@ async function loadFsk18Status(userId: string): Promise<Fsk18Status> {
   };
 }
 
-type FeedRow = {
+export type FeedRow = {
   id: number;
   user_id: string;
   image_url: string;
@@ -242,7 +247,7 @@ type FeedRow = {
   name_plate: string | null;
 };
 
-async function optionalViewerId(): Promise<string | null> {
+export async function optionalViewerId(): Promise<string | null> {
   try {
     const { getSessionUser } = await import("@/lib/auth/verify.server");
     const user = await getSessionUser();
@@ -256,7 +261,7 @@ async function optionalViewerId(): Promise<string | null> {
  * `canSeeNsfw` decides server-side which image leaves the server: unverified
  * viewers of an FSK18 post only ever receive the tiny preview, never the image.
  */
-function mapFeed(
+export function mapFeed(
   rows: FeedRow[],
   canSeeNsfw: boolean,
   viewerId = "",
@@ -324,7 +329,7 @@ export const createProfile = createServerFn({ method: "POST" })
       throw new Error("Handle: 3–20 Zeichen, nur a–z, 0–9 und _.");
     }
     if (!isAllowedBirthdate(data.birthdate)) {
-      throw new Error("Die Furry Gallery ist nur für Personen ab 18 Jahren.");
+      throw new Error("Profile gibt es auf der Furry Gallery erst ab 15 Jahren.");
     }
     const existing = await loadProfileRow(context.userId);
     if (existing) {
@@ -464,7 +469,8 @@ export const updateLook = createServerFn({ method: "POST" })
     await sql`
       update profiles
       set avatar_decoration = ${data.decoration}, profile_effect = ${data.effect},
-          name_style = ${nameStyle}
+          -- Left out by the caller = keep the current name style.
+          name_style = ${data.nameStyle === undefined ? (current?.name_style ?? null) : nameStyle}
       where user_id = ${context.userId}
     `;
     if (data.plate !== undefined) {
@@ -988,6 +994,11 @@ export const toggleFollow = createServerFn({ method: "POST" })
       await sql`
         delete from follows
         where follower_id = ${context.userId} and following_id = ${targetId}
+      `;
+      // Unfollowing takes back the "folgt dir jetzt" note, so follow/unfollow doesn't pile up.
+      await sql`
+        delete from notifications
+        where user_id = ${targetId} and actor_id = ${context.userId} and kind = 'follow'
       `;
     } else {
       await sql`
@@ -2296,6 +2307,18 @@ export const toggleCommentLike = createServerFn({ method: "POST" })
       returning comment_id
     `;
     const liked = removed.length === 0;
+    if (!liked) {
+      await sql`
+        delete from notifications
+        where id = (
+          select id from notifications
+          where user_id = ${target[0].user_id} and actor_id = ${context.userId}
+            and kind = 'comment_like' and post_id = ${Number(target[0].post_id)}
+          order by created_at desc
+          limit 1
+        )
+      `;
+    }
     if (liked) {
       await sql`
         insert into comment_likes (user_id, comment_id) values (${context.userId}, ${data.id})
@@ -2315,7 +2338,7 @@ export const toggleCommentLike = createServerFn({ method: "POST" })
   });
 
 /** Signed-in viewer under 18 (FSK 18 posts are hidden for them entirely). */
-async function isMinorViewer(viewerId: string | null | undefined): Promise<boolean> {
+export async function isMinorViewer(viewerId: string | null | undefined): Promise<boolean> {
   if (!viewerId) return false;
   const sql = await getSql();
   const rows = await sql<{ birthdate: string }>`

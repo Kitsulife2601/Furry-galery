@@ -1,5 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./styles/feed.css";
+@import "./styles/profile.css";
+@import "./styles/notifications.css";
+@import "./styles/viewer.css";
+@import "./styles/shop.css";
+@import "./styles/admin.css";
 
 @theme {
   --font-display: "Fraunces", "Times New Roman", serif;
@@ -11,7 +17,7 @@
   --color-bg-subtle: #1e1b18;
   --color-fg: #f3efe8;
   --color-fg-muted: #9a948c;
-  --color-fg-subtle: #6f6a64;
+  --color-fg-subtle: #847f79;
   --color-accent: #d4c4b0;
   --color-accent-fg: #0c0b0a;
   --color-heart: #c45c4a;
@@ -26,6 +32,16 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-2xl: 32px;
+
+  /* Elevation: soft, warm-neutral shadows that read on every dark theme. */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.24);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.22), 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.26), 0 2px 6px rgb(0 0 0 / 0.18);
+  --shadow-lg: 0 18px 48px rgb(0 0 0 / 0.32), 0 4px 12px rgb(0 0 0 / 0.2);
+  --shadow-xl: 0 30px 80px rgb(0 0 0 / 0.42), 0 8px 24px rgb(0 0 0 / 0.24);
+
+  --ease-silk: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-breathe: cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 @layer base {
@@ -64,8 +80,35 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--color-accent) 40%, transparent);
+    background: color-mix(in oklab, var(--color-accent) 34%, transparent);
     color: var(--color-fg);
+  }
+
+  /* One calm, theme-coloured focus ring for keyboard users everywhere.
+     Components with their own `focus-visible:ring-*` set `outline: none`. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  input,
+  textarea,
+  select {
+    caret-color: var(--color-accent);
+  }
+
+  :disabled {
+    cursor: not-allowed;
+  }
+
+  /* Tap feedback is handled by our own :active styles. */
+  a,
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -76,6 +119,7 @@
 }
 
 .vela-shell {
+  --color-ring: var(--color-accent);
   min-height: 100dvh;
   background-color: var(--color-bg);
   background-image: var(--shell-glow, none);
@@ -89,7 +133,7 @@
   --color-bg-subtle: #1e1b18;
   --color-fg: #f3efe8;
   --color-fg-muted: #9a948c;
-  --color-fg-subtle: #6f6a64;
+  --color-fg-subtle: #847f79;
   --color-accent: #d4c4b0;
   --color-accent-fg: #0c0b0a;
 }
@@ -100,7 +144,7 @@
   --color-bg-subtle: #2a1812;
   --color-fg: #f6efe8;
   --color-fg-muted: #b29a8c;
-  --color-fg-subtle: #8a7064;
+  --color-fg-subtle: #957d71;
   --color-accent: #e0c4b0;
   --color-accent-fg: #140e0c;
 }
@@ -111,7 +155,7 @@
   --color-bg-subtle: #152226;
   --color-fg: #eaf3f2;
   --color-fg-muted: #8aa0a0;
-  --color-fg-subtle: #6a7e7e;
+  --color-fg-subtle: #728585;
   --color-accent: #b8cfcb;
   --color-accent-fg: #0b1112;
 }
@@ -122,7 +166,7 @@
   --color-bg-subtle: #242424;
   --color-fg: #f2f2f0;
   --color-fg-muted: #9a9a96;
-  --color-fg-subtle: #6e6e6a;
+  --color-fg-subtle: #848481;
   --color-accent: #d8d6d0;
   --color-accent-fg: #121212;
 }
@@ -133,7 +177,7 @@
   --color-bg-subtle: #1c261e;
   --color-fg: #eef3ee;
   --color-fg-muted: #8a9a8e;
-  --color-fg-subtle: #6a7a6e;
+  --color-fg-subtle: #79877c;
   --color-accent: #c5d4c8;
   --color-accent-fg: #0d120f;
 }
@@ -143,8 +187,8 @@
   --color-bg-elevated: #e4ddd2;
   --color-bg-subtle: #d8d0c4;
   --color-fg: #1c1915;
-  --color-fg-muted: #6a645c;
-  --color-fg-subtle: #8a847a;
+  --color-fg-muted: #5e5851;
+  --color-fg-subtle: #656058;
   --color-accent: #2c2824;
   --color-accent-fg: #ece7de;
   --color-heart: #a44438;
@@ -263,7 +307,7 @@
   --color-bg-subtle: #2a1630;
   --color-fg: #fbeee8;
   --color-fg-muted: #bf9aa6;
-  --color-fg-subtle: #8f7080;
+  --color-fg-subtle: #977987;
   --color-accent: #f6b56b;
   --color-accent-fg: #140a18;
 }
@@ -273,7 +317,7 @@
   --color-bg-subtle: #151936;
   --color-fg: #eef0ff;
   --color-fg-muted: #9a9fc8;
-  --color-fg-subtle: #7075a0;
+  --color-fg-subtle: #767ba5;
   --color-accent: #b9c0ff;
   --color-accent-fg: #06071a;
 }
@@ -283,7 +327,7 @@
   --color-bg-subtle: #301f16;
   --color-fg: #f7ede4;
   --color-fg-muted: #b89c88;
-  --color-fg-subtle: #8a705e;
+  --color-fg-subtle: #977f6e;
   --color-accent: #e6b98c;
   --color-accent-fg: #1a100b;
 }
@@ -303,7 +347,7 @@
   --color-bg-subtle: #1c122c;
   --color-fg: #f4eeff;
   --color-fg-muted: #a898c4;
-  --color-fg-subtle: #7a6c96;
+  --color-fg-subtle: #84769e;
   --color-accent: #ff6cc8;
   --color-accent-fg: #0b0614;
 }
@@ -323,7 +367,7 @@
   --color-bg-subtle: #2e1a25;
   --color-fg: #fceef3;
   --color-fg-muted: #c49aad;
-  --color-fg-subtle: #947080;
+  --color-fg-subtle: #9b7988;
   --color-accent: #f4a9c4;
   --color-accent-fg: #180d13;
 }
@@ -871,7 +915,7 @@ input[type="search"]::-webkit-search-cancel-button {
   --color-bg-subtle: #161c40;
   --color-fg: #eef1ff;
   --color-fg-muted: #9aa3cc;
-  --color-fg-subtle: #6f78a3;
+  --color-fg-subtle: #777fa9;
   --color-accent: #9ec4ff;
   --color-accent-fg: #070a1c;
 }
@@ -881,7 +925,7 @@ input[type="search"]::-webkit-search-cancel-button {
   --color-bg-subtle: #2b1a31;
   --color-fg: #fbeef6;
   --color-fg-muted: #c29ab4;
-  --color-fg-subtle: #926f88;
+  --color-fg-subtle: #997890;
   --color-accent: #f4a9d0;
   --color-accent-fg: #150c18;
 }
@@ -1518,5 +1562,199 @@ input[type="search"]::-webkit-search-cancel-button {
   .nav-icon,
   .nav-dot {
     transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   App shell, navigation & accessibility helpers */
+
+/* "Zum Inhalt springen" — hidden until a keyboard user tabs onto it. */
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  z-index: 100;
+  translate: -50% -200%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  transition: translate 220ms var(--ease-silk);
+}
+.skip-link:focus-visible {
+  translate: -50% 0;
+  outline-color: var(--color-fg);
+}
+
+/* Desktop side nav: a slim accent bar marks the current page. */
+.side-link {
+  position: relative;
+}
+.side-link::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -1rem;
+  width: 3px;
+  height: 1.25rem;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-accent);
+  opacity: 0;
+  transform: translateY(-50%) scaleY(0.3);
+  transition:
+    transform 320ms var(--ease-silk),
+    opacity 220ms ease;
+}
+.side-link[aria-current="page"]::before {
+  opacity: 1;
+  transform: translateY(-50%) scaleY(1);
+}
+
+/* Bottom nav: page content keeps clear of the bar and the iPhone home indicator. */
+.pb-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .pb-nav {
+    padding-bottom: 0;
+  }
+}
+
+.nav-tap:active .nav-icon {
+  scale: 0.9;
+}
+
+/* Unread counter: a gentle pop when it appears. */
+.unread-badge {
+  box-shadow: 0 0 0 2px var(--color-bg);
+  animation: unread-pop 420ms var(--ease-silk) both;
+}
+@keyframes unread-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Button loading state. */
+.btn-spinner {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: btn-spin 700ms linear infinite;
+}
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Skeleton: a soft shimmer instead of a blinking block. */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-fg) 7%, transparent),
+    transparent
+  );
+  animation: skeleton-sweep 1.6s var(--ease-breathe) infinite;
+}
+@keyframes skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Toasts (sonner) in the app's glass look. */
+[data-sonner-toaster] [data-sonner-toast] {
+  border-radius: var(--radius-lg) !important;
+  background: color-mix(in oklab, var(--color-bg-elevated) 88%, transparent) !important;
+  color: var(--color-fg) !important;
+  border: 1px solid var(--color-border-strong) !important;
+  box-shadow: var(--shadow-lg) !important;
+  backdrop-filter: blur(18px) saturate(1.3);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: var(--color-fg-muted) !important;
+}
+[data-sonner-toaster] [data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--color-heart);
+}
+[data-sonner-toaster] [data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--color-accent);
+}
+
+/* Status screens (404 / Fehler). */
+.status-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 7rem;
+  height: 7rem;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in oklab, var(--color-accent) 26%, transparent),
+    color-mix(in oklab, var(--color-accent) 6%, transparent) 70%
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-accent) 22%, transparent),
+    var(--shadow-lg);
+}
+.status-orb-float {
+  animation: status-float 5s var(--ease-breathe) infinite;
+}
+@keyframes status-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(4deg);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion: one catch-all for every animation and transition in the app
+   (including Tailwind's animate-* and tw-animate-css). Entrance animations
+   jump to their end state, looping decorations stop. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton-shimmer::after,
+  .btn-spinner {
+    animation: none !important;
+  }
+  .btn-spinner {
+    border-right-color: currentColor;
+    opacity: 0.6;
   }
 }

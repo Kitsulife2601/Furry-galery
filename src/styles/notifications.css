@@ -1,0 +1,44 @@
+/* Notifications page ("Mitteilungen") + pop-ups. */
+
+/* Filter chips scroll sideways on small screens without a visible bar. */
+.notif-chips {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.notif-chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* Rows: vertical scrolling stays native, horizontal drags are our swipe. */
+.notif-row-inner {
+  touch-action: pan-y;
+}
+.notif-row-snap {
+  transition:
+    transform 180ms ease-out,
+    background-color 300ms ease;
+}
+.notif-row {
+  animation: notif-in 220ms ease-out both;
+}
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Pop-up toast: soft rise. */
+.notif-popup {
+  animation: notif-in 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-row,
+  .notif-popup {
+    animation: none;
+  }
+  .notif-row-snap {
+    transition: none;
+  }
+}

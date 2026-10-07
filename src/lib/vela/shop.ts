@@ -63,7 +63,8 @@ export const SHOP_ONLY: Record<string, number> = {
 
 /** Price in Pfoten, or null when the item is free / not for sale. */
 export function shopPrice(kind: ShopKind, id: string): number | null {
-  if (isGeneratedId(id)) return kind === "name" ? null : (genItem(kind as GenKind, id)?.price ?? null);
+  if (isGeneratedId(id))
+    return kind === "name" ? null : (genItem(kind as GenKind, id)?.price ?? null);
   if (kind === "background") return PREMIUM_BACKGROUNDS[id] ?? null;
   const only = SHOP_ONLY[ownedKey(kind, id)];
   if (only !== undefined) return only;
@@ -291,4 +292,42 @@ export function canUseItem(
   if (kind === "background") return !(id in PREMIUM_BACKGROUNDS);
   if (kind === "plate") return false;
   return isUnlocked(kind, id, who.activeDays, false);
+}
+
+/** Hand-made shop items without an active-day unlock (shown as "Neu"). */
+export function isShopOnly(kind: ShopKind, id: string): boolean {
+  return ownedKey(kind, id) in SHOP_ONLY;
+}
+
+/**
+ * How a member gets an item they can't use yet: free on an active day, for
+ * Pfoten in the shop, or both. `daysLeft` counts from today's active days.
+ */
+export function howToGet(
+  kind: ShopKind,
+  id: string,
+  activeDays: number,
+): { day: number | null; daysLeft: number | null; price: number | null } {
+  const price = shopPrice(kind, id);
+  const day =
+    kind === "background" || kind === "plate" || isGeneratedId(id) || isShopOnly(kind, id)
+      ? null
+      : unlockDay(kind, id);
+  const finite = day !== null && Number.isFinite(day) ? day : null;
+  return {
+    day: finite,
+    daysLeft: finite === null ? null : Math.max(0, finite - activeDays),
+    price,
+  };
+}
+
+const KINDS: readonly ShopKind[] = ["background", "decoration", "effect", "name", "plate"];
+
+/** Item key ("kind:id") → kind and id, or null for anything malformed. */
+export function parseItemKey(key: unknown): { kind: ShopKind; id: string } | null {
+  if (typeof key !== "string") return null;
+  const at = key.indexOf(":");
+  if (at < 1 || at === key.length - 1 || key.length > 60) return null;
+  const kind = key.slice(0, at) as ShopKind;
+  return KINDS.includes(kind) ? { kind, id: key.slice(at + 1) } : null;
 }

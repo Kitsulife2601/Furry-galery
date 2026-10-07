@@ -2,7 +2,7 @@
  * Drawing for generated shop items (catalog.ts): one SVG per decoration family,
  * coloured by the item's palette, plus the particle effects.
  */
-import { useId, type CSSProperties } from "react";
+import { memo, useId, type CSSProperties } from "react";
 import { genItem } from "@/lib/vela/catalog";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ const onCircle = (deg: number, r: number) => {
   return [50 + Math.cos(rad) * r, 50 + Math.sin(rad) * r] as const;
 };
 
-export function GenDecorationLayer({ id }: { id: string }) {
+export const GenDecorationLayer = memo(function GenDecorationLayer({ id }: { id: string }) {
   const uid = useId().replace(/:/g, "");
   const g = genItem("decoration", id);
   if (!g) return null;
@@ -180,9 +180,15 @@ export function GenDecorationLayer({ id }: { id: string }) {
       <g filter={`url(#${uid}g)`}>{art}</g>
     </svg>
   );
-}
+});
 
-export function GenEffectLayer({ id, className }: { id: string; className?: string }) {
+export const GenEffectLayer = memo(function GenEffectLayer({
+  id,
+  className,
+}: {
+  id: string;
+  className?: string;
+}) {
   const g = genItem("effect", id);
   if (!g) return null;
   const { a, b } = g.palette;
@@ -214,4 +220,4 @@ export function GenEffectLayer({ id, className }: { id: string; className?: stri
       })}
     </div>
   );
-}
+});
