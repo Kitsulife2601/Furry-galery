@@ -1,12 +1,14 @@
 /** The ⋯ menu on a post: tell the feed what you want to see, download, report. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Download, EyeOff, Flag, MoreHorizontal, Sparkles } from "lucide-react";
+import { Download, EyeOff, Flag, Link2, MoreHorizontal, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useAppSession } from "@/lib/vela/app-session";
 import { memberErrorMessage } from "@/lib/vela/errors";
 import { setPostInterest } from "@/lib/vela/server";
+import { copyPostLink } from "@/lib/vela/share-post";
+import { useEscapeLayer } from "@/lib/vela/use-overlay";
 import type { PostCard } from "@/lib/vela/types";
 import { cn } from "@/lib/utils";
 
@@ -54,16 +56,38 @@ export function PostMenu({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isOwn = Boolean(userId) && userId === post.userId;
+
+  useEscapeLayer(() => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  }, open);
 
   useEffect(() => {
     if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     const close = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
+
+  /** ↑/↓ moves between the items, Tab leaves the menu. */
+  function onMenuKey(e: KeyboardEvent<HTMLDivElement>) {
+    const items = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = e.key === "ArrowDown" ? at + 1 : at - 1;
+      items[(next + items.length) % items.length]?.focus();
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  }
 
   function requireProfile(): boolean {
     if (profile) return true;
@@ -98,11 +122,12 @@ export function PostMenu({
   }
 
   const item =
-    "flex h-11 w-full items-center gap-3 px-4 text-left text-sm text-fg hover:bg-bg-subtle";
+    "flex h-11 w-full items-center gap-3 px-4 text-left text-sm text-fg outline-none hover:bg-bg-subtle focus-visible:bg-bg-subtle";
 
   return (
     <div ref={ref} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -118,10 +143,13 @@ export function PostMenu({
       </button>
       {open ? (
         <div
+          ref={menuRef}
           role="menu"
+          aria-label="Beitrag"
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={onMenuKey}
           className={cn(
-            "absolute right-0 z-30 w-56 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-xl",
+            "post-menu-pop absolute right-0 z-30 w-56 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-xl",
             direction === "down" ? "top-12" : "bottom-12",
           )}
         >
@@ -158,6 +186,17 @@ export function PostMenu({
               <Download className="size-4" /> Herunterladen
             </button>
           )}
+          <button
+            type="button"
+            role="menuitem"
+            className={item}
+            onClick={() => {
+              setOpen(false);
+              void copyPostLink(post);
+            }}
+          >
+            <Link2 className="size-4" /> Link kopieren
+          </button>
           {!isOwn && onReport ? (
             <button
               type="button"
