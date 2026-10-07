@@ -113,7 +113,7 @@ type ProfileRow = {
 
 type CountRow = { n: number };
 
-function asIsoDate(value: unknown): string {
+export function asIsoDate(value: unknown): string {
   if (typeof value === "string") return value.slice(0, 10);
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return "";
@@ -130,7 +130,7 @@ function asTime(value: unknown): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-function isRelationship(value: string): value is RelationshipStatus {
+export function isRelationship(value: string): value is RelationshipStatus {
   return RELATIONSHIP_IDS.includes(value as RelationshipStatus);
 }
 
@@ -219,7 +219,7 @@ async function loadFsk18Status(userId: string): Promise<Fsk18Status> {
   };
 }
 
-type FeedRow = {
+export type FeedRow = {
   id: number;
   user_id: string;
   image_url: string;
@@ -242,7 +242,7 @@ type FeedRow = {
   name_plate: string | null;
 };
 
-async function optionalViewerId(): Promise<string | null> {
+export async function optionalViewerId(): Promise<string | null> {
   try {
     const { getSessionUser } = await import("@/lib/auth/verify.server");
     const user = await getSessionUser();
@@ -256,7 +256,7 @@ async function optionalViewerId(): Promise<string | null> {
  * `canSeeNsfw` decides server-side which image leaves the server: unverified
  * viewers of an FSK18 post only ever receive the tiny preview, never the image.
  */
-function mapFeed(
+export function mapFeed(
   rows: FeedRow[],
   canSeeNsfw: boolean,
   viewerId = "",
@@ -2315,7 +2315,7 @@ export const toggleCommentLike = createServerFn({ method: "POST" })
   });
 
 /** Signed-in viewer under 18 (FSK 18 posts are hidden for them entirely). */
-async function isMinorViewer(viewerId: string | null | undefined): Promise<boolean> {
+export async function isMinorViewer(viewerId: string | null | undefined): Promise<boolean> {
   if (!viewerId) return false;
   const sql = await getSql();
   const rows = await sql<{ birthdate: string }>`

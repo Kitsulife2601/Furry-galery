@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search, X } from "lucide-react";
+import { Hash, Search, X } from "lucide-react";
 import { searchProfiles } from "@/lib/vela/server";
+import { suggestHashtags } from "@/lib/vela/explore-api";
 import { relationshipLabel } from "@/lib/vela/types";
 import { Input } from "@/components/ui/input";
 import { normalizeHashtag } from "@/lib/vela/hashtags";
+import { cn } from "@/lib/utils";
 
 /**
- * Search field for people — or, starting with "#", for posts with that hashtag
- * or category (e.g. #yaoi). `onActiveChange` tells the page when people results
- * replace its content; `onHashtag` hands it the hashtag to filter the gallery by.
+ * Search field for people and posts. "yaoi" or "#yaoi" filter the posts by that
+ * hashtag/category, "@name" only looks for people. While typing, matching
+ * hashtags appear as suggestions. `onActiveChange` tells the page when people
+ * results replace its start view; `onHashtag` hands it the hashtag to filter by.
  */
 export function PeopleSearch({
   onActiveChange,
@@ -23,17 +26,18 @@ export function PeopleSearch({
 }) {
   const [input, setInput] = useState(hashtag ? `#${hashtag}` : "");
   const [term, setTerm] = useState(input.trim());
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Latest hashtag from the page, read when the typed term changes.
-  const hashtagRef = useRef(hashtag);
-  hashtagRef.current = hashtag;
+  // The hashtag we last asked the page for — anything else came from outside
+  // (a caption link, a trending chip, the nav tab without filter).
+  const requestedRef = useRef(hashtag);
 
-  // A hashtag link (e.g. from a caption) changes the filter from outside.
   useEffect(() => {
-    if (!hashtag) return;
-    const next = `#${hashtag}`;
-    setInput((cur) => (normalizeHashtag(cur) === hashtag ? cur : next));
-    setTerm((cur) => (normalizeHashtag(cur) === hashtag ? cur : next));
+    if (hashtag === requestedRef.current) return;
+    requestedRef.current = hashtag;
+    const next = hashtag ? `#${hashtag}` : "";
+    setInput(next);
+    setTerm(next);
   }, [hashtag]);
 
   useEffect(() => {
@@ -42,44 +46,93 @@ export function PeopleSearch({
   }, [input]);
 
   const isHashtag = term.startsWith("#");
+  const isPerson = term.startsWith("@");
   const people = isHashtag ? "" : term;
+  const peopleQuery = people.replace(/^@/, "");
+  const tagQuery = isPerson ? "" : term.replace(/^#/, "");
 
-  useEffect(() => onActiveChange(people.length > 0), [people, onActiveChange]);
+  useEffect(() => onActiveChange(peopleQuery.length > 0), [peopleQuery, onActiveChange]);
   useEffect(() => {
     if (!onHashtag) return;
-    const hashtagMode = term.startsWith("#");
     // "#yaoi" and plain "yaoi" both filter the posts; "@name" only looks for people.
-    const next = term.startsWith("@") ? null : normalizeHashtag(term);
+    const next = isPerson ? null : normalizeHashtag(term);
     // "#a" is too short to search: keep the current filter until it is valid.
-    if (hashtagMode && !next && term !== "#") return;
-    if (next !== hashtagRef.current) onHashtag(next);
-  }, [term, onHashtag]);
+    if (isHashtag && !next && term !== "#") return;
+    if (next !== requestedRef.current) {
+      requestedRef.current = next;
+      onHashtag(next);
+    }
+  }, [term, isHashtag, isPerson, onHashtag]);
 
   const results = useQuery({
     queryKey: ["search", people],
     queryFn: () => searchProfiles({ data: { q: people } }),
-    enabled: people.length > 0,
+    enabled: peopleQuery.length > 0,
     placeholderData: keepPreviousData,
   });
 
+  const tags = useQuery({
+    queryKey: ["hashtag-suggest", tagQuery.toLowerCase()],
+    queryFn: () => suggestHashtags({ data: { q: tagQuery } }),
+    enabled: Boolean(onHashtag) && tagQuery.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
+
+  const pickTag = (tag: string) => {
+    const next = `#${tag}`;
+    setInput(next);
+    setTerm(next);
+    inputRef.current?.blur();
+  };
+
+  const clear = () => {
+    setInput("");
+    setTerm("");
+    inputRef.current?.focus();
+  };
+
+  const suggestions = tagQuery ? (tags.data ?? []) : [];
+  // Hide a lone suggestion that is exactly the active filter — nothing to pick.
+  const showTags =
+    suggestions.length > 0 && !(suggestions.length === 1 && suggestions[0]!.tag === hashtag);
   return (
     <div>
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-subtle" />
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle"
+        />
         <Input
+          ref={inputRef}
           type="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Leute, yaoi, fursuit … suchen"
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && input) {
+              e.preventDefault();
+              clear();
+            } else if (e.key === "Enter") {
+              // Search right away instead of waiting for the typing pause.
+              setTerm(input.trim());
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder="Leute, #hashtags, fursuit …"
           aria-label="Leute oder Beiträge suchen"
           maxLength={40}
-          className="pr-11 pl-9"
+          className="h-12 rounded-xl pr-12 pl-10 text-base shadow-sm transition-[box-shadow,border-color] focus-visible:border-accent/50 md:text-sm [&::-webkit-search-cancel-button]:hidden"
         />
         {input ? (
           <button
             type="button"
-            onClick={() => setInput("")}
-            className="absolute top-1/2 right-0 grid size-11 -translate-y-1/2 place-items-center text-fg-subtle"
+            onClick={clear}
+            className="absolute top-1/2 right-0.5 grid size-11 -translate-y-1/2 place-items-center rounded-full text-fg-subtle transition-colors hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none"
             aria-label="Suche leeren"
           >
             <X className="size-4" />
@@ -87,45 +140,101 @@ export function PeopleSearch({
         ) : null}
       </div>
 
-      {people ? (
-        <ul className="mt-4 divide-y divide-border" aria-live="polite">
-          {results.isPending ? (
-            <li className="py-6 text-center text-sm text-fg-muted">Sucht…</li>
-          ) : (results.data ?? []).length === 0 ? (
-            <li className="py-6 text-center text-sm text-fg-muted">
-              {onHashtag && normalizeHashtag(people)
-                ? "Keine Profile dazu."
-                : `Niemand gefunden für „${people}“.`}
-            </li>
-          ) : (
-            (results.data ?? []).map((person) => (
-              <li key={person.handle}>
-                <Link
-                  to="/u/$handle"
-                  params={{ handle: person.handle }}
-                  className="flex min-h-14 items-center gap-3 py-2"
-                >
-                  <span className="size-11 shrink-0 overflow-hidden rounded-full bg-bg-subtle">
-                    {person.avatarUrl ? (
-                      <img src={person.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="grid h-full w-full place-items-center text-sm">
-                        {person.displayName.charAt(0)}
-                      </span>
+      {showTags ? (
+        <section className="mt-4" aria-label="Passende Hashtags">
+          <h2 className="text-xs font-medium tracking-wide text-fg-subtle">Hashtags</h2>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {suggestions.map((s) => {
+              const active = s.tag === hashtag;
+              return (
+                <li key={s.tag}>
+                  <button
+                    type="button"
+                    onClick={() => pickTag(s.tag)}
+                    aria-pressed={active}
+                    className={cn(
+                      "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-[background-color,border-color,color,scale] duration-200 active:scale-95",
+                      "focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none",
+                      active
+                        ? "border-accent bg-accent text-accent-fg"
+                        : "border-border bg-bg-elevated text-fg hover:border-accent/50",
                     )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{person.displayName}</span>
-                    <span className="block truncate text-xs text-fg-muted">
-                      @{person.handle} · {person.age} ·{" "}
-                      {relationshipLabel(person.relationshipStatus)}
+                  >
+                    <Hash aria-hidden className="size-3.5 opacity-70" />
+                    <span className="font-medium">{s.tag}</span>
+                    <span
+                      className={cn(
+                        "text-xs tabular-nums",
+                        active ? "text-accent-fg/80" : "text-fg-subtle",
+                      )}
+                    >
+                      {s.count}
                     </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {peopleQuery ? (
+        <section className="mt-5" aria-label="Profile">
+          <h2 className="text-xs font-medium tracking-wide text-fg-subtle">Profile</h2>
+          <ul className="mt-1 divide-y divide-border" aria-live="polite">
+            {results.isPending ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <li key={i} className="flex min-h-14 items-center gap-3 py-2" aria-hidden>
+                  <span className="size-11 shrink-0 animate-pulse rounded-full bg-fg/8" />
+                  <span className="flex-1 space-y-1.5">
+                    <span className="block h-3 w-32 animate-pulse rounded bg-fg/8" />
+                    <span className="block h-2.5 w-44 animate-pulse rounded bg-fg/8" />
                   </span>
-                </Link>
+                </li>
+              ))
+            ) : (results.data ?? []).length === 0 ? (
+              <li className="py-5 text-sm text-fg-muted">
+                {onHashtag && !isPerson && normalizeHashtag(people)
+                  ? "Keine Profile dazu."
+                  : `Niemand gefunden für „${peopleQuery}“.`}
               </li>
-            ))
-          )}
-        </ul>
+            ) : (
+              (results.data ?? []).map((person) => (
+                <li key={person.handle}>
+                  <Link
+                    to="/u/$handle"
+                    params={{ handle: person.handle }}
+                    className="-mx-2 flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-bg-subtle focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none"
+                  >
+                    <span className="size-11 shrink-0 overflow-hidden rounded-full bg-bg-subtle ring-1 ring-border">
+                      {person.avatarUrl ? (
+                        <img
+                          src={person.avatarUrl}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="grid h-full w-full place-items-center text-sm">
+                          {person.displayName.charAt(0)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">
+                        {person.displayName}
+                      </span>
+                      <span className="block truncate text-xs text-fg-muted">
+                        @{person.handle} · {person.age} ·{" "}
+                        {relationshipLabel(person.relationshipStatus)}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </section>
       ) : null}
     </div>
   );
