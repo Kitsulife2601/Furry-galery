@@ -58,14 +58,35 @@ export function RatingPopup({ enabled }: { enabled: boolean }) {
     }
   }
 
+  // Escape = "Später" (only while no modal dialog is open on top).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.querySelector('[aria-modal="true"]')) void later();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- later only touches stable setters
+  }, [open]);
+
+  function onStarKey(e: React.KeyboardEvent, n: number) {
+    let next = 0;
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") next = Math.min(5, n + 1);
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = Math.max(1, n - 1);
+    if (!next) return;
+    e.preventDefault();
+    setStars(next);
+    const group = e.currentTarget.parentElement;
+    group?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next - 1]?.focus();
+  }
+
   if (!open) return null;
   const shown = hover || stars;
   return (
     <div
-      role="dialog"
-      aria-modal="false"
+      role="region"
       aria-labelledby="rating-title"
-      className="fixed inset-x-3 bottom-20 z-50 mx-auto max-w-sm rounded-2xl border border-border bg-bg-elevated/95 p-5 text-fg shadow-2xl backdrop-blur-md md:right-6 md:bottom-6 md:left-auto md:mx-0"
+      className="rating-popup fixed inset-x-3 bottom-20 z-50 mx-auto max-w-sm rounded-2xl border border-border bg-bg-elevated/95 p-5 text-fg shadow-2xl backdrop-blur-md md:right-6 md:bottom-6 md:left-auto md:mx-0"
     >
       <button
         type="button"
@@ -94,10 +115,12 @@ export function RatingPopup({ enabled }: { enabled: boolean }) {
             type="button"
             role="radio"
             aria-checked={stars === n}
+            tabIndex={stars ? (stars === n ? 0 : -1) : n === 1 ? 0 : -1}
+            onKeyDown={(e) => onStarKey(e, n)}
             aria-label={`${n} ${n === 1 ? "Stern" : "Sterne"}`}
             onMouseEnter={() => setHover(n)}
             onClick={() => setStars(n)}
-            className="grid size-11 place-items-center rounded-lg transition-transform hover:scale-110"
+            className="grid size-11 place-items-center rounded-lg transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:scale-100"
           >
             <Star
               className={cn(
@@ -118,7 +141,7 @@ export function RatingPopup({ enabled }: { enabled: boolean }) {
           rows={2}
           placeholder="Magst du noch etwas dazu sagen? (freiwillig)"
           aria-label="Kommentar zur Bewertung"
-          className="mt-3 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm"
+          className="mt-3 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm placeholder:text-fg-subtle focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:outline-none"
         />
       ) : null}
       <div className="mt-3 flex gap-2">

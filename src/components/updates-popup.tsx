@@ -2,12 +2,13 @@
  * "Was ist neu": on the next visit after the team posts site updates, show
  * them once in a pop-up. Closing (or opening the updates page) marks them seen.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, X } from "lucide-react";
 import { markUpdatesSeen, unseenUpdates } from "@/lib/vela/server";
 import { Button } from "@/components/ui/button";
+import { UpdateBody } from "@/components/update-body";
 
 const dayFormat = new Intl.DateTimeFormat("de", { day: "numeric", month: "long" });
 
@@ -28,10 +29,27 @@ export function UpdatesPopup({ enabled }: { enabled: boolean }) {
     void markUpdatesSeen().catch(() => undefined);
   }
 
-  if (closed || list.length === 0) return null;
+  const visible = !closed && list.length > 0;
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!visible) return;
+    const previous = document.activeElement as HTMLElement | null;
+    okRef.current?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      previous?.focus?.({ preventScroll: true });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- close only touches stable setters
+  }, [visible]);
+
+  if (!visible) return null;
   return (
     <div
-      className="fixed inset-0 z-[55] flex items-end justify-center bg-bg/70 p-4 backdrop-blur-sm sm:items-center"
+      className="updates-popup fixed inset-0 z-[55] flex items-end justify-center bg-bg/70 p-4 backdrop-blur-sm sm:items-center"
       onClick={close}
       role="dialog"
       aria-modal="true"
@@ -54,21 +72,19 @@ export function UpdatesPopup({ enabled }: { enabled: boolean }) {
             type="button"
             onClick={close}
             aria-label="Schließen"
-            className="grid size-9 place-items-center rounded-lg text-fg-subtle hover:text-fg"
+            className="-mt-1 -mr-2 grid size-11 place-items-center rounded-lg text-fg-subtle hover:text-fg"
           >
             <X className="size-4" />
           </button>
         </div>
         <ol className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
           {list.map((u) => (
-            <li key={u.id}>
+            <li key={u.id} className="border-l-2 border-accent/60 pl-3">
               <p className="text-[11px] text-fg-subtle">
                 {dayFormat.format(new Date(u.createdAt))}
               </p>
-              <p className="mt-0.5 font-medium">{u.title}</p>
-              <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-fg-muted">
-                {u.body}
-              </p>
+              <p className="mt-0.5 font-medium break-words">{u.title}</p>
+              <UpdateBody body={u.body} className="mt-1" />
             </li>
           ))}
         </ol>
@@ -78,7 +94,7 @@ export function UpdatesPopup({ enabled }: { enabled: boolean }) {
               Alle Updates
             </Link>
           </Button>
-          <Button type="button" className="flex-1" onClick={close}>
+          <Button ref={okRef} type="button" className="flex-1" onClick={close}>
             Alles klar
           </Button>
         </div>
