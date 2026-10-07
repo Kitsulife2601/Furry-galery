@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./styles/feed.css";
+@import "./styles/profile.css";
+@import "./styles/notifications.css";
 
 @theme {
   --font-display: "Fraunces", "Times New Roman", serif;
