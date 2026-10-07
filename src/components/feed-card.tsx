@@ -397,7 +397,13 @@ export function FeedCard({
           </span>
         </div>
       </div>
-      {reporting ? <ReportDialog postId={post.id} onClose={() => setReporting(false)} /> : null}
+      {reporting ? (
+        <ReportDialog
+          postId={post.id}
+          isVideo={Boolean(post.videoUrl)}
+          onClose={() => setReporting(false)}
+        />
+      ) : null}
       {viewing ? <PostViewer post={post} onClose={() => setViewing(false)} /> : null}
     </article>
   );

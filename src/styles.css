@@ -3,6 +3,7 @@
 @import "./styles/feed.css";
 @import "./styles/profile.css";
 @import "./styles/notifications.css";
+@import "./styles/viewer.css";
 
 @theme {
   --font-display: "Fraunces", "Times New Roman", serif;

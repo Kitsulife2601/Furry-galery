@@ -31,6 +31,7 @@ export function GalleryGrid({
   const [activeId, setActiveId] = useState<number | null>(null);
   // Read the open post from the live list, so likes and deletes show up at once.
   const active = posts.find((p) => p.id === activeId) ?? null;
+  const activeIndex = active ? posts.indexOf(active) : -1;
 
   if (posts.length === 0) {
     return (
@@ -89,7 +90,18 @@ export function GalleryGrid({
           </li>
         ))}
       </ul>
-      {active ? <PostViewer post={active} onClose={() => setActiveId(null)} /> : null}
+      {active ? (
+        <PostViewer
+          post={active}
+          onClose={() => setActiveId(null)}
+          onPrev={activeIndex > 0 ? () => setActiveId(posts[activeIndex - 1]!.id) : undefined}
+          onNext={
+            activeIndex >= 0 && activeIndex < posts.length - 1
+              ? () => setActiveId(posts[activeIndex + 1]!.id)
+              : undefined
+          }
+        />
+      ) : null}
     </>
   );
 }
