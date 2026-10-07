@@ -6,6 +6,7 @@
 @import "./styles/viewer.css";
 @import "./styles/shop.css";
 @import "./styles/admin.css";
+@import "./styles/upload.css";
 
 @theme {
   --font-display: "Fraunces", "Times New Roman", serif;
