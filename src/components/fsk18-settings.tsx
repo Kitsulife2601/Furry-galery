@@ -36,6 +36,10 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
     else toast.error(msg.text, { duration: 8000 });
     url.searchParams.delete("discord");
     window.history.replaceState(null, "", url.pathname + url.search + "#fsk18");
+    // Back from Discord: show the result where it happened.
+    requestAnimationFrame(() =>
+      document.getElementById("fsk18")?.scrollIntoView({ block: "start" }),
+    );
   }, []);
 
   async function unlink() {
@@ -44,8 +48,8 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
       await unlinkDiscord();
       await queryClient.invalidateQueries();
       toast.success("Discord getrennt.");
-    } catch {
-      toast.error("Trennen fehlgeschlagen.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Trennen fehlgeschlagen.");
     } finally {
       setBusy(false);
     }
@@ -54,9 +58,12 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
   // Under 18: no FSK 18 at all, so no Discord check either.
   if (profile.age < 18) {
     return (
-      <section className="mt-10 rounded-xl border border-border p-4">
-        <p className="text-sm font-medium">FSK 18</p>
-        <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
+      <section id="fsk18" className="scroll-mt-20 rounded-2xl border border-border p-5">
+        <div className="flex items-center gap-2">
+          <Lock className="size-5 text-fg-muted" />
+          <h2 className="font-display text-xl">FSK 18</h2>
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-fg-muted">
           FSK-18-Inhalte gibt es erst ab 18. Bis dahin werden sie dir nirgends angezeigt.
         </p>
       </section>
@@ -64,7 +71,7 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
   }
 
   return (
-    <section id="fsk18" className="mt-10 scroll-mt-6 rounded-2xl border border-border p-5">
+    <section id="fsk18" className="scroll-mt-20 rounded-2xl border border-border p-5">
       <div className="flex items-center gap-2">
         {status?.verified ? (
           <BadgeCheck className="size-5 text-accent" />
@@ -136,7 +143,7 @@ export function Fsk18Settings({ profile }: { profile: Profile }) {
             disabled={busy}
             onClick={() => void unlink()}
           >
-            Discord trennen
+            {busy ? "Trennt…" : "Discord trennen"}
           </Button>
         ) : null}
       </div>

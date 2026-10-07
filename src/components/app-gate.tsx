@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { AuthPrompt } from "@/components/auth-prompt";
 import { Onboarding } from "@/components/onboarding";
 import { Splash } from "@/components/splash";
+import { Button } from "@/components/ui/button";
 
 const PROTECTED = new Set([
   "/upload",
@@ -77,9 +78,19 @@ export function AppGate({ children }: { children: ReactNode }) {
   if (user && profileQuery.isError) {
     return (
       <div className="grid min-h-dvh place-items-center bg-bg px-6 text-center text-fg">
-        <p className="text-sm text-fg-muted">
-          Profil konnte nicht geladen werden. Bitte neu laden.
-        </p>
+        <div className="max-w-xs">
+          <p className="font-display text-2xl">Kurz gestolpert</p>
+          <p className="mt-2 text-sm text-fg-muted">
+            Dein Profil konnte nicht geladen werden. Prüf deine Verbindung und versuch es nochmal.
+          </p>
+          <Button
+            className="mt-6 w-full"
+            disabled={profileQuery.isFetching}
+            onClick={() => void profileQuery.refetch()}
+          >
+            {profileQuery.isFetching ? "Lädt…" : "Nochmal versuchen"}
+          </Button>
+        </div>
       </div>
     );
   }
